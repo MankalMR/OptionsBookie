@@ -221,7 +221,7 @@ export default function EditTransactionModal({ transaction, onClose, onSave }: E
     }
   };
 
-  const handleStatusChange = (newStatus: 'Open' | 'Closed' | 'Rolled Forward') => {
+  const handleStatusChange = (newStatus: 'Open' | 'Closed') => {
     setFormData(prev => ({
       ...prev,
       status: newStatus,
@@ -271,16 +271,6 @@ export default function EditTransactionModal({ transaction, onClose, onSave }: E
                   />
                   <span className="text-sm">Closed</span>
                 </label>
-                <label className="flex items-center">
-                  <input
-                    type="radio"
-                    value="Rolled Forward"
-                    checked={formData.status === 'Rolled Forward'}
-                    onChange={(e) => handleStatusChange(e.target.value as 'Rolled Forward')}
-                    className="mr-2"
-                  />
-                  <span className="text-sm">Rolled Forward</span>
-                </label>
               </div>
             </div>
 
@@ -291,7 +281,7 @@ export default function EditTransactionModal({ transaction, onClose, onSave }: E
                   type="text"
                   value={formData.stockSymbol}
                   onChange={(e) => handleChange('stockSymbol', e.target.value.toUpperCase())}
-                  className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm ${
+                  className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm bg-white text-gray-900 ${
                     errors.stockSymbol ? 'border-red-500' : ''
                   }`}
                 />
@@ -303,7 +293,7 @@ export default function EditTransactionModal({ transaction, onClose, onSave }: E
                 <select
                   value={formData.callOrPut}
                   onChange={(e) => handleChange('callOrPut', e.target.value)}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm bg-white text-gray-900"
                 >
                   <option value="Call">Call</option>
                   <option value="Put">Put</option>
@@ -317,7 +307,7 @@ export default function EditTransactionModal({ transaction, onClose, onSave }: E
                 <select
                   value={formData.buyOrSell}
                   onChange={(e) => handleChange('buyOrSell', e.target.value)}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm bg-white text-gray-900"
                 >
                   <option value="Buy">Buy</option>
                   <option value="Sell">Sell</option>
@@ -331,7 +321,7 @@ export default function EditTransactionModal({ transaction, onClose, onSave }: E
                   step="0.01"
                   value={formData.stockPriceCurrent}
                   onChange={(e) => handleChange('stockPriceCurrent', parseFloat(e.target.value) || 0)}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm bg-white text-gray-900"
                 />
               </div>
             </div>
@@ -343,7 +333,7 @@ export default function EditTransactionModal({ transaction, onClose, onSave }: E
                   type="date"
                   value={formData.tradeOpenDate}
                   onChange={(e) => handleChange('tradeOpenDate', e.target.value)}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm bg-white text-gray-900"
                 />
               </div>
 
@@ -353,7 +343,7 @@ export default function EditTransactionModal({ transaction, onClose, onSave }: E
                   type="date"
                   value={formData.expiryDate}
                   onChange={(e) => handleChange('expiryDate', e.target.value)}
-                  className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm ${
+                  className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm bg-white text-gray-900 ${
                     errors.expiryDate ? 'border-red-500' : ''
                   }`}
                 />
@@ -369,7 +359,7 @@ export default function EditTransactionModal({ transaction, onClose, onSave }: E
                   step="0.01"
                   value={formData.strikePrice}
                   onChange={(e) => handleChange('strikePrice', parseFloat(e.target.value) || 0)}
-                  className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm ${
+                  className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm bg-white text-gray-900 ${
                     errors.strikePrice ? 'border-red-500' : ''
                   }`}
                 />
@@ -383,7 +373,7 @@ export default function EditTransactionModal({ transaction, onClose, onSave }: E
                   step="0.01"
                   value={formData.premium}
                   onChange={(e) => handleChange('premium', parseFloat(e.target.value) || 0)}
-                  className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm ${
+                  className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm bg-white text-gray-900 ${
                     errors.premium ? 'border-red-500' : ''
                   }`}
                 />
@@ -398,7 +388,7 @@ export default function EditTransactionModal({ transaction, onClose, onSave }: E
                   type="number"
                   value={formData.numberOfContracts}
                   onChange={(e) => handleChange('numberOfContracts', parseInt(e.target.value) || 1)}
-                  className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm ${
+                  className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm bg-white text-gray-900 ${
                     errors.numberOfContracts ? 'border-red-500' : ''
                   }`}
                 />
@@ -412,7 +402,7 @@ export default function EditTransactionModal({ transaction, onClose, onSave }: E
                   step="0.01"
                   value={formData.fees}
                   onChange={(e) => handleChange('fees', parseFloat(e.target.value) || 0)}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm bg-white text-gray-900"
                 />
               </div>
             </div>
@@ -429,7 +419,7 @@ export default function EditTransactionModal({ transaction, onClose, onSave }: E
                       step="0.01"
                       value={formData.exitPrice}
                       onChange={(e) => handleChange('exitPrice', parseFloat(e.target.value) || 0)}
-                      className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm ${
+                      className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm bg-white text-gray-900 ${
                         errors.exitPrice ? 'border-red-500' : ''
                       }`}
                     />
@@ -442,7 +432,7 @@ export default function EditTransactionModal({ transaction, onClose, onSave }: E
                       type="date"
                       value={formData.closeDate}
                       onChange={(e) => handleChange('closeDate', e.target.value)}
-                      className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm ${
+                      className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm bg-white text-gray-900 ${
                         errors.closeDate ? 'border-red-500' : ''
                       }`}
                     />

@@ -3,11 +3,12 @@ import GoogleProvider from 'next-auth/providers/google';
 import { SupabaseAdapter } from '@auth/supabase-adapter';
 
 export const authOptions: NextAuthOptions = {
-  adapter: SupabaseAdapter({
-    url: process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    secret: process.env.NEXTAUTH_SECRET!,
-    serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  }),
+  // Temporarily disable adapter to fix login issues
+  // adapter: SupabaseAdapter({
+  //   url: process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  //   secret: process.env.NEXTAUTH_SECRET!,
+  //   serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  // }),
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID!,

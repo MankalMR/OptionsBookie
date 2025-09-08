@@ -197,9 +197,9 @@ export default function SummaryView({ transactions }: SummaryViewProps) {
 
   return (
     <div className="space-y-8">
-      {/* Overall Performance */}
+      {/* Quick Stats */}
       <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-2xl font-bold text-gray-900 mb-6">Overall Performance</h2>
+        <h2 className="text-2xl font-bold text-gray-900 mb-6">Quick Stats</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <div className="text-center">
             <p className="text-sm text-gray-600">Total P&L</p>

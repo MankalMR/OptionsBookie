@@ -64,8 +64,6 @@ export default function TransactionTable({ transactions, onUpdate, onDelete, onE
         return 'bg-blue-100 text-blue-800';
       case 'Closed':
         return 'bg-green-100 text-green-800';
-      case 'Rolled Forward':
-        return 'bg-yellow-100 text-yellow-800';
       default:
         return 'bg-gray-100 text-gray-800';
     }
@@ -87,9 +85,9 @@ export default function TransactionTable({ transactions, onUpdate, onDelete, onE
 
   return (
     <div className="overflow-x-auto">
-      <div className="inline-block min-w-full py-2 align-middle">
+      <div className="min-w-full py-2 align-middle">
         <div className="overflow-hidden shadow ring-1 ring-black ring-opacity-5 md:rounded-lg">
-          <table className="min-w-full divide-y divide-gray-300" style={{ minWidth: '1000px' }}>
+          <table className="w-full divide-y divide-gray-300">
         <thead className="bg-gray-50">
           <tr>
             <th
@@ -140,29 +138,16 @@ export default function TransactionTable({ transactions, onUpdate, onDelete, onE
             >
               Status
             </th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Actions
+            </th>
           </tr>
         </thead>
         <tbody className="bg-white divide-y divide-gray-200">
           {sortedTransactions.map((transaction) => (
             <tr key={transaction.id} className="hover:bg-gray-50">
               <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                <div className="flex items-center space-x-2">
-                  <button
-                    onClick={() => onDelete(transaction.id)}
-                    className="text-red-600 hover:text-red-900 text-sm"
-                    title="Delete trade"
-                  >
-                    🗑️
-                  </button>
-                  <span>{transaction.stockSymbol}</span>
-                  <button
-                    onClick={() => onEdit(transaction)}
-                    className="text-blue-600 hover:text-blue-900 text-sm"
-                    title="Edit trade"
-                  >
-                    ✏️
-                  </button>
-                </div>
+                {transaction.stockSymbol}
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                 {formatDate(transaction.tradeOpenDate)}
@@ -194,6 +179,24 @@ export default function TransactionTable({ transactions, onUpdate, onDelete, onE
                 <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(transaction.status)}`}>
                   {transaction.status}
                 </span>
+              </td>
+              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                <div className="flex items-center space-x-3">
+                  <button
+                    onClick={() => onEdit(transaction)}
+                    className="text-blue-600 hover:text-blue-900 text-sm"
+                    title="Edit trade"
+                  >
+                    ✏️
+                  </button>
+                  <button
+                    onClick={() => onDelete(transaction.id)}
+                    className="text-red-600 hover:text-red-900 text-sm"
+                    title="Delete trade"
+                  >
+                    🗑️
+                  </button>
+                </div>
               </td>
             </tr>
           ))}

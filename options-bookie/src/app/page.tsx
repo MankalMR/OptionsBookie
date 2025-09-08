@@ -196,30 +196,26 @@ export default function Home() {
 
         {/* Tab Content */}
         {activeTab === 'trades' ? (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Portfolio Summary */}
-            <div className="lg:col-span-1">
-              <PortfolioSummary transactions={transactions} />
-            </div>
+          <div className="space-y-8">
+            {/* Portfolio Overview */}
+            <PortfolioSummary transactions={transactions} />
 
-            {/* Transactions Table */}
-            <div className="lg:col-span-2">
-              <div className="bg-white rounded-lg shadow">
-                <div className="px-6 py-4 border-b border-gray-200">
-                  <div className="flex justify-between items-center">
-                    <h2 className="text-xl font-semibold text-gray-900">Recent Trades</h2>
-                    <div className="text-sm text-gray-600">
-                      💡 Click the ✏️ button to edit or close trades
-                    </div>
+            {/* Recent Trades - Full Width */}
+            <div className="bg-white rounded-lg shadow">
+              <div className="px-6 py-4 border-b border-gray-200">
+                <div className="flex justify-between items-center">
+                  <h2 className="text-xl font-semibold text-gray-900">Recent Trades</h2>
+                  <div className="text-sm text-gray-600">
+                    💡 Click the ✏️ button to edit or close trades
                   </div>
                 </div>
-                <TransactionTable
-                  transactions={transactions}
-                  onUpdate={handleUpdateTransaction}
-                  onDelete={handleDeleteTransaction}
-                  onEdit={handleEditTransaction}
-                />
               </div>
+              <TransactionTable
+                transactions={transactions}
+                onUpdate={handleUpdateTransaction}
+                onDelete={handleDeleteTransaction}
+                onEdit={handleEditTransaction}
+              />
             </div>
           </div>
         ) : (

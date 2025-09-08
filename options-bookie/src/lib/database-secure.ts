@@ -2,7 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import { OptionsTransaction } from '@/types/options';
 
 // Regular Supabase client for user operations (respects RLS)
-// Temporarily using service role key to bypass RLS until policies are fixed
+// Temporarily using service role key to bypass RLS while debugging
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!

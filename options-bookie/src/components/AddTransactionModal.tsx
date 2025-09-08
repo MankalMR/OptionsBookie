@@ -21,7 +21,7 @@ export default function AddTransactionModal({ onClose, onSave }: AddTransactionM
     premium: 0,
     numberOfContracts: 1,
     fees: 0,
-    status: 'Open' as 'Open' | 'Closed' | 'Rolled Forward',
+    status: 'Open' as 'Open' | 'Closed',
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -132,7 +132,7 @@ export default function AddTransactionModal({ onClose, onSave }: AddTransactionM
                   type="text"
                   value={formData.stockSymbol}
                   onChange={(e) => handleChange('stockSymbol', e.target.value.toUpperCase())}
-                  className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm ${
+                  className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm bg-white text-gray-900 ${
                     errors.stockSymbol ? 'border-red-500' : ''
                   }`}
                   placeholder="AAPL"
@@ -145,7 +145,7 @@ export default function AddTransactionModal({ onClose, onSave }: AddTransactionM
                 <select
                   value={formData.callOrPut}
                   onChange={(e) => handleChange('callOrPut', e.target.value)}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm bg-white text-gray-900"
                 >
                   <option value="Call">Call</option>
                   <option value="Put">Put</option>
@@ -159,7 +159,7 @@ export default function AddTransactionModal({ onClose, onSave }: AddTransactionM
                 <select
                   value={formData.buyOrSell}
                   onChange={(e) => handleChange('buyOrSell', e.target.value)}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm bg-white text-gray-900"
                 >
                   <option value="Buy">Buy</option>
                   <option value="Sell">Sell</option>
@@ -171,7 +171,7 @@ export default function AddTransactionModal({ onClose, onSave }: AddTransactionM
                 <select
                   value={formData.status}
                   onChange={(e) => handleChange('status', e.target.value)}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm bg-white text-gray-900"
                 >
                   <option value="Open">Open</option>
                   <option value="Closed">Closed</option>
@@ -187,7 +187,7 @@ export default function AddTransactionModal({ onClose, onSave }: AddTransactionM
                   type="date"
                   value={formData.tradeOpenDate}
                   onChange={(e) => handleChange('tradeOpenDate', e.target.value)}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm bg-white text-gray-900"
                 />
               </div>
 
@@ -197,7 +197,7 @@ export default function AddTransactionModal({ onClose, onSave }: AddTransactionM
                   type="date"
                   value={formData.expiryDate}
                   onChange={(e) => handleChange('expiryDate', e.target.value)}
-                  className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm ${
+                  className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm bg-white text-gray-900 ${
                     errors.expiryDate ? 'border-red-500' : ''
                   }`}
                 />
@@ -213,7 +213,7 @@ export default function AddTransactionModal({ onClose, onSave }: AddTransactionM
                   step="0.01"
                   value={formData.strikePrice}
                   onChange={(e) => handleChange('strikePrice', parseFloat(e.target.value) || 0)}
-                  className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm ${
+                  className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm bg-white text-gray-900 ${
                     errors.strikePrice ? 'border-red-500' : ''
                   }`}
                 />
@@ -227,7 +227,7 @@ export default function AddTransactionModal({ onClose, onSave }: AddTransactionM
                   step="0.01"
                   value={formData.premium}
                   onChange={(e) => handleChange('premium', parseFloat(e.target.value) || 0)}
-                  className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm ${
+                  className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm bg-white text-gray-900 ${
                     errors.premium ? 'border-red-500' : ''
                   }`}
                 />
@@ -242,7 +242,7 @@ export default function AddTransactionModal({ onClose, onSave }: AddTransactionM
                   type="number"
                   value={formData.numberOfContracts}
                   onChange={(e) => handleChange('numberOfContracts', parseInt(e.target.value) || 1)}
-                  className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm ${
+                  className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm bg-white text-gray-900 ${
                     errors.numberOfContracts ? 'border-red-500' : ''
                   }`}
                 />
@@ -256,7 +256,7 @@ export default function AddTransactionModal({ onClose, onSave }: AddTransactionM
                   step="0.01"
                   value={formData.fees}
                   onChange={(e) => handleChange('fees', parseFloat(e.target.value) || 0)}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm bg-white text-gray-900"
                 />
               </div>
             </div>
@@ -268,7 +268,7 @@ export default function AddTransactionModal({ onClose, onSave }: AddTransactionM
                 step="0.01"
                 value={formData.stockPriceCurrent}
                 onChange={(e) => handleChange('stockPriceCurrent', parseFloat(e.target.value) || 0)}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm bg-white text-gray-900"
               />
             </div>
 

@@ -21,7 +21,7 @@ export interface OptionsTransaction {
   profitLoss?: number;
   daysHeld?: number;
   annualizedROR?: number;
-  status: 'Open' | 'Closed' | 'Rolled Forward';
+  status: 'Open' | 'Closed';
   createdAt: Date;
   updatedAt: Date;
 }
