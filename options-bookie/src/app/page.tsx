@@ -9,6 +9,8 @@ import EditTransactionModal from '@/components/EditTransactionModal';
 import SummaryView from '@/components/SummaryView';
 import { updateTransactionPandL } from '@/utils/optionsCalculations';
 import { useTransactions } from '@/hooks/useTransactions';
+import ProtectedRoute from '@/components/ProtectedRoute';
+import AuthButton from '@/components/AuthButton';
 
 export default function Home() {
   const {
@@ -100,31 +102,33 @@ export default function Home() {
   }, [transactions, handleUpdatePandL]);
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-6">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">OptionsBookie</h1>
-              <p className="text-gray-600">Track your options trades with precision</p>
-            </div>
-            <div className="flex space-x-3">
-              <button
-                onClick={handleUpdatePandL}
-                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
-              >
-                Refresh P&L
-              </button>
-              <button
-                onClick={() => setShowAddModal(true)}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
-              >
-                Add Trade
-              </button>
+    <ProtectedRoute>
+      <div className="min-h-screen bg-gray-50">
+        <header className="bg-white shadow-sm border-b">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex justify-between items-center py-6">
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900">OptionsBookie</h1>
+                <p className="text-gray-600">Track your options trades with precision</p>
+              </div>
+              <div className="flex space-x-3">
+                <button
+                  onClick={handleUpdatePandL}
+                  className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+                >
+                  Refresh P&L
+                </button>
+                <button
+                  onClick={() => setShowAddModal(true)}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+                >
+                  Add Trade
+                </button>
+                <AuthButton />
+              </div>
             </div>
           </div>
-        </div>
-      </header>
+        </header>
 
       {/* Error Display */}
       {error && (
@@ -240,6 +244,7 @@ export default function Home() {
           onSave={handleSaveEdit}
         />
       )}
-    </div>
+      </div>
+    </ProtectedRoute>
   );
 }

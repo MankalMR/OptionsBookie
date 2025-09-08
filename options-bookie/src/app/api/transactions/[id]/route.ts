@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
-import { dbOperations } from '@/lib/database';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
+import { secureDb } from '@/lib/database-secure';
 import { OptionsTransaction } from '@/types/options';
 
 // GET /api/transactions/[id] - Get a specific transaction
@@ -8,7 +10,16 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const transaction = dbOperations.getTransaction(params.id);
+    const session = await getServerSession(authOptions);
+
+    if (!session?.user?.email) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    const transaction = await secureDb.getTransaction(params.id, session.user.email);
 
     if (!transaction) {
       return NextResponse.json(
@@ -33,10 +44,19 @@ export async function PUT(
   { params }: { params: { id: string } }
 ) {
   try {
+    const session = await getServerSession(authOptions);
+
+    if (!session?.user?.email) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
     const body = await request.json();
     const updates = body as Partial<OptionsTransaction>;
 
-    const updatedTransaction = dbOperations.updateTransaction(params.id, updates);
+    const updatedTransaction = await secureDb.updateTransaction(params.id, updates, session.user.email);
 
     if (!updatedTransaction) {
       return NextResponse.json(
@@ -61,14 +81,16 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const success = dbOperations.deleteTransaction(params.id);
+    const session = await getServerSession(authOptions);
 
-    if (!success) {
+    if (!session?.user?.email) {
       return NextResponse.json(
-        { success: false, error: 'Transaction not found' },
-        { status: 404 }
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
       );
     }
+
+    await secureDb.deleteTransaction(params.id, session.user.email);
 
     return NextResponse.json({ success: true });
   } catch (error) {
