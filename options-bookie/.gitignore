@@ -32,6 +32,10 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
 
 # vercel
 .vercel
@@ -163,3 +167,28 @@ test-*.sql
 # Excel files
 *.xlsx
 *.xls
+
+# Security and secrets
+*.key
+*.pem
+*.p12
+*.pfx
+*.crt
+*.cer
+*.der
+secrets.json
+credentials.json
+service-account.json
+firebase-adminsdk-*.json
+
+# Backup files
+*.bak
+*.backup
+*.old
+*.orig
+
+# Temporary files with sensitive data
+temp-*
+tmp-*
+debug-*
+test-*
