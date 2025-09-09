@@ -142,10 +142,12 @@ export default function SummaryView({ transactions }: SummaryViewProps) {
       // Find best and worst months
       if (yearData.monthlyBreakdown.length > 0) {
         yearData.bestMonth = yearData.monthlyBreakdown.reduce((best, month) =>
-          month.totalPnL > best.pnl ? { month: month.monthName, pnl: month.totalPnL } : best
+          month.totalPnL > best.pnl ? { month: month.monthName, pnl: month.totalPnL } : best,
+          { month: '', pnl: -Infinity }
         );
         yearData.worstMonth = yearData.monthlyBreakdown.reduce((worst, month) =>
-          month.totalPnL < worst.pnl ? { month: month.monthName, pnl: month.totalPnL } : worst
+          month.totalPnL < worst.pnl ? { month: month.monthName, pnl: month.totalPnL } : worst,
+          { month: '', pnl: Infinity }
         );
       }
     });

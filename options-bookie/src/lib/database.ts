@@ -78,6 +78,7 @@ const getAllTransactions = db.prepare('SELECT * FROM transactions ORDER BY trade
 function rowToTransaction(row: any): OptionsTransaction {
   return {
     id: row.id,
+    portfolioId: row.portfolioId || '',
     stockSymbol: row.stockSymbol,
     tradeOpenDate: new Date(row.tradeOpenDate),
     expiryDate: new Date(row.expiryDate),

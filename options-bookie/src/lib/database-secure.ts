@@ -123,7 +123,7 @@ export const secureDb = {
 
   async updateTransaction(id: string, transaction: Partial<OptionsTransaction>, userEmail: string): Promise<OptionsTransaction> {
     const rowData = transactionToRow(transaction, userEmail);
-    delete rowData.user_id; // Don't update user_id
+    delete (rowData as any).user_id; // Don't update user_id
 
     const { data, error } = await supabase
       .from('options_transactions')

@@ -200,13 +200,13 @@ export default function TransactionTable({ transactions, onUpdate, onDelete, onE
               </TableCell>
               <TableCell>
                 <div className="flex items-center space-x-1">
-                  {transaction.profitLoss >= 0 ? (
+                  {(transaction.profitLoss ?? 0) >= 0 ? (
                     <TrendingUp className="h-4 w-4 text-green-600" />
                   ) : (
                     <TrendingDown className="h-4 w-4 text-red-600" />
                   )}
-                  <span className={`font-medium ${transaction.profitLoss >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                    {transaction.profitLoss >= 0 ? '+' : ''}${transaction.profitLoss.toFixed(2)}
+                  <span className={`font-medium ${(transaction.profitLoss ?? 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {(transaction.profitLoss ?? 0) >= 0 ? '+' : ''}${(transaction.profitLoss ?? 0).toFixed(2)}
                   </span>
                 </div>
               </TableCell>

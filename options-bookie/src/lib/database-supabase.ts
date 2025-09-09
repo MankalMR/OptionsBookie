@@ -33,7 +33,6 @@ function rowToTransaction(row: any): OptionsTransaction {
     cashReserve: row.cash_reserve ? parseFloat(row.cash_reserve) : undefined,
     marginCashReserve: row.margin_cash_reserve ? parseFloat(row.margin_cash_reserve) : undefined,
     costBasisPerShare: row.cost_basis_per_share ? parseFloat(row.cost_basis_per_share) : undefined,
-    portfolioId: row.portfolio_id || '',
     createdAt: new Date(row.created_at),
     updatedAt: new Date(row.updated_at),
   };
