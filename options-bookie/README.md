@@ -16,7 +16,7 @@ Email: manohar.mankala@gmail.com
 - **Responsive Design**: Modern UI built with Tailwind CSS
 - **Data Persistence**: PostgreSQL database with Supabase
 
-## Quick Start
+## 🚀 Quick Start
 
 ### Prerequisites
 
@@ -24,7 +24,7 @@ Email: manohar.mankala@gmail.com
 - Supabase account
 - Google OAuth credentials
 
-### Installation
+### Local Development
 
 1. **Clone the repository**
    ```bash
@@ -65,6 +65,18 @@ Email: manohar.mankala@gmail.com
 
 6. **Open your browser**
    Navigate to [http://localhost:3007](http://localhost:3007)
+
+### 🚀 Deploy to Vercel (Recommended)
+
+Deploy your app to Vercel in just a few clicks:
+
+1. **Push your code to GitHub**
+2. **Go to [vercel.com](https://vercel.com)**
+3. **Import your GitHub repository**
+4. **Add environment variables**
+5. **Deploy!**
+
+See [DEPLOYMENT_GUIDE.md](./DEPLOYMENT_GUIDE.md) for detailed instructions.
 
 ## Database Setup
 
