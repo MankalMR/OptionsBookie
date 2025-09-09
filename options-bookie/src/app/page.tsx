@@ -31,19 +31,27 @@ export default function Home() {
   const [editingTransaction, setEditingTransaction] = useState<OptionsTransaction | null>(null);
   const [activeTab, setActiveTab] = useState<'trades' | 'summary'>('trades');
   const [selectedPortfolioId, setSelectedPortfolioId] = useState<string | null>(null);
+  const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
   const [portfolios, setPortfolios] = useState<Portfolio[]>([]);
   const [portfoliosLoading, setPortfoliosLoading] = useState(true);
   const [filteredTransactions, setFilteredTransactions] = useState<OptionsTransaction[]>([]);
 
-  // Filter transactions based on selected portfolio
+  // Filter transactions based on selected portfolio and status
   useEffect(() => {
+    let filtered = transactions;
+
+    // Filter by portfolio
     if (selectedPortfolioId) {
-      const filtered = transactions.filter(t => t.portfolioId === selectedPortfolioId);
-      setFilteredTransactions(filtered);
-    } else {
-      setFilteredTransactions(transactions);
+      filtered = filtered.filter(t => t.portfolioId === selectedPortfolioId);
     }
-  }, [transactions, selectedPortfolioId]);
+
+    // Filter by status
+    if (selectedStatus) {
+      filtered = filtered.filter(t => t.status === selectedStatus);
+    }
+
+    setFilteredTransactions(filtered);
+  }, [transactions, selectedPortfolioId, selectedStatus]);
 
   const fetchPortfolios = useCallback(async () => {
     try {
@@ -75,6 +83,10 @@ export default function Home() {
 
   const handlePortfolioChange = (portfolioId: string | null) => {
     setSelectedPortfolioId(portfolioId);
+  };
+
+  const handleStatusChange = (status: string | null) => {
+    setSelectedStatus(status);
   };
 
   const handleAddPortfolio = () => {
@@ -297,7 +309,22 @@ export default function Home() {
             <div className="bg-white rounded-lg shadow">
               <div className="px-6 py-4 border-b border-gray-200">
                 <div className="flex justify-between items-center">
-                  <h2 className="text-xl font-semibold text-gray-900">Recent Trades</h2>
+                  <div className="flex items-center space-x-4">
+                    <h2 className="text-xl font-semibold text-gray-900">Recent Trades</h2>
+
+                    {/* Status Filter */}
+                    <select
+                      id="status-filter"
+                      value={selectedStatus || ''}
+                      onChange={(e) => handleStatusChange(e.target.value || null)}
+                      className="block w-32 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm bg-white text-gray-900"
+                    >
+                      <option value="">All Status</option>
+                      <option value="Open">Open</option>
+                      <option value="Closed">Closed</option>
+                    </select>
+                  </div>
+
                   <div className="flex items-center space-x-4">
                     <div className="text-sm text-gray-600">
                       💡 Click the ✏️ button to edit or close trades
@@ -309,6 +336,21 @@ export default function Home() {
                       Add Trade
                     </button>
                   </div>
+                </div>
+
+                {/* Filter Status Info */}
+                <div className="mt-2 text-sm text-gray-600">
+                  Showing {filteredTransactions.length} trade{filteredTransactions.length !== 1 ? 's' : ''}
+                  {selectedPortfolioId && (
+                    <span className="ml-1">
+                      in {portfolios.find(p => p.id === selectedPortfolioId)?.name || 'selected portfolio'}
+                    </span>
+                  )}
+                  {selectedStatus && (
+                    <span className="ml-1">
+                      with status &quot;{selectedStatus}&quot;
+                    </span>
+                  )}
                 </div>
               </div>
                           <TransactionTable
