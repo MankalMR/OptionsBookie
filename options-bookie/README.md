@@ -2,6 +2,11 @@
 
 A comprehensive options trading tracker built with Next.js, Supabase, and NextAuth.js. Track your options trades across multiple portfolios with detailed analytics and performance metrics.
 
+## Author
+
+**Manohar Mankala**
+Email: manohar.mankala@gmail.com
+
 ## Features
 
 - **Multi-Portfolio Support**: Organize trades across multiple portfolios

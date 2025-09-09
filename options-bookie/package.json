@@ -1,7 +1,10 @@
 {
   "name": "options-bookie",
   "version": "0.1.0",
+  "description": "A comprehensive options trading tracker with multi-portfolio support and detailed analytics",
   "private": true,
+  "author": "Manohar Mankala <manohar.mankala@gmail.com>",
+  "license": "MIT",
   "engines": {
     "node": ">=20.18.0",
     "npm": ">=10.0.0"
