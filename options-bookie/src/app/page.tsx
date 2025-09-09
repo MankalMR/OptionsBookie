@@ -1,12 +1,14 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { OptionsTransaction } from '@/types/options';
+import { OptionsTransaction, Portfolio } from '@/types/options';
 import TransactionTable from '@/components/TransactionTable';
 import PortfolioSummary from '@/components/PortfolioSummary';
 import AddTransactionModal from '@/components/AddTransactionModal';
 import EditTransactionModal from '@/components/EditTransactionModal';
 import SummaryView from '@/components/SummaryView';
+import PortfolioSelector from '@/components/PortfolioSelector';
+import PortfolioModal from '@/components/PortfolioModal';
 import { updateTransactionPandL } from '@/utils/optionsCalculations';
 import { useTransactions } from '@/hooks/useTransactions';
 import ProtectedRoute from '@/components/ProtectedRoute';
@@ -25,12 +27,97 @@ export default function Home() {
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showPortfolioModal, setShowPortfolioModal] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<OptionsTransaction | null>(null);
   const [activeTab, setActiveTab] = useState<'trades' | 'summary'>('trades');
+  const [selectedPortfolioId, setSelectedPortfolioId] = useState<string | null>(null);
+  const [portfolios, setPortfolios] = useState<Portfolio[]>([]);
+  const [portfoliosLoading, setPortfoliosLoading] = useState(true);
+  const [filteredTransactions, setFilteredTransactions] = useState<OptionsTransaction[]>([]);
+
+  // Filter transactions based on selected portfolio
+  useEffect(() => {
+    if (selectedPortfolioId) {
+      const filtered = transactions.filter(t => t.portfolioId === selectedPortfolioId);
+      setFilteredTransactions(filtered);
+    } else {
+      setFilteredTransactions(transactions);
+    }
+  }, [transactions, selectedPortfolioId]);
+
+  const fetchPortfolios = useCallback(async () => {
+    try {
+      setPortfoliosLoading(true);
+      const response = await fetch('/api/portfolios');
+      if (response.ok) {
+        const data = await response.json();
+        setPortfolios(data);
+
+        // Set default portfolio if none selected (only on initial load when portfolios array is empty)
+        if (!selectedPortfolioId && portfolios.length === 0 && data.length > 0) {
+          const defaultPortfolio = data.find((p: Portfolio) => p.isDefault);
+          if (defaultPortfolio) {
+            setSelectedPortfolioId(defaultPortfolio.id);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching portfolios:', error);
+    } finally {
+      setPortfoliosLoading(false);
+    }
+  }, [selectedPortfolioId, portfolios.length]);
+
+  // Fetch portfolios on component mount
+  useEffect(() => {
+    fetchPortfolios();
+  }, [fetchPortfolios]);
+
+  const handlePortfolioChange = (portfolioId: string | null) => {
+    setSelectedPortfolioId(portfolioId);
+  };
+
+  const handleAddPortfolio = () => {
+    setShowPortfolioModal(true);
+  };
+
+  const handlePortfolioCreated = () => {
+    fetchPortfolios();
+    setShowPortfolioModal(false);
+  };
+
+  const handleDeletePortfolio = async (portfolioId: string) => {
+    try {
+      const response = await fetch(`/api/portfolios/${portfolioId}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to delete portfolio');
+      }
+
+      // If the deleted portfolio was selected, switch to "All Portfolios"
+      if (selectedPortfolioId === portfolioId) {
+        setSelectedPortfolioId(null);
+      }
+
+      // Refresh the portfolios list
+      await fetchPortfolios();
+    } catch (error) {
+      console.error('Failed to delete portfolio:', error);
+      alert(`Failed to delete portfolio: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  };
 
   const handleAddTransaction = async (transaction: Omit<OptionsTransaction, 'id' | 'createdAt' | 'updatedAt'>) => {
     try {
-      await addTransaction(transaction);
+      // Add the selected portfolio ID to the transaction
+      const transactionWithPortfolio = {
+        ...transaction,
+        portfolioId: selectedPortfolioId || portfolios.find(p => p.isDefault)?.id || '',
+      };
+      await addTransaction(transactionWithPortfolio);
       setShowAddModal(false);
     } catch (error) {
       console.error('Failed to add transaction:', error);
@@ -118,12 +205,6 @@ export default function Home() {
                 >
                   Refresh P&L
                 </button>
-                <button
-                  onClick={() => setShowAddModal(true)}
-                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
-                >
-                  Add Trade
-                </button>
                 <AuthButton />
               </div>
             </div>
@@ -166,6 +247,18 @@ export default function Home() {
 
       {!loading && (
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Portfolio Selector */}
+        <div className="mb-6">
+          <PortfolioSelector
+            portfolios={portfolios}
+            selectedPortfolioId={selectedPortfolioId}
+            onPortfolioChange={handlePortfolioChange}
+            onAddPortfolio={handleAddPortfolio}
+            onDeletePortfolio={handleDeletePortfolio}
+            loading={portfoliosLoading}
+          />
+        </div>
+
         {/* Tab Navigation */}
         <div className="mb-8">
           <div className="border-b border-gray-200">
@@ -198,28 +291,38 @@ export default function Home() {
         {activeTab === 'trades' ? (
           <div className="space-y-8">
             {/* Portfolio Overview */}
-            <PortfolioSummary transactions={transactions} />
+            <PortfolioSummary transactions={filteredTransactions} />
 
             {/* Recent Trades - Full Width */}
             <div className="bg-white rounded-lg shadow">
               <div className="px-6 py-4 border-b border-gray-200">
                 <div className="flex justify-between items-center">
                   <h2 className="text-xl font-semibold text-gray-900">Recent Trades</h2>
-                  <div className="text-sm text-gray-600">
-                    💡 Click the ✏️ button to edit or close trades
+                  <div className="flex items-center space-x-4">
+                    <div className="text-sm text-gray-600">
+                      💡 Click the ✏️ button to edit or close trades
+                    </div>
+                    <button
+                      onClick={() => setShowAddModal(true)}
+                      className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+                    >
+                      Add Trade
+                    </button>
                   </div>
                 </div>
               </div>
-              <TransactionTable
-                transactions={transactions}
-                onUpdate={handleUpdateTransaction}
-                onDelete={handleDeleteTransaction}
-                onEdit={handleEditTransaction}
-              />
+                          <TransactionTable
+                            transactions={filteredTransactions}
+                            onUpdate={handleUpdateTransaction}
+                            onDelete={handleDeleteTransaction}
+                            onEdit={handleEditTransaction}
+                            portfolios={portfolios}
+                            showPortfolioColumn={!selectedPortfolioId}
+                          />
             </div>
           </div>
         ) : (
-          <SummaryView transactions={transactions} />
+          <SummaryView transactions={filteredTransactions} />
         )}
         </main>
       )}
@@ -229,15 +332,27 @@ export default function Home() {
         <AddTransactionModal
           onClose={() => setShowAddModal(false)}
           onSave={handleAddTransaction}
+          portfolios={portfolios}
+          selectedPortfolioId={selectedPortfolioId}
         />
       )}
 
-      {/* Edit Transaction Modal */}
-      {showEditModal && editingTransaction && (
-        <EditTransactionModal
-          transaction={editingTransaction}
-          onClose={handleCloseEdit}
-          onSave={handleSaveEdit}
+                  {/* Edit Transaction Modal */}
+                  {showEditModal && editingTransaction && (
+                    <EditTransactionModal
+                      transaction={editingTransaction}
+                      onClose={handleCloseEdit}
+                      onSave={handleSaveEdit}
+                      portfolios={portfolios}
+                    />
+                  )}
+
+      {/* Portfolio Modal */}
+      {showPortfolioModal && (
+        <PortfolioModal
+          isOpen={showPortfolioModal}
+          onClose={() => setShowPortfolioModal(false)}
+          onPortfolioCreated={handlePortfolioCreated}
         />
       )}
       </div>

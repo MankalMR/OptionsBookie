@@ -1,16 +1,17 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { OptionsTransaction } from '@/types/options';
+import { OptionsTransaction, Portfolio } from '@/types/options';
 import { calculateProfitLoss, calculateDaysHeld, calculateBreakEven } from '@/utils/optionsCalculations';
 
 interface EditTransactionModalProps {
   transaction: OptionsTransaction;
   onClose: () => void;
   onSave: (id: string, updates: Partial<OptionsTransaction>) => void;
+  portfolios?: Portfolio[];
 }
 
-export default function EditTransactionModal({ transaction, onClose, onSave }: EditTransactionModalProps) {
+export default function EditTransactionModal({ transaction, onClose, onSave, portfolios = [] }: EditTransactionModalProps) {
   // Ensure dates are Date objects
   const tradeOpenDate = transaction.tradeOpenDate instanceof Date
     ? transaction.tradeOpenDate
@@ -23,6 +24,7 @@ export default function EditTransactionModal({ transaction, onClose, onSave }: E
     : undefined;
 
   const [formData, setFormData] = useState({
+    portfolioId: transaction.portfolioId || '',
     stockSymbol: transaction.stockSymbol,
     tradeOpenDate: tradeOpenDate.toISOString().split('T')[0],
     expiryDate: expiryDate.toISOString().split('T')[0],
@@ -154,6 +156,7 @@ export default function EditTransactionModal({ transaction, onClose, onSave }: E
     const profitLoss = formData.status === 'Closed' ? calculateFinalProfitLoss() : calculateCurrentProfitLoss();
 
     const updates: Partial<OptionsTransaction> = {
+      portfolioId: formData.portfolioId,
       stockSymbol: formData.stockSymbol,
       tradeOpenDate: new Date(formData.tradeOpenDate),
       expiryDate: new Date(formData.expiryDate),
@@ -247,6 +250,28 @@ export default function EditTransactionModal({ transaction, onClose, onSave }: E
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Portfolio Selection */}
+            {portfolios.length > 0 && (
+              <div>
+                <label htmlFor="portfolioId" className="block text-sm font-medium text-gray-700">
+                  Portfolio
+                </label>
+                <select
+                  id="portfolioId"
+                  value={formData.portfolioId}
+                  onChange={(e) => handleChange('portfolioId', e.target.value)}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm bg-white text-gray-900"
+                >
+                  {portfolios.map((portfolio) => (
+                    <option key={portfolio.id} value={portfolio.id}>
+                      {portfolio.name} {portfolio.isDefault ? '(Default)' : ''}
+                    </option>
+                  ))}
+                </select>
+                {errors.portfolioId && <p className="mt-1 text-sm text-red-600">{errors.portfolioId}</p>}
+              </div>
+            )}
+
             {/* Status Selection */}
             <div className="bg-blue-50 p-4 rounded-lg">
               <label className="block text-sm font-medium text-gray-700 mb-2">Trade Status</label>

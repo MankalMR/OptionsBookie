@@ -1,6 +1,6 @@
 'use client';
 
-import { OptionsTransaction } from '@/types/options';
+import { OptionsTransaction, Portfolio } from '@/types/options';
 import { useState } from 'react';
 import { calculateProfitLoss } from '@/utils/optionsCalculations';
 
@@ -9,11 +9,18 @@ interface TransactionTableProps {
   onUpdate: (id: string, updates: Partial<OptionsTransaction>) => void;
   onDelete: (id: string) => void;
   onEdit: (transaction: OptionsTransaction) => void;
+  portfolios?: Portfolio[];
+  showPortfolioColumn?: boolean;
 }
 
-export default function TransactionTable({ transactions, onUpdate, onDelete, onEdit }: TransactionTableProps) {
+export default function TransactionTable({ transactions, onUpdate, onDelete, onEdit, portfolios = [], showPortfolioColumn = false }: TransactionTableProps) {
   const [sortBy, setSortBy] = useState<keyof OptionsTransaction>('tradeOpenDate');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+
+  const getPortfolioName = (portfolioId: string) => {
+    const portfolio = portfolios.find(p => p.id === portfolioId);
+    return portfolio ? portfolio.name : 'Unknown Portfolio';
+  };
 
   const sortedTransactions = [...transactions].sort((a, b) => {
     const aValue = a[sortBy];
@@ -96,6 +103,11 @@ export default function TransactionTable({ transactions, onUpdate, onDelete, onE
             >
               Symbol
             </th>
+            {showPortfolioColumn && (
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Portfolio
+              </th>
+            )}
             <th
               className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
               onClick={() => handleSort('tradeOpenDate')}
@@ -149,6 +161,11 @@ export default function TransactionTable({ transactions, onUpdate, onDelete, onE
               <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                 {transaction.stockSymbol}
               </td>
+              {showPortfolioColumn && (
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {getPortfolioName(transaction.portfolioId)}
+                </td>
+              )}
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                 {formatDate(transaction.tradeOpenDate)}
               </td>

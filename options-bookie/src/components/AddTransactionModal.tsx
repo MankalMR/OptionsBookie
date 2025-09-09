@@ -1,16 +1,19 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { OptionsTransaction } from '@/types/options';
 import { calculateProfitLoss as calculateProfitLossUtil, calculateNewTradeProfitLoss } from '@/utils/optionsCalculations';
 
 interface AddTransactionModalProps {
   onClose: () => void;
   onSave: (transaction: Omit<OptionsTransaction, 'id' | 'createdAt' | 'updatedAt'>) => void;
+  portfolios?: Array<{ id: string; name: string; isDefault: boolean }>;
+  selectedPortfolioId?: string | null;
 }
 
-export default function AddTransactionModal({ onClose, onSave }: AddTransactionModalProps) {
+export default function AddTransactionModal({ onClose, onSave, portfolios = [], selectedPortfolioId }: AddTransactionModalProps) {
   const [formData, setFormData] = useState({
+    portfolioId: selectedPortfolioId || portfolios.find(p => p.isDefault)?.id || '',
     stockSymbol: '',
     tradeOpenDate: new Date().toISOString().split('T')[0],
     expiryDate: '',
@@ -25,6 +28,18 @@ export default function AddTransactionModal({ onClose, onSave }: AddTransactionM
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // Update portfolioId when selectedPortfolioId changes
+  useEffect(() => {
+    if (selectedPortfolioId) {
+      setFormData(prev => ({ ...prev, portfolioId: selectedPortfolioId }));
+    } else if (portfolios.length > 0) {
+      const defaultPortfolio = portfolios.find(p => p.isDefault);
+      if (defaultPortfolio) {
+        setFormData(prev => ({ ...prev, portfolioId: defaultPortfolio.id }));
+      }
+    }
+  }, [selectedPortfolioId, portfolios]);
 
   const calculateDaysToExpiry = (expiryDate: string) => {
     const today = new Date();
@@ -125,6 +140,21 @@ export default function AddTransactionModal({ onClose, onSave }: AddTransactionM
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Portfolio</label>
+              <select
+                value={formData.portfolioId}
+                onChange={(e) => handleChange('portfolioId', e.target.value)}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm bg-white text-gray-900"
+              >
+                {portfolios.map((portfolio) => (
+                  <option key={portfolio.id} value={portfolio.id}>
+                    {portfolio.name} {portfolio.isDefault ? '(Default)' : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700">Stock Symbol</label>

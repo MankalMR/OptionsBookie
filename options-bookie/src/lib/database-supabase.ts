@@ -11,6 +11,7 @@ const supabaseAdmin = createClient(
 function rowToTransaction(row: any): OptionsTransaction {
   return {
     id: row.id,
+    portfolioId: row.portfolio_id,
     stockSymbol: row.stock_symbol,
     tradeOpenDate: new Date(row.trade_open_date),
     expiryDate: new Date(row.expiry_date),
@@ -32,6 +33,7 @@ function rowToTransaction(row: any): OptionsTransaction {
     cashReserve: row.cash_reserve ? parseFloat(row.cash_reserve) : undefined,
     marginCashReserve: row.margin_cash_reserve ? parseFloat(row.margin_cash_reserve) : undefined,
     costBasisPerShare: row.cost_basis_per_share ? parseFloat(row.cost_basis_per_share) : undefined,
+    portfolioId: row.portfolio_id || '',
     createdAt: new Date(row.created_at),
     updatedAt: new Date(row.updated_at),
   };
@@ -41,12 +43,21 @@ function rowToTransaction(row: any): OptionsTransaction {
 function transactionToRow(transaction: Partial<OptionsTransaction>, userId: string) {
   return {
     user_id: userId,
+    portfolio_id: transaction.portfolioId,
     stock_symbol: transaction.stockSymbol,
     trade_open_date: transaction.tradeOpenDate ?
-      (transaction.tradeOpenDate instanceof Date ? transaction.tradeOpenDate.toISOString() : new Date(transaction.tradeOpenDate).toISOString()) :
+      (transaction.tradeOpenDate instanceof Date ?
+        transaction.tradeOpenDate.toISOString() :
+        (typeof transaction.tradeOpenDate === 'string' ?
+          new Date(transaction.tradeOpenDate).toISOString() :
+          undefined)) :
       undefined,
     expiry_date: transaction.expiryDate ?
-      (transaction.expiryDate instanceof Date ? transaction.expiryDate.toISOString() : new Date(transaction.expiryDate).toISOString()) :
+      (transaction.expiryDate instanceof Date ?
+        transaction.expiryDate.toISOString() :
+        (typeof transaction.expiryDate === 'string' ?
+          new Date(transaction.expiryDate).toISOString() :
+          undefined)) :
       undefined,
     call_or_put: transaction.callOrPut,
     buy_or_sell: transaction.buyOrSell,
@@ -60,7 +71,11 @@ function transactionToRow(transaction: Partial<OptionsTransaction>, userId: stri
     status: transaction.status,
     exit_price: transaction.exitPrice,
     close_date: transaction.closeDate ?
-      (transaction.closeDate instanceof Date ? transaction.closeDate.toISOString() : new Date(transaction.closeDate).toISOString()) :
+      (transaction.closeDate instanceof Date ?
+        transaction.closeDate.toISOString() :
+        (typeof transaction.closeDate === 'string' ?
+          new Date(transaction.closeDate).toISOString() :
+          undefined)) :
       undefined,
     profit_loss: transaction.profitLoss,
     days_held: transaction.daysHeld,
@@ -79,6 +94,19 @@ export const supabaseDb = {
       .from('options_transactions')
       .select('*')
       .eq('user_id', userId)
+      .order('trade_open_date', { ascending: false });
+
+    if (error) throw error;
+    return data.map(rowToTransaction);
+  },
+
+  // Get transactions for a specific portfolio
+  async getTransactionsByPortfolio(userId: string, portfolioId: string): Promise<OptionsTransaction[]> {
+    const { data, error } = await supabaseAdmin
+      .from('options_transactions')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('portfolio_id', portfolioId)
       .order('trade_open_date', { ascending: false });
 
     if (error) throw error;
