@@ -1,36 +1,173 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# OptionsBookie
 
-## Getting Started
+A comprehensive options trading tracker built with Next.js, Supabase, and NextAuth.js. Track your options trades across multiple portfolios with detailed analytics and performance metrics.
 
-First, run the development server:
+## Features
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+- **Multi-Portfolio Support**: Organize trades across multiple portfolios
+- **Comprehensive Trade Tracking**: Track all aspects of options trades including P&L, days held, and annualized returns
+- **Real-time Analytics**: View portfolio performance and trade statistics
+- **Secure Authentication**: Google OAuth integration with NextAuth.js
+- **Responsive Design**: Modern UI built with Tailwind CSS
+- **Data Persistence**: PostgreSQL database with Supabase
+
+## Quick Start
+
+### Prerequisites
+
+- Node.js 20.18.0 or later
+- Supabase account
+- Google OAuth credentials
+
+### Installation
+
+1. **Clone the repository**
+   ```bash
+   git clone <repository-url>
+   cd options-bookie
+   ```
+
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
+
+3. **Set up environment variables**
+   ```bash
+   cp .env.example .env.local
+   ```
+
+   Fill in your environment variables:
+   ```env
+   NEXTAUTH_URL=http://localhost:3007
+   NEXTAUTH_SECRET=your-secret-key
+   NEXT_PUBLIC_SUPABASE_URL=your-supabase-url
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
+   SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-role-key
+   GOOGLE_CLIENT_ID=your-google-client-id
+   GOOGLE_CLIENT_SECRET=your-google-client-secret
+   ```
+
+4. **Set up the database**
+   - Open your Supabase SQL Editor
+   - Run the contents of `01-initial-database-setup.sql`
+   - See [DATABASE_SETUP.md](./DATABASE_SETUP.md) for detailed instructions
+
+5. **Start the development server**
+   ```bash
+   npm run dev
+   ```
+
+6. **Open your browser**
+   Navigate to [http://localhost:3007](http://localhost:3007)
+
+## Database Setup
+
+For detailed database setup instructions, see [DATABASE_SETUP.md](./DATABASE_SETUP.md).
+
+### Quick Database Setup
+
+1. **Fresh Installation**: Run `01-initial-database-setup.sql` in Supabase SQL Editor
+2. **Migration**: Use scripts in `scripts/migration/` directory in order
+
+## Project Structure
+
+```
+options-bookie/
+├── src/
+│   ├── app/                 # Next.js app directory
+│   │   ├── api/            # API routes
+│   │   └── page.tsx        # Main page
+│   ├── components/         # React components
+│   ├── hooks/             # Custom React hooks
+│   ├── lib/               # Utility libraries
+│   ├── types/             # TypeScript type definitions
+│   └── utils/             # Utility functions
+├── scripts/               # Database scripts
+│   ├── setup/            # Initial setup scripts
+│   ├── migration/        # Migration scripts
+│   └── debug/            # Debug scripts
+├── 01-initial-database-setup.sql  # Main database setup
+└── DATABASE_SETUP.md     # Database setup guide
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Key Components
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- **PortfolioSelector**: Manage and switch between portfolios
+- **TransactionTable**: View and manage options trades
+- **PortfolioSummary**: Portfolio performance overview
+- **AddTransactionModal**: Add new trades
+- **EditTransactionModal**: Edit existing trades
+- **SummaryView**: Analytics and performance metrics
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Features in Detail
 
-## Learn More
+### Portfolio Management
+- Create multiple portfolios
+- Set default portfolio
+- Delete portfolios (with safety checks)
+- Switch between portfolios or view all
 
-To learn more about Next.js, take a look at the following resources:
+### Trade Tracking
+- Complete options trade information
+- Automatic P&L calculations
+- Days held tracking
+- Annualized return calculations
+- Break-even price calculations
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Analytics
+- Portfolio performance metrics
+- Win/loss statistics
+- Total P&L tracking
+- Trade distribution analysis
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Security
 
-## Deploy on Vercel
+- **Row Level Security (RLS)** enabled on all database tables
+- **Email-based authentication** ensures users only access their own data
+- **Portfolio ownership validation** prevents unauthorized access
+- **Secure API routes** with proper authentication
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Development
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### Available Scripts
+
+- `npm run dev` - Start development server
+- `npm run build` - Build for production
+- `npm run start` - Start production server
+- `npm run lint` - Run ESLint
+
+### Database Scripts
+
+- `01-initial-database-setup.sql` - Complete database setup
+- `scripts/migration/` - Migration scripts for existing databases
+- `scripts/debug/` - Debug and testing scripts
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Test thoroughly
+5. Submit a pull request
+
+## License
+
+This project is licensed under the MIT License.
+
+## Support
+
+For issues and questions:
+1. Check the [DATABASE_SETUP.md](./DATABASE_SETUP.md) guide
+2. Review the debug scripts in `scripts/debug/`
+3. Check Supabase logs for database issues
+4. Verify environment variables are correctly set
+
+## Changelog
+
+### Recent Updates
+- ✅ Multi-portfolio support
+- ✅ Portfolio deletion functionality
+- ✅ Improved UI layout and organization
+- ✅ Comprehensive database setup scripts
+- ✅ Repository cleanup and organization

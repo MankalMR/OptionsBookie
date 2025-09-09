@@ -1,6 +1,17 @@
 // Options Trading Data Types
+export interface Portfolio {
+  id: string;
+  userId: string;
+  name: string;
+  description?: string;
+  isDefault: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface OptionsTransaction {
   id: string;
+  portfolioId: string;
   stockSymbol: string;
   tradeOpenDate: Date;
   expiryDate: Date;

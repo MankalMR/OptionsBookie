@@ -145,3 +145,21 @@ public
 # Temporary folders
 tmp/
 temp/
+
+# Database and migration files
+*.db
+*.sqlite
+*.sqlite3
+migrate-*.js
+debug-*.js
+test-*.js
+*-migration.js
+
+# Temporary files
+temp-*.sql
+debug-*.sql
+test-*.sql
+
+# Excel files
+*.xlsx
+*.xls
