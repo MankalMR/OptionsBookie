@@ -1,6 +1,8 @@
 'use client';
 
 import { Portfolio } from '@/types/options';
+import { Button } from '@/components/ui/button';
+import { Plus, Trash2 } from 'lucide-react';
 
 interface PortfolioSelectorProps {
   portfolios: Portfolio[];
@@ -85,21 +87,20 @@ export default function PortfolioSelector({
       </div>
 
       <div className="flex items-center space-x-2">
-        <button
-          onClick={onAddPortfolio}
-          className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-        >
-          + Add Portfolio
-        </button>
+        <Button onClick={onAddPortfolio}>
+          <Plus className="mr-2 h-4 w-4" />
+          Add Portfolio
+        </Button>
 
         {canDeleteSelectedPortfolio() && (
-          <button
+          <Button
+            variant="destructive"
             onClick={handleDeletePortfolio}
-            className="inline-flex items-center px-3 py-2 border border-red-300 text-sm leading-4 font-medium rounded-md text-red-700 bg-red-50 hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
             title="Delete selected portfolio"
           >
-            🗑️ Delete
-          </button>
+            <Trash2 className="mr-2 h-4 w-4" />
+            Delete
+          </Button>
         )}
       </div>
     </div>

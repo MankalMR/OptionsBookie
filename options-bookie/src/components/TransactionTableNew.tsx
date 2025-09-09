@@ -2,6 +2,7 @@
 
 import { OptionsTransaction, Portfolio } from '@/types/options';
 import { useState } from 'react';
+import { calculateProfitLoss } from '@/utils/optionsCalculations';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -9,13 +10,14 @@ import { Edit, Trash2, TrendingUp, TrendingDown } from 'lucide-react';
 
 interface TransactionTableProps {
   transactions: OptionsTransaction[];
+  onUpdate: (id: string, updates: Partial<OptionsTransaction>) => void;
   onDelete: (id: string) => void;
   onEdit: (transaction: OptionsTransaction) => void;
   portfolios?: Portfolio[];
   showPortfolioColumn?: boolean;
 }
 
-export default function TransactionTable({ transactions, onDelete, onEdit, portfolios = [], showPortfolioColumn = false }: TransactionTableProps) {
+export default function TransactionTable({ transactions, onUpdate, onDelete, onEdit, portfolios = [], showPortfolioColumn = false }: TransactionTableProps) {
   const [sortBy, setSortBy] = useState<keyof OptionsTransaction>('tradeOpenDate');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
@@ -51,24 +53,12 @@ export default function TransactionTable({ transactions, onDelete, onEdit, portf
     }
   };
 
-  const formatDate = (date: Date | string) => {
-    try {
-      const dateObj = date instanceof Date ? date : new Date(date);
-
-      // Check if the date is valid
-      if (isNaN(dateObj.getTime())) {
-        return 'Invalid Date';
-      }
-
-      return new Intl.DateTimeFormat('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-      }).format(dateObj);
-    } catch (error) {
-      console.error('Error formatting date:', error, 'Input:', date);
-      return 'Invalid Date';
-    }
+  const formatDate = (date: Date) => {
+    return new Intl.DateTimeFormat('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    }).format(date);
   };
 
   const getPortfolioName = (portfolioId: string) => {
@@ -210,13 +200,13 @@ export default function TransactionTable({ transactions, onDelete, onEdit, portf
               </TableCell>
               <TableCell>
                 <div className="flex items-center space-x-1">
-                  {(transaction.profitLoss ?? 0) >= 0 ? (
+                  {transaction.profitLoss >= 0 ? (
                     <TrendingUp className="h-4 w-4 text-green-600" />
                   ) : (
                     <TrendingDown className="h-4 w-4 text-red-600" />
                   )}
-                  <span className={`font-medium ${(transaction.profitLoss ?? 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                    {(transaction.profitLoss ?? 0) >= 0 ? '+' : ''}${(transaction.profitLoss ?? 0).toFixed(2)}
+                  <span className={`font-medium ${transaction.profitLoss >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {transaction.profitLoss >= 0 ? '+' : ''}${transaction.profitLoss.toFixed(2)}
                   </span>
                 </div>
               </TableCell>

@@ -13,6 +13,9 @@ import { updateTransactionPandL } from '@/utils/optionsCalculations';
 import { useTransactions } from '@/hooks/useTransactions';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import AuthButton from '@/components/AuthButton';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Plus, RefreshCw } from 'lucide-react';
 
 export default function Home() {
   const {
@@ -137,14 +140,6 @@ export default function Home() {
     }
   };
 
-  const handleUpdateTransaction = async (id: string, updates: Partial<OptionsTransaction>) => {
-    try {
-      await updateTransaction(id, updates);
-    } catch (error) {
-      console.error('Failed to update transaction:', error);
-      // Error is handled by the hook and displayed in the UI
-    }
-  };
 
   const handleEditTransaction = (transaction: OptionsTransaction) => {
     setEditingTransaction(transaction);
@@ -211,12 +206,14 @@ export default function Home() {
                 <p className="text-gray-600">Track your options trades with precision</p>
               </div>
               <div className="flex space-x-3">
-                <button
+                <Button
                   onClick={handleUpdatePandL}
-                  className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+                  variant="outline"
+                  className="bg-green-600 hover:bg-green-700 text-white border-green-600 hover:border-green-700"
                 >
+                  <RefreshCw className="mr-2 h-4 w-4" />
                   Refresh P&L
-                </button>
+                </Button>
                 <AuthButton />
               </div>
             </div>
@@ -306,18 +303,18 @@ export default function Home() {
             <PortfolioSummary transactions={filteredTransactions} />
 
             {/* Recent Trades - Full Width */}
-            <div className="bg-white rounded-lg shadow">
-              <div className="px-6 py-4 border-b border-gray-200">
+            <Card>
+              <CardHeader>
                 <div className="flex justify-between items-center">
                   <div className="flex items-center space-x-4">
-                    <h2 className="text-xl font-semibold text-gray-900">Recent Trades</h2>
+                    <CardTitle className="text-xl">Recent Trades</CardTitle>
 
                     {/* Status Filter */}
                     <select
                       id="status-filter"
                       value={selectedStatus || ''}
                       onChange={(e) => handleStatusChange(e.target.value || null)}
-                      className="block w-32 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm bg-white text-gray-900"
+                      className="block w-32 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-white text-gray-900"
                     >
                       <option value="">All Status</option>
                       <option value="Open">Open</option>
@@ -326,20 +323,18 @@ export default function Home() {
                   </div>
 
                   <div className="flex items-center space-x-4">
-                    <div className="text-sm text-gray-600">
+                    <div className="text-sm text-muted-foreground">
                       💡 Click the ✏️ button to edit or close trades
                     </div>
-                    <button
-                      onClick={() => setShowAddModal(true)}
-                      className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
-                    >
+                    <Button onClick={() => setShowAddModal(true)}>
+                      <Plus className="mr-2 h-4 w-4" />
                       Add Trade
-                    </button>
+                    </Button>
                   </div>
                 </div>
 
                 {/* Filter Status Info */}
-                <div className="mt-2 text-sm text-gray-600">
+                <CardDescription>
                   Showing {filteredTransactions.length} trade{filteredTransactions.length !== 1 ? 's' : ''}
                   {selectedPortfolioId && (
                     <span className="ml-1">
@@ -351,17 +346,18 @@ export default function Home() {
                       with status &quot;{selectedStatus}&quot;
                     </span>
                   )}
-                </div>
-              </div>
-                          <TransactionTable
-                            transactions={filteredTransactions}
-                            onUpdate={handleUpdateTransaction}
-                            onDelete={handleDeleteTransaction}
-                            onEdit={handleEditTransaction}
-                            portfolios={portfolios}
-                            showPortfolioColumn={!selectedPortfolioId}
-                          />
-            </div>
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <TransactionTable
+                  transactions={filteredTransactions}
+                  onDelete={handleDeleteTransaction}
+                  onEdit={handleEditTransaction}
+                  portfolios={portfolios}
+                  showPortfolioColumn={!selectedPortfolioId}
+                />
+              </CardContent>
+            </Card>
           </div>
         ) : (
           <SummaryView transactions={filteredTransactions} />
