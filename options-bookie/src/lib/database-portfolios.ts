@@ -14,7 +14,7 @@ function rowToPortfolio(row: any): Portfolio {
     userId: row.user_id,
     name: row.name,
     description: row.description,
-    isDefault: row.is_default,
+    isDefault: row.is_default || false, // Default to false if column doesn't exist
     createdAt: new Date(row.created_at),
     updatedAt: new Date(row.updated_at),
   };
@@ -139,23 +139,60 @@ export const portfolioDb = {
 
   // Set a portfolio as default
   async setDefaultPortfolio(id: string, userId: string): Promise<Portfolio | null> {
-    // First unset all other default portfolios for this user
-    await supabaseAdmin
-      .from('portfolios')
-      .update({ is_default: false })
-      .eq('user_id', userId)
-      .neq('id', id);
+    try {
+      console.log('setDefaultPortfolio - ID:', id, 'User ID:', userId);
 
-    // Set this portfolio as default
-    const { data, error } = await supabaseAdmin
-      .from('portfolios')
-      .update({ is_default: true })
-      .eq('id', id)
-      .eq('user_id', userId)
-      .select()
-      .single();
+      // First check if the portfolio exists
+      const { data: existingPortfolio, error: checkError } = await supabaseAdmin
+        .from('portfolios')
+        .select('*')
+        .eq('id', id)
+        .eq('user_id', userId)
+        .single();
 
-    if (error) return null;
-    return rowToPortfolio(data);
+      if (checkError) {
+        console.error('Error checking portfolio existence:', checkError);
+        return null;
+      }
+
+      if (!existingPortfolio) {
+        console.log('Portfolio not found for user');
+        return null;
+      }
+
+      console.log('Portfolio found:', existingPortfolio);
+
+      // First unset all other default portfolios for this user
+      const { error: unsetError } = await supabaseAdmin
+        .from('portfolios')
+        .update({ is_default: false })
+        .eq('user_id', userId)
+        .neq('id', id);
+
+      if (unsetError) {
+        console.error('Error unsetting other defaults:', unsetError);
+        return null;
+      }
+
+      // Set this portfolio as default
+      const { data, error } = await supabaseAdmin
+        .from('portfolios')
+        .update({ is_default: true })
+        .eq('id', id)
+        .eq('user_id', userId)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error setting default portfolio:', error);
+        return null;
+      }
+
+      console.log('Successfully set default portfolio:', data);
+      return rowToPortfolio(data);
+    } catch (error) {
+      console.error('Error in setDefaultPortfolio:', error);
+      return null;
+    }
   },
 };

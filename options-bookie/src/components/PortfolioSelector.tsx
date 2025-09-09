@@ -2,7 +2,7 @@
 
 import { Portfolio } from '@/types/options';
 import { Button } from '@/components/ui/button';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, Star, StarOff } from 'lucide-react';
 
 interface PortfolioSelectorProps {
   portfolios: Portfolio[];
@@ -10,6 +10,7 @@ interface PortfolioSelectorProps {
   onPortfolioChange: (portfolioId: string | null) => void;
   onAddPortfolio: () => void;
   onDeletePortfolio: (portfolioId: string) => void;
+  onSetDefaultPortfolio: (portfolioId: string) => void;
   loading?: boolean;
 }
 
@@ -19,6 +20,7 @@ export default function PortfolioSelector({
   onPortfolioChange,
   onAddPortfolio,
   onDeletePortfolio,
+  onSetDefaultPortfolio,
   loading = false,
 }: PortfolioSelectorProps) {
 
@@ -56,6 +58,14 @@ export default function PortfolioSelector({
     return portfolio && !portfolio.isDefault;
   };
 
+  const handleSetDefaultPortfolio = async (portfolioId: string) => {
+    try {
+      await onSetDefaultPortfolio(portfolioId);
+    } catch (error) {
+      console.error('Failed to set default portfolio:', error);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center space-x-2">
@@ -80,7 +90,7 @@ export default function PortfolioSelector({
           <option value="">All Portfolios</option>
           {portfolios.map((portfolio) => (
             <option key={portfolio.id} value={portfolio.id}>
-              {portfolio.name} {portfolio.isDefault ? '(Default)' : ''}
+              {portfolio.name} {portfolio.isDefault ? '⭐' : ''}
             </option>
           ))}
         </select>
@@ -91,6 +101,17 @@ export default function PortfolioSelector({
           <Plus className="mr-2 h-4 w-4" />
           Add Portfolio
         </Button>
+
+        {selectedPortfolioId && !portfolios.find(p => p.id === selectedPortfolioId)?.isDefault && (
+          <Button
+            variant="outline"
+            onClick={() => handleSetDefaultPortfolio(selectedPortfolioId)}
+            title="Set as default portfolio"
+          >
+            <Star className="mr-2 h-4 w-4" />
+            Set Default
+          </Button>
+        )}
 
         {canDeleteSelectedPortfolio() && (
           <Button

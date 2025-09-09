@@ -125,6 +125,28 @@ export default function Home() {
     }
   };
 
+  const handleSetDefaultPortfolio = async (portfolioId: string) => {
+    try {
+      const response = await fetch(`/api/portfolios/${portfolioId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ action: 'setDefault' }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to set default portfolio');
+      }
+
+      // Refresh portfolios to get updated default status
+      await fetchPortfolios();
+    } catch (error) {
+      console.error('Failed to set default portfolio:', error);
+      alert(`Failed to set default portfolio: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  };
+
   const handleAddTransaction = async (transaction: Omit<OptionsTransaction, 'id' | 'createdAt' | 'updatedAt'>) => {
     try {
       // Add the selected portfolio ID to the transaction
@@ -264,6 +286,7 @@ export default function Home() {
             onPortfolioChange={handlePortfolioChange}
             onAddPortfolio={handleAddPortfolio}
             onDeletePortfolio={handleDeletePortfolio}
+            onSetDefaultPortfolio={handleSetDefaultPortfolio}
             loading={portfoliosLoading}
           />
         </div>
