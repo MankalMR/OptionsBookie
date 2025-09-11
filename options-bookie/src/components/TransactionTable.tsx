@@ -6,6 +6,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Edit, Trash2, TrendingUp, TrendingDown } from 'lucide-react';
+import { useStockPrices } from '@/hooks/useStockPrices';
+import StockPriceDisplay, { ITMIndicator } from '@/components/StockPriceDisplay';
 
 interface TransactionTableProps {
   transactions: OptionsTransaction[];
@@ -18,6 +20,10 @@ interface TransactionTableProps {
 export default function TransactionTable({ transactions, onDelete, onEdit, portfolios = [], showPortfolioColumn = false }: TransactionTableProps) {
   const [sortBy, setSortBy] = useState<keyof OptionsTransaction>('tradeOpenDate');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+
+  // Get unique stock symbols for price fetching
+  const stockSymbols = [...new Set(transactions.map(t => t.stockSymbol))];
+  const { stockPrices, loading: pricesLoading, isAvailable: pricesAvailable, error: pricesError, refreshPrices } = useStockPrices(stockSymbols);
 
   const sortedTransactions = [...transactions].sort((a, b) => {
     const aValue = a[sortBy];
@@ -103,6 +109,37 @@ export default function TransactionTable({ transactions, onDelete, onEdit, portf
 
   return (
     <div className="rounded-md border">
+      <div className="flex items-center justify-between p-4 border-b">
+        <h3 className="text-lg font-semibold">Recent Trades</h3>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={refreshPrices}
+          disabled={pricesLoading}
+          className="flex items-center space-x-2"
+        >
+          <TrendingUp className="h-4 w-4" />
+          <span>{pricesLoading ? 'Refreshing...' : 'Refresh Prices'}</span>
+        </Button>
+      </div>
+
+      {/* Stock price availability notification */}
+      {!pricesAvailable && pricesError && (
+        <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="ml-3">
+              <p className="text-sm text-yellow-700">
+                {pricesError}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
       <Table>
         <TableHeader>
           <TableRow>
@@ -133,6 +170,11 @@ export default function TransactionTable({ transactions, onDelete, onEdit, portf
             >
               Strike
             </TableHead>
+            {pricesAvailable && (
+              <TableHead>
+                Current Price
+              </TableHead>
+            )}
             <TableHead
               className="cursor-pointer hover:bg-muted/50"
               onClick={() => handleSort('premium')}
@@ -156,6 +198,12 @@ export default function TransactionTable({ transactions, onDelete, onEdit, portf
               onClick={() => handleSort('profitLoss')}
             >
               P&L
+            </TableHead>
+            <TableHead
+              className="cursor-pointer hover:bg-muted/50"
+              onClick={() => handleSort('daysToExpiry')}
+            >
+              DTE
             </TableHead>
             <TableHead
               className="cursor-pointer hover:bg-muted/50"
@@ -192,8 +240,28 @@ export default function TransactionTable({ transactions, onDelete, onEdit, portf
                 </Badge>
               </TableCell>
               <TableCell>
-                ${transaction.strikePrice.toFixed(2)}
+                <div className="flex items-center space-x-2">
+                  <span>${transaction.strikePrice.toFixed(2)}</span>
+                  {stockPrices[transaction.stockSymbol] && transaction.status === 'Open' && (
+                    <ITMIndicator
+                      currentPrice={stockPrices[transaction.stockSymbol]!.price}
+                      strikePrice={transaction.strikePrice}
+                      optionType={transaction.callOrPut}
+                    />
+                  )}
+                </div>
               </TableCell>
+              {pricesAvailable && (
+                <TableCell>
+                  <StockPriceDisplay
+                    symbol={transaction.stockSymbol}
+                    stockPrice={stockPrices[transaction.stockSymbol] || null}
+                    strikePrice={transaction.strikePrice}
+                    loading={pricesLoading}
+                    showComparison={false}
+                  />
+                </TableCell>
+              )}
               <TableCell>
                 ${transaction.premium.toFixed(2)}
               </TableCell>
@@ -219,6 +287,17 @@ export default function TransactionTable({ transactions, onDelete, onEdit, portf
                     {(transaction.profitLoss ?? 0) >= 0 ? '+' : ''}${(transaction.profitLoss ?? 0).toFixed(2)}
                   </span>
                 </div>
+              </TableCell>
+              <TableCell>
+                <span className={`font-medium ${
+                  transaction.daysToExpiry <= 7
+                    ? 'text-red-600 bg-red-50 px-2 py-1 rounded'
+                    : transaction.daysToExpiry <= 30
+                    ? 'text-orange-600 bg-orange-50 px-2 py-1 rounded'
+                    : 'text-gray-600'
+                }`}>
+                  {transaction.daysToExpiry}
+                </span>
               </TableCell>
               <TableCell>
                 {transaction.daysHeld}

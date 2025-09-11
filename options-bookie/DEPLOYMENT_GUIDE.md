@@ -48,6 +48,7 @@ Deploy your OptionsBookie app to Vercel in just a few clicks!
      NEXTAUTH_URL=https://your-app-name.vercel.app
      GOOGLE_CLIENT_ID=your_google_client_id
      GOOGLE_CLIENT_SECRET=your_google_client_secret
+     PERPLEXITY_API_KEY=your_perplexity_api_key
      ```
 
 4. **Deploy**

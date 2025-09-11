@@ -84,6 +84,42 @@ export default function Home() {
     fetchPortfolios();
   }, [fetchPortfolios]);
 
+  // Auto-update expired trades
+  useEffect(() => {
+    const checkAndUpdateExpiredTrades = async () => {
+      const openTrades = transactions.filter(t => t.status === 'Open');
+      const expiredTrades = openTrades.filter(t => {
+        const today = new Date();
+        const expiryDate = new Date(t.expiryDate);
+        return today > expiryDate;
+      });
+
+      if (expiredTrades.length > 0) {
+        console.log(`Found ${expiredTrades.length} expired trades, updating to Expired status`);
+
+        for (const trade of expiredTrades) {
+          try {
+            // For expired trades, keep the existing profitLoss value
+            // The P&L should already be calculated when the trade was opened
+            await updateTransaction(trade.id, {
+              status: 'Expired',
+              closeDate: new Date(),
+              daysHeld: trade.daysHeld || 0
+            });
+          } catch (error) {
+            console.error(`Error updating expired trade ${trade.id}:`, error);
+          }
+        }
+
+        // Refresh transactions to show updated statuses
+        refreshTransactions();
+      }
+    };
+
+    // Check for expired trades only when the app loads
+    checkAndUpdateExpiredTrades();
+  }, [transactions, updateTransaction, refreshTransactions]);
+
   const handlePortfolioChange = (portfolioId: string | null) => {
     setSelectedPortfolioId(portfolioId);
   };
@@ -208,14 +244,8 @@ export default function Home() {
     }
   }, [transactions, updateTransaction]);
 
-  // Auto-update P&L every 5 minutes for open positions
-  useEffect(() => {
-    const interval = setInterval(() => {
-      handleUpdatePandL();
-    }, 5 * 60 * 1000); // 5 minutes
-
-    return () => clearInterval(interval);
-  }, [transactions, handleUpdatePandL]);
+  // Auto-update P&L removed - P&L is now calculated from stored profitLoss values
+  // and doesn't require live price updates
 
   return (
     <ProtectedRoute>

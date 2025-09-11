@@ -91,3 +91,21 @@ export const calculateDaysToExpiry = (expiryDate: Date): number => {
   const diffTime = expiry.getTime() - today.getTime();
   return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 };
+
+export const isTradeExpired = (expiryDate: Date): boolean => {
+  const today = new Date();
+  const expiry = new Date(expiryDate);
+  return today > expiry;
+};
+
+export const shouldUpdateTradeStatus = (transaction: any): boolean => {
+  // Only update if trade is currently open and has expired
+  return transaction.status === 'Open' && isTradeExpired(transaction.expiryDate);
+};
+
+export const calculateUnrealizedPnL = (transactions: any[]): number => {
+  // Simplified: Just sum the profitLoss field of all open trades
+  return transactions
+    .filter(t => t.status === 'Open')
+    .reduce((total, transaction) => total + (transaction.profitLoss || 0), 0);
+};

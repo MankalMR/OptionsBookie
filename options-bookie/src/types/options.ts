@@ -32,7 +32,7 @@ export interface OptionsTransaction {
   profitLoss?: number;
   daysHeld?: number;
   annualizedROR?: number;
-  status: 'Open' | 'Closed';
+  status: 'Open' | 'Closed' | 'Expired' | 'Assigned';
   createdAt: Date;
   updatedAt: Date;
 }
@@ -41,6 +41,7 @@ export interface PortfolioSummary {
   totalOpenPositions: number;
   totalClosedPositions: number;
   totalProfitLoss: number;
+  unrealizedPnL: number;
   totalFees: number;
   winRate: number;
   averageDaysHeld: number;

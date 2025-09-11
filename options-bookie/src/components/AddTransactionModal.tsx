@@ -24,7 +24,7 @@ export default function AddTransactionModal({ onClose, onSave, portfolios = [], 
     premium: 0,
     numberOfContracts: 1,
     fees: 0,
-    status: 'Open' as 'Open' | 'Closed',
+    status: 'Open' as 'Open' | 'Closed' | 'Expired' | 'Assigned',
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});

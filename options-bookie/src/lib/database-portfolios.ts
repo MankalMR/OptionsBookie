@@ -1,11 +1,16 @@
 import { createClient } from '@supabase/supabase-js';
 import { Portfolio } from '@/types/options';
 
+// Environment variables validation
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!supabaseUrl || !supabaseServiceKey) {
+  throw new Error('Missing required Supabase environment variables. Please check NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are set.');
+}
+
 // Create a service role client for server-side operations (bypasses RLS)
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
 // Helper function to convert Supabase row to Portfolio
 function rowToPortfolio(row: any): Portfolio {

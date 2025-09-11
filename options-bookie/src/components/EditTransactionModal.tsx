@@ -224,7 +224,7 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
     }
   };
 
-  const handleStatusChange = (newStatus: 'Open' | 'Closed') => {
+  const handleStatusChange = (newStatus: 'Open' | 'Closed' | 'Expired' | 'Assigned') => {
     setFormData(prev => ({
       ...prev,
       status: newStatus,
@@ -295,6 +295,26 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
                     className="mr-2"
                   />
                   <span className="text-sm">Closed</span>
+                </label>
+                <label className="flex items-center">
+                  <input
+                    type="radio"
+                    value="Expired"
+                    checked={formData.status === 'Expired'}
+                    onChange={(e) => handleStatusChange(e.target.value as 'Expired')}
+                    className="mr-2"
+                  />
+                  <span className="text-sm">Expired</span>
+                </label>
+                <label className="flex items-center">
+                  <input
+                    type="radio"
+                    value="Assigned"
+                    checked={formData.status === 'Assigned'}
+                    onChange={(e) => handleStatusChange(e.target.value as 'Assigned')}
+                    className="mr-2"
+                  />
+                  <span className="text-sm">Assigned</span>
                 </label>
               </div>
             </div>

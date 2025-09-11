@@ -1,18 +1,20 @@
 import { createClient } from '@supabase/supabase-js';
 import { OptionsTransaction } from '@/types/options';
 
+// Environment variables validation
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!supabaseUrl || !supabaseServiceKey) {
+  throw new Error('Missing required Supabase environment variables. Please check NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are set.');
+}
+
 // Regular Supabase client for user operations (respects RLS)
 // Temporarily using service role key to bypass RLS while debugging
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 // Service role client for admin operations only
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
 // Helper function to convert Supabase row to OptionsTransaction
 function rowToTransaction(row: any): OptionsTransaction {
