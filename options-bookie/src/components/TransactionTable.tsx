@@ -537,7 +537,9 @@ export default function TransactionTable({ transactions, onDelete, onEdit, portf
                     <div>
                 <div className="flex items-center space-x-2">
                         {/* Icon for standalone transactions (replaces chain link icon) */}
-                        <Circle className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                        <Circle className={`h-4 w-4 flex-shrink-0 fill-current ${
+                          transaction.status === 'Open' ? 'text-blue-500' : 'text-gray-400'
+                        }`} />
                         {/* Alternative options:
                             <FileText className="h-4 w-4 text-gray-400 flex-shrink-0" />
                             <Minus className="h-4 w-4 text-gray-400 flex-shrink-0" />
