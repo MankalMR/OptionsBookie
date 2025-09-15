@@ -1,7 +1,7 @@
 'use client';
 
 import { OptionsTransaction, Portfolio, TradeChain } from '@/types/options';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -23,6 +23,31 @@ export default function TransactionTable({ transactions, onDelete, onEdit, portf
   const [sortBy, setSortBy] = useState<keyof OptionsTransaction>('tradeOpenDate');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [collapsedChains, setCollapsedChains] = useState<Set<string>>(new Set());
+
+  // Initialize collapsed state for closed chains
+  useEffect(() => {
+    const closedChainIds = new Set<string>();
+
+    // Debug: Log all chains with their statuses (removed in production)
+
+    // Find chains that are closed/completed and should be collapsed by default
+    chains.forEach(chain => {
+      if (chain.chainStatus === 'Closed') {
+        closedChainIds.add(chain.id);
+      }
+    });
+
+    // Closed chain IDs to collapse: removed debug logging
+
+    // Only update if there are changes to avoid unnecessary re-renders
+    if (closedChainIds.size > 0) {
+      setCollapsedChains(prev => {
+        const newCollapsed = new Set(prev);
+        closedChainIds.forEach(id => newCollapsed.add(id));
+        return newCollapsed;
+      });
+    }
+  }, [chains]);
 
   // Debug logging removed - chain indicators working correctly
 
@@ -49,10 +74,16 @@ export default function TransactionTable({ transactions, onDelete, onEdit, portf
     const chainInfo = chains.find(c => c.id === chainId);
     const hasOpenTransactions = chainTransactions.some(t => t.status === 'Open');
     const isActiveChain = chainInfo?.chainStatus === 'Active';
+    const isClosedChain = chainInfo?.chainStatus === 'Closed';
 
-    // If chain is active and has open transactions, treat it like an open transaction
+    // If chain is closed, apply same styling as closed individual transactions
+    if (isClosedChain) {
+      return "bg-gray-200/80 hover:bg-gray-300/80 border-l-4 border-l-gray-500";
+    }
+
+    // If chain is active and has open transactions, apply light blue background
     if (isActiveChain && hasOpenTransactions) {
-      return "hover:bg-muted/50 border-l-4 border-l-blue-500"; // No background (like open transactions)
+      return "bg-blue-100/50 hover:bg-blue-200/50 border-l-4 border-l-blue-500"; // Light blue background for active chains
     }
 
     // Otherwise use the default blue chain styling
@@ -356,6 +387,8 @@ export default function TransactionTable({ transactions, onDelete, onEdit, portf
                           ? 'bg-gray-200/80'
                           : transaction.status === 'Rolled'
                           ? 'bg-amber-50/70'
+                          : transaction.status === 'Open'
+                          ? 'bg-blue-100/50'
                           : ''
                       }`}
                     >
@@ -497,6 +530,8 @@ export default function TransactionTable({ transactions, onDelete, onEdit, portf
                       ? 'bg-gray-200/80'
                       : transaction.status === 'Rolled'
                       ? 'bg-amber-50/70'
+                      : transaction.status === 'Open'
+                      ? 'bg-blue-100/50'
                       : ''
                   }`}
             >

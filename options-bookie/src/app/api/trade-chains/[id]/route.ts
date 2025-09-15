@@ -88,7 +88,6 @@ export async function PUT(
       console.error('Error updating trade chain:', error);
       return NextResponse.json({ error: 'Failed to update trade chain' }, { status: 500 });
     }
-
     return NextResponse.json(data);
   } catch (error) {
     console.error('Error in trade chain PUT:', error);

@@ -110,6 +110,57 @@ export default function Home() {
     fetchChains();
   }, [fetchChains]);
 
+  // Auto-update chain statuses based on transaction statuses
+  useEffect(() => {
+    const updateChainStatuses = async () => {
+      if (chains.length === 0 || transactions.length === 0) return;
+
+      const chainsToUpdate = [];
+
+      for (const chain of chains) {
+        if (chain.chainStatus === 'Active') {
+          // Get all transactions for this chain
+          const chainTransactions = transactions.filter(t => t.chainId === chain.id);
+
+          // Check if there are any open transactions
+          const hasOpenTransactions = chainTransactions.some(t => t.status === 'Open');
+
+          // If no open transactions, this chain should be closed
+          if (!hasOpenTransactions && chainTransactions.length > 0) {
+            console.log(`Chain ${chain.id} (${chain.symbol}) should be closed - no open transactions found`);
+            chainsToUpdate.push(chain.id);
+          }
+        }
+      }
+
+      // Update chains that should be closed
+      for (const chainId of chainsToUpdate) {
+        try {
+          const chainResponse = await fetch(`/api/trade-chains/${chainId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ chainStatus: 'Closed' })
+          });
+
+          if (chainResponse.ok) {
+            console.log(`Successfully updated chain ${chainId} to Closed status`);
+          } else {
+            console.error(`Failed to update chain ${chainId}:`, await chainResponse.text());
+          }
+        } catch (error) {
+          console.error(`Error updating chain ${chainId}:`, error);
+        }
+      }
+
+      // Refresh chains if any were updated
+      if (chainsToUpdate.length > 0) {
+        await fetchChains();
+      }
+    };
+
+    updateChainStatuses();
+  }, [chains, transactions, fetchChains]);
+
   // Auto-update expired trades
   useEffect(() => {
     const checkAndUpdateExpiredTrades = async () => {
@@ -131,12 +182,30 @@ export default function Home() {
               status: 'Expired',
               closeDate: new Date()
             });
+
+            // If this trade is part of a chain, update the chain status to 'Closed'
+            if (trade.chainId) {
+              try {
+                const chainResponse = await fetch(`/api/trade-chains/${trade.chainId}`, {
+                  method: 'PUT',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ chainStatus: 'Closed' })
+                });
+
+                if (!chainResponse.ok) {
+                  console.error('Failed to update chain status for expired trade');
+                }
+              } catch (error) {
+                console.error('Error updating chain status for expired trade:', error);
+              }
+            }
           } catch (error) {
             console.error(`Error updating expired trade ${trade.id}:`, error);
           }
         }
 
-        // Refresh transactions to show updated statuses
+        // Refresh transactions and chains to show updated statuses
+        await fetchChains();
         refreshTransactions();
       }
     };
@@ -231,12 +300,41 @@ export default function Home() {
 
   const handleSaveEdit = async (id: string, updates: Partial<OptionsTransaction>) => {
     try {
+      const originalTransaction = transactions.find(t => t.id === id);
       await updateTransaction(id, updates);
+
+      // Check if this transaction is part of a chain and is being closed
+      if (originalTransaction?.chainId && updates.status && ['Closed', 'Expired', 'Assigned'].includes(updates.status)) {
+        // Check if this was the open trade in the chain
+        const chainTransactions = transactions.filter(t => t.chainId === originalTransaction.chainId);
+        const wasOpenTrade = originalTransaction.status === 'Open';
+
+        if (wasOpenTrade) {
+          // Update the chain status to 'Closed' since the open trade is now closed
+          console.log(`Updating chain ${originalTransaction.chainId} status to 'Closed' for transaction ${id}`);
+          try {
+            const chainResponse = await fetch(`/api/trade-chains/${originalTransaction.chainId}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ chainStatus: 'Closed' })
+            });
+
+            if (!chainResponse.ok) {
+              console.error('Failed to update chain status:', await chainResponse.text());
+            } else {
+              console.log('Chain status updated successfully');
+            }
+          } catch (error) {
+            console.error('Error updating chain status:', error);
+          }
+        }
+      }
+
       setShowEditModal(false);
       setEditingTransaction(null);
 
-      // Refresh chains and transactions if a trade was rolled (chainId was added)
-      if (updates.chainId) {
+      // Refresh chains and transactions if a trade was rolled (chainId was added) or if chain status was updated
+      if (updates.chainId || (originalTransaction?.chainId && updates.status && ['Closed', 'Expired', 'Assigned'].includes(updates.status))) {
         await fetchChains();
         // Also refresh transactions to show the new open trade created by the roll
         await refreshTransactions();
