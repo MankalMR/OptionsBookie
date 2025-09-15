@@ -111,17 +111,17 @@ export default function StockPriceDisplay({
   const comparison = showComparison ? getPriceComparison(stockPrice.price, strikePrice) : null;
 
   return (
-    <div className="flex items-center space-x-2">
+    <div className="flex flex-col">
       <span className="font-medium">{formatPrice(stockPrice.price)}</span>
       <div className={`flex items-center space-x-1 text-xs ${
         stockPrice.change >= 0 ? 'text-green-600' : 'text-red-600'
       }`}>
         {stockPrice.change >= 0 ? (
-          <TrendingUp className="h-3 w-3" />
+          <TrendingUp className="h-2.5 w-2.5" />
         ) : (
-          <TrendingDown className="h-3 w-3" />
+          <TrendingDown className="h-2.5 w-2.5" />
         )}
-        <span>{formatChange(stockPrice.change, stockPrice.changePercent)}</span>
+        <span className="text-xs">{formatChange(stockPrice.change, stockPrice.changePercent)}</span>
       </div>
     </div>
   );

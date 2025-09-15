@@ -26,7 +26,6 @@ function rowToTransaction(row: any): OptionsTransaction {
     callOrPut: row.call_or_put,
     buyOrSell: row.buy_or_sell,
     stockPriceCurrent: parseFloat(row.stock_price_current),
-    daysToExpiry: row.days_to_expiry,
     breakEvenPrice: parseFloat(row.break_even_price),
     strikePrice: parseFloat(row.strike_price),
     premium: parseFloat(row.premium),
@@ -36,12 +35,12 @@ function rowToTransaction(row: any): OptionsTransaction {
     exitPrice: row.exit_price ? parseFloat(row.exit_price) : undefined,
     closeDate: row.close_date ? new Date(row.close_date) : undefined,
     profitLoss: parseFloat(row.profit_loss || 0),
-    daysHeld: row.days_held || 0,
     annualizedROR: row.annualized_ror ? parseFloat(row.annualized_ror) : undefined,
     cashReserve: row.cash_reserve ? parseFloat(row.cash_reserve) : undefined,
     marginCashReserve: row.margin_cash_reserve ? parseFloat(row.margin_cash_reserve) : undefined,
     costBasisPerShare: row.cost_basis_per_share ? parseFloat(row.cost_basis_per_share) : undefined,
     portfolioId: row.portfolio_id || '',
+    chainId: row.chain_id || undefined, // Added missing chainId mapping
     createdAt: new Date(row.created_at),
     updatedAt: new Date(row.updated_at),
   };
@@ -62,7 +61,6 @@ function transactionToRow(transaction: Partial<OptionsTransaction>, userId: stri
     call_or_put: transaction.callOrPut,
     buy_or_sell: transaction.buyOrSell,
     stock_price_current: transaction.stockPriceCurrent,
-    days_to_expiry: transaction.daysToExpiry,
     break_even_price: transaction.breakEvenPrice,
     strike_price: transaction.strikePrice,
     premium: transaction.premium,
@@ -74,11 +72,11 @@ function transactionToRow(transaction: Partial<OptionsTransaction>, userId: stri
       (transaction.closeDate instanceof Date ? transaction.closeDate.toISOString() : new Date(transaction.closeDate).toISOString()) :
       undefined,
     profit_loss: transaction.profitLoss || 0,
-    days_held: transaction.daysHeld || 0,
     annualized_ror: transaction.annualizedROR,
     cash_reserve: transaction.cashReserve,
     margin_cash_reserve: transaction.marginCashReserve,
     cost_basis_per_share: transaction.costBasisPerShare,
+    chain_id: transaction.chainId, // Added missing chainId mapping
   };
 }
 
@@ -92,6 +90,7 @@ export const secureDb = {
       .order('trade_open_date', { ascending: false });
 
     if (error) throw error;
+
     return data.map(rowToTransaction);
   },
 

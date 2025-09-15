@@ -1,11 +1,12 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { OptionsTransaction, Portfolio } from '@/types/options';
+import { OptionsTransaction, Portfolio, TradeChain } from '@/types/options';
 import TransactionTable from '@/components/TransactionTable';
 import PortfolioSummary from '@/components/PortfolioSummary';
 import AddTransactionModal from '@/components/AddTransactionModal';
 import EditTransactionModal from '@/components/EditTransactionModal';
+import DeleteConfirmationModal from '@/components/DeleteConfirmationModal';
 import SummaryView from '@/components/SummaryView';
 import PortfolioSelector from '@/components/PortfolioSelector';
 import PortfolioModal from '@/components/PortfolioModal';
@@ -31,12 +32,15 @@ export default function Home() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showPortfolioModal, setShowPortfolioModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<OptionsTransaction | null>(null);
+  const [deletingTransaction, setDeletingTransaction] = useState<OptionsTransaction | null>(null);
   const [activeTab, setActiveTab] = useState<'trades' | 'summary'>('trades');
   const [selectedPortfolioId, setSelectedPortfolioId] = useState<string | null>(null);
   const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
   const [portfolios, setPortfolios] = useState<Portfolio[]>([]);
   const [portfoliosLoading, setPortfoliosLoading] = useState(true);
+  const [chains, setChains] = useState<TradeChain[]>([]);
   const [filteredTransactions, setFilteredTransactions] = useState<OptionsTransaction[]>([]);
 
   // Filter transactions based on selected portfolio and status
@@ -79,10 +83,32 @@ export default function Home() {
     }
   }, [selectedPortfolioId, portfolios.length]);
 
-  // Fetch portfolios on component mount
+  const fetchChains = useCallback(async () => {
+    try {
+      const url = selectedPortfolioId
+        ? `/api/trade-chains?portfolioId=${selectedPortfolioId}`
+        : '/api/trade-chains?portfolioId=all';
+
+      const response = await fetch(url);
+      if (response.ok) {
+        const data = await response.json();
+        setChains(data);
+      } else {
+        console.error('Failed to fetch trade chains');
+      }
+    } catch (error) {
+      console.error('Error fetching trade chains:', error);
+    }
+  }, [selectedPortfolioId]);
+
+  // Fetch portfolios and chains on component mount
   useEffect(() => {
     fetchPortfolios();
   }, [fetchPortfolios]);
+
+  useEffect(() => {
+    fetchChains();
+  }, [fetchChains]);
 
   // Auto-update expired trades
   useEffect(() => {
@@ -103,8 +129,7 @@ export default function Home() {
             // The P&L should already be calculated when the trade was opened
             await updateTransaction(trade.id, {
               status: 'Expired',
-              closeDate: new Date(),
-              daysHeld: trade.daysHeld || 0
+              closeDate: new Date()
             });
           } catch (error) {
             console.error(`Error updating expired trade ${trade.id}:`, error);
@@ -209,6 +234,13 @@ export default function Home() {
       await updateTransaction(id, updates);
       setShowEditModal(false);
       setEditingTransaction(null);
+
+      // Refresh chains and transactions if a trade was rolled (chainId was added)
+      if (updates.chainId) {
+        await fetchChains();
+        // Also refresh transactions to show the new open trade created by the roll
+        await refreshTransactions();
+      }
     } catch (error) {
       console.error('Failed to save edit:', error);
       // Error is handled by the hook and displayed in the UI
@@ -221,12 +253,30 @@ export default function Home() {
   };
 
   const handleDeleteTransaction = async (id: string) => {
+    // Find the transaction to get details for confirmation
+    const transaction = transactions.find(t => t.id === id);
+    if (!transaction) return;
+
+    // Set transaction for deletion and show modal
+    setDeletingTransaction(transaction);
+    setShowDeleteModal(true);
+  };
+
+  const confirmDeleteTransaction = async () => {
+    if (!deletingTransaction) return;
+
     try {
-      await deleteTransaction(id);
+      await deleteTransaction(deletingTransaction.id);
+      setDeletingTransaction(null);
     } catch (error) {
       console.error('Failed to delete transaction:', error);
       // Error is handled by the hook and displayed in the UI
     }
+  };
+
+  const handleCloseDeleteModal = () => {
+    setShowDeleteModal(false);
+    setDeletingTransaction(null);
   };
 
   const handleUpdatePandL = useCallback(async () => {
@@ -353,7 +403,7 @@ export default function Home() {
         {activeTab === 'trades' ? (
           <div className="space-y-8">
             {/* Portfolio Overview */}
-            <PortfolioSummary transactions={filteredTransactions} />
+            <PortfolioSummary transactions={filteredTransactions} chains={chains} />
 
             {/* Recent Trades - Full Width */}
             <Card>
@@ -372,6 +422,9 @@ export default function Home() {
                       <option value="">All Status</option>
                       <option value="Open">Open</option>
                       <option value="Closed">Closed</option>
+                      <option value="Rolled">Rolled</option>
+                      <option value="Expired">Expired</option>
+                      <option value="Assigned">Assigned</option>
                     </select>
                   </div>
 
@@ -406,6 +459,7 @@ export default function Home() {
                   transactions={filteredTransactions}
                   onDelete={handleDeleteTransaction}
                   onEdit={handleEditTransaction}
+                  chains={chains}
                   portfolios={portfolios}
                   showPortfolioColumn={!selectedPortfolioId}
                 />
@@ -437,6 +491,14 @@ export default function Home() {
                       portfolios={portfolios}
                     />
                   )}
+
+      {/* Delete Confirmation Modal */}
+      <DeleteConfirmationModal
+        isOpen={showDeleteModal}
+        onClose={handleCloseDeleteModal}
+        onConfirm={confirmDeleteTransaction}
+        transaction={deletingTransaction}
+      />
 
       {/* Portfolio Modal */}
       {showPortfolioModal && (

@@ -18,7 +18,6 @@ export interface OptionsTransaction {
   callOrPut: 'Call' | 'Put';
   buyOrSell: 'Buy' | 'Sell';
   stockPriceCurrent: number;
-  daysToExpiry: number;
   breakEvenPrice: number;
   strikePrice: number;
   premium: number;
@@ -30,11 +29,26 @@ export interface OptionsTransaction {
   exitPrice?: number;
   closeDate?: Date;
   profitLoss?: number;
-  daysHeld?: number;
   annualizedROR?: number;
-  status: 'Open' | 'Closed' | 'Expired' | 'Assigned';
+  status: 'Open' | 'Closed' | 'Expired' | 'Assigned' | 'Rolled';
+  chainId?: string; // NEW: Link to trade chain
   createdAt: Date;
   updatedAt: Date;
+}
+
+export interface TradeChain {
+  id: string;
+  userId: string;
+  portfolioId: string;
+  symbol: string;
+  optionType: 'Call' | 'Put';
+  originalStrikePrice: number;
+  originalOpenDate: Date;
+  chainStatus: 'Active' | 'Closed';
+  totalChainPnl: number;
+  createdAt: Date;
+  updatedAt: Date;
+  transactions?: OptionsTransaction[]; // Related transactions
 }
 
 export interface PortfolioSummary {

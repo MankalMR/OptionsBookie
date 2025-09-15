@@ -182,3 +182,4 @@ export class FinnhubStockService implements StockPriceService {
 
 // Singleton instance
 export const finnhubStockService = new FinnhubStockService();
+

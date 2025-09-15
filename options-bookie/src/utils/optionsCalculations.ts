@@ -103,9 +103,41 @@ export const shouldUpdateTradeStatus = (transaction: any): boolean => {
   return transaction.status === 'Open' && isTradeExpired(transaction.expiryDate);
 };
 
-export const calculateUnrealizedPnL = (transactions: any[]): number => {
-  // Simplified: Just sum the profitLoss field of all open trades
-  return transactions
-    .filter(t => t.status === 'Open')
-    .reduce((total, transaction) => total + (transaction.profitLoss || 0), 0);
+export const calculateUnrealizedPnL = (transactions: any[], chains: any[] = []): number => {
+  // Group transactions by chain
+  const chainMap = new Map();
+  chains.forEach(chain => {
+    chainMap.set(chain.id, chain);
+  });
+
+  // Separate chained and non-chained transactions
+  const chainedTransactions = transactions.filter(t => t.chainId);
+  const nonChainedTransactions = transactions.filter(t => !t.chainId);
+
+  let unrealizedPnL = 0;
+
+  // For non-chained transactions: Use existing logic (Open + Rolled = unrealized)
+  const nonChainedUnrealized = nonChainedTransactions.filter(t => t.status === 'Open' || t.status === 'Rolled');
+  const nonChainedPnL = nonChainedUnrealized.reduce((total, transaction) => total + (transaction.profitLoss || 0), 0);
+
+  unrealizedPnL += nonChainedPnL;
+
+  // For chained transactions: Only Active chains count as unrealized
+  const activeChainIds = new Set();
+  chainedTransactions.forEach(t => {
+    if (t.chainId) {
+      const chain = chainMap.get(t.chainId);
+      if (chain && chain.chainStatus === 'Active') {
+        activeChainIds.add(t.chainId);
+      }
+    }
+  });
+
+  // Add P&L from all transactions in active chains
+  const chainedUnrealized = chainedTransactions.filter(t => activeChainIds.has(t.chainId));
+  const chainedPnL = chainedUnrealized.reduce((total, transaction) => total + (transaction.profitLoss || 0), 0);
+
+  unrealizedPnL += chainedPnL;
+
+  return unrealizedPnL;
 };

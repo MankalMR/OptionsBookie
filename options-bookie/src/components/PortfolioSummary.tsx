@@ -1,28 +1,29 @@
 'use client';
 
-import { OptionsTransaction } from '@/types/options';
+import { OptionsTransaction, TradeChain } from '@/types/options';
+import { calculateUnrealizedPnL } from '@/utils/optionsCalculations';
 import { useMemo } from 'react';
 
 interface PortfolioSummaryProps {
   transactions: OptionsTransaction[];
+  chains?: TradeChain[];
 }
 
-export default function PortfolioSummary({ transactions }: PortfolioSummaryProps) {
+export default function PortfolioSummary({ transactions, chains = [] }: PortfolioSummaryProps) {
   const summary = useMemo(() => {
     const openPositions = transactions.filter(t => t.status === 'Open');
+    const rolledPositions = transactions.filter(t => t.status === 'Rolled');
     const closedPositions = transactions.filter(t => t.status === 'Closed');
     const expiredPositions = transactions.filter(t => t.status === 'Expired');
     const assignedPositions = transactions.filter(t => t.status === 'Assigned');
 
-    // All non-open positions contribute to total P&L
+    // Only closed, expired, and assigned positions contribute to realized P&L (excluding rolled)
     const realizedPositions = [...closedPositions, ...expiredPositions, ...assignedPositions];
 
     const totalProfitLoss = realizedPositions.reduce((sum, t) => sum + (t.profitLoss || 0), 0);
 
-    // Calculate unrealized P&L as sum of P&L column for open trades
-    const unrealizedPnL = openPositions.reduce((total, transaction) => {
-      return total + (transaction.profitLoss || 0);
-    }, 0);
+    // Calculate unrealized P&L using chain-aware logic
+    const unrealizedPnL = calculateUnrealizedPnL(transactions, chains);
 
     const totalFees = transactions.reduce((sum, t) => sum + t.fees, 0);
 
@@ -34,7 +35,7 @@ export default function PortfolioSummary({ transactions }: PortfolioSummaryProps
       : 0;
 
     return {
-      totalOpenPositions: openPositions.length,
+      totalOpenPositions: openPositions.length + rolledPositions.length,
       totalClosedPositions: realizedPositions.length,
       totalProfitLoss,
       unrealizedPnL,

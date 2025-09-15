@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { OptionsTransaction } from '@/types/options';
-import { calculateProfitLoss as calculateProfitLossUtil, calculateNewTradeProfitLoss } from '@/utils/optionsCalculations';
 
 interface AddTransactionModalProps {
   onClose: () => void;
@@ -23,7 +22,7 @@ export default function AddTransactionModal({ onClose, onSave, portfolios = [], 
     strikePrice: 0,
     premium: 0,
     numberOfContracts: 1,
-    fees: 0,
+    fees: 0.66, // Default broker fee per transaction
     status: 'Open' as 'Open' | 'Closed' | 'Expired' | 'Assigned',
   });
 
@@ -96,27 +95,23 @@ export default function AddTransactionModal({ onClose, onSave, portfolios = [], 
       return;
     }
 
-    const daysToExpiry = calculateDaysToExpiry(formData.expiryDate);
     const breakEvenPrice = calculateBreakEven();
     const profitLoss = calculateProfitLoss(); // This will be 0 for new trades
-    const daysHeld = calculateDaysHeld();
 
     const transaction: Omit<OptionsTransaction, 'id' | 'createdAt' | 'updatedAt'> = {
       ...formData,
       tradeOpenDate: new Date(formData.tradeOpenDate),
       expiryDate: new Date(formData.expiryDate),
-      daysToExpiry,
       breakEvenPrice,
       stockPriceCurrent: formData.stockPriceCurrent || 0,
       profitLoss, // Will be 0 for new trades
-      daysHeld,
       annualizedROR: undefined, // No ROR for new trades since P&L is 0
     };
 
     onSave(transaction);
   };
 
-  const handleChange = (field: string, value: any) => {
+  const handleChange = (field: string, value: string | number) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: '' }));
@@ -205,7 +200,6 @@ export default function AddTransactionModal({ onClose, onSave, portfolios = [], 
                 >
                   <option value="Open">Open</option>
                   <option value="Closed">Closed</option>
-                  <option value="Rolled Forward">Rolled Forward</option>
                 </select>
               </div>
             </div>

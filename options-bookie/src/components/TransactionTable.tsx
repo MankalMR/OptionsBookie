@@ -1,11 +1,11 @@
 'use client';
 
-import { OptionsTransaction, Portfolio } from '@/types/options';
+import { OptionsTransaction, Portfolio, TradeChain } from '@/types/options';
 import { useState } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Edit, Trash2, TrendingUp, TrendingDown } from 'lucide-react';
+import { Edit, Trash2, TrendingUp, TrendingDown, ChevronDown, ChevronRight, Link } from 'lucide-react';
 import { useStockPrices } from '@/hooks/useStockPrices';
 import StockPriceDisplay, { ITMIndicator } from '@/components/StockPriceDisplay';
 
@@ -15,38 +15,66 @@ interface TransactionTableProps {
   onEdit: (transaction: OptionsTransaction) => void;
   portfolios?: Portfolio[];
   showPortfolioColumn?: boolean;
+  chains?: TradeChain[];
 }
 
-export default function TransactionTable({ transactions, onDelete, onEdit, portfolios = [], showPortfolioColumn = false }: TransactionTableProps) {
+export default function TransactionTable({ transactions, onDelete, onEdit, portfolios = [], showPortfolioColumn = false, chains = [] }: TransactionTableProps) {
   const [sortBy, setSortBy] = useState<keyof OptionsTransaction>('tradeOpenDate');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [collapsedChains, setCollapsedChains] = useState<Set<string>>(new Set());
+
+  // Debug logging removed - chain indicators working correctly
+
+  // Helper function to toggle chain collapse state
+  const toggleChainCollapse = (chainId: string) => {
+    const newCollapsed = new Set(collapsedChains);
+    if (newCollapsed.has(chainId)) {
+      newCollapsed.delete(chainId);
+    } else {
+      newCollapsed.add(chainId);
+    }
+    setCollapsedChains(newCollapsed);
+  };
+
+  // Helper function to calculate chain P&L
+  const calculateChainPnL = (chainId: string) => {
+    return transactions
+      .filter(t => t.chainId === chainId)
+      .reduce((total, t) => total + (t.profitLoss || 0), 0);
+  };
+
+  // Organize transactions into chains and standalone transactions
+  const organizeTransactions = () => {
+    const chainMap = new Map<string, OptionsTransaction[]>();
+    const standaloneTransactions: OptionsTransaction[] = [];
+
+    // Group transactions by chainId
+    transactions.forEach(transaction => {
+      if (transaction.chainId) {
+        if (!chainMap.has(transaction.chainId)) {
+          chainMap.set(transaction.chainId, []);
+        }
+        chainMap.get(transaction.chainId)!.push(transaction);
+      } else {
+        standaloneTransactions.push(transaction);
+      }
+    });
+
+    // Sort transactions within each chain by date (most recent first)
+    chainMap.forEach(chainTransactions => {
+      chainTransactions.sort((a, b) =>
+        new Date(b.tradeOpenDate).getTime() - new Date(a.tradeOpenDate).getTime()
+      );
+    });
+
+    return { chainMap, standaloneTransactions };
+  };
 
   // Get unique stock symbols for price fetching
   const stockSymbols = [...new Set(transactions.map(t => t.stockSymbol))];
   const { stockPrices, loading: pricesLoading, isAvailable: pricesAvailable, error: pricesError, refreshPrices } = useStockPrices(stockSymbols);
 
-  const sortedTransactions = [...transactions].sort((a, b) => {
-    const aValue = a[sortBy];
-    const bValue = b[sortBy];
-
-    if (aValue instanceof Date && bValue instanceof Date) {
-      return sortOrder === 'asc'
-        ? aValue.getTime() - bValue.getTime()
-        : bValue.getTime() - aValue.getTime();
-    }
-
-    if (typeof aValue === 'string' && typeof bValue === 'string') {
-      return sortOrder === 'asc'
-        ? aValue.localeCompare(bValue)
-        : bValue.localeCompare(aValue);
-    }
-
-    if (typeof aValue === 'number' && typeof bValue === 'number') {
-      return sortOrder === 'asc' ? aValue - bValue : bValue - aValue;
-    }
-
-    return 0;
-  });
+  // Note: Sorting is now handled within the organize function for chains
 
   const handleSort = (column: keyof OptionsTransaction) => {
     if (sortBy === column) {
@@ -63,23 +91,73 @@ export default function TransactionTable({ transactions, onDelete, onEdit, portf
 
       // Check if the date is valid
       if (isNaN(dateObj.getTime())) {
-        return 'Invalid Date';
+        return <span>Invalid Date</span>;
       }
 
-      return new Intl.DateTimeFormat('en-US', {
-        year: 'numeric',
+      const monthDay = new Intl.DateTimeFormat('en-US', {
         month: 'short',
         day: 'numeric',
       }).format(dateObj);
+
+      const year = new Intl.DateTimeFormat('en-US', {
+        year: 'numeric',
+      }).format(dateObj);
+
+      return (
+        <div className="flex flex-col">
+          <span>{monthDay}</span>
+          <span className="text-xs text-gray-500">{year}</span>
+        </div>
+      );
     } catch (error) {
       console.error('Error formatting date:', error, 'Input:', date);
-      return 'Invalid Date';
+      return <span>Invalid Date</span>;
     }
   };
 
   const getPortfolioName = (portfolioId: string) => {
     const portfolio = portfolios.find(p => p.id === portfolioId);
     return portfolio ? portfolio.name : 'Unknown Portfolio';
+  };
+
+  // Calculate Days to Expiry dynamically
+  const calculateDTE = (expiryDate: string | Date) => {
+    try {
+      const expiry = new Date(expiryDate);
+      const today = new Date();
+      
+      // Set time to start of day for accurate day calculation
+      expiry.setHours(0, 0, 0, 0);
+      today.setHours(0, 0, 0, 0);
+      
+      const diffTime = expiry.getTime() - today.getTime();
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      
+      return diffDays;
+    } catch (error) {
+      console.error('Error calculating DTE:', error);
+      return 0;
+    }
+  };
+
+  // Calculate Days Held dynamically
+  const calculateDH = (openDate: string | Date) => {
+    try {
+      const opened = new Date(openDate);
+      const today = new Date();
+      
+      // Set time to start of day for accurate day calculation
+      opened.setHours(0, 0, 0, 0);
+      today.setHours(0, 0, 0, 0);
+      
+      const diffTime = today.getTime() - opened.getTime();
+      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+      
+      return Math.max(0, diffDays); // Don't show negative days
+    } catch (error) {
+      console.error('Error calculating DH:', error);
+      return 0;
+    }
   };
 
   const getStatusColor = (status: string) => {
@@ -156,7 +234,13 @@ export default function TransactionTable({ transactions, onDelete, onEdit, portf
               className="cursor-pointer hover:bg-muted/50"
               onClick={() => handleSort('tradeOpenDate')}
             >
-              Open Date
+              Opened
+            </TableHead>
+            <TableHead
+              className="cursor-pointer hover:bg-muted/50"
+              onClick={() => handleSort('expiryDate')}
+            >
+              Expires
             </TableHead>
             <TableHead
               className="cursor-pointer hover:bg-muted/50"
@@ -183,12 +267,6 @@ export default function TransactionTable({ transactions, onDelete, onEdit, portf
             </TableHead>
             <TableHead
               className="cursor-pointer hover:bg-muted/50"
-              onClick={() => handleSort('numberOfContracts')}
-            >
-              Contracts
-            </TableHead>
-            <TableHead
-              className="cursor-pointer hover:bg-muted/50"
               onClick={() => handleSort('status')}
             >
               Status
@@ -202,23 +280,275 @@ export default function TransactionTable({ transactions, onDelete, onEdit, portf
             <TableHead
               className="cursor-pointer hover:bg-muted/50"
               onClick={() => handleSort('daysToExpiry')}
+              title="Days to Expiry"
             >
               DTE
             </TableHead>
             <TableHead
               className="cursor-pointer hover:bg-muted/50"
               onClick={() => handleSort('daysHeld')}
+              title="Days Held"
             >
-              Days Held
+              DH
             </TableHead>
             <TableHead>Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {sortedTransactions.map((transaction) => (
-            <TableRow key={transaction.id} className="hover:bg-muted/50">
+          {(() => {
+            const { chainMap, standaloneTransactions } = organizeTransactions();
+            const renderElements: JSX.Element[] = [];
+
+            // Render chains first
+            Array.from(chainMap.entries()).forEach(([chainId, chainTransactions]) => {
+              const isCollapsed = collapsedChains.has(chainId);
+              const chainPnL = calculateChainPnL(chainId);
+              const chainInfo = chains.find(c => c.id === chainId);
+              const activeTransaction = chainTransactions.find(t => t.status === 'Open') || chainTransactions[chainTransactions.length - 1];
+
+              // Chain header row
+              renderElements.push(
+                <TableRow key={`chain-${chainId}`} className="bg-blue-50 hover:bg-blue-100 border-l-4 border-l-blue-500">
+                  <TableCell className="font-medium">
+                    <div className="flex items-center space-x-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => toggleChainCollapse(chainId)}
+                        className="h-6 w-6 p-0"
+                      >
+                        {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                      </Button>
+                      <Link className="h-4 w-4 text-blue-600" />
+                      <div>
+                        <div className="flex items-center space-x-2">
+                          <span className="font-semibold">{activeTransaction.stockSymbol} Chain</span>
+                          <Badge
+                            variant={activeTransaction.buyOrSell === 'Buy' ? 'outline' : 'default'}
+                            className={`text-xs ${activeTransaction.buyOrSell === 'Buy'
+                              ? 'bg-blue-100 text-blue-800 border-blue-300 hover:bg-blue-200'
+                              : 'bg-orange-100 text-orange-800 border-orange-300 hover:bg-orange-200'
+                            }`}
+                          >
+                            {activeTransaction.buyOrSell}
+                          </Badge>
+                        </div>
+                        <div className="flex items-center space-x-2 mt-1">
+                          <Badge variant="outline" className="text-xs px-1.5 py-0.5 bg-blue-100 text-blue-800 border-blue-300">
+                            {chainTransactions.length} trades
+                          </Badge>
+                          <Badge variant={chainInfo?.chainStatus === 'Active' ? 'default' : 'secondary'} className="text-xs px-1.5 py-0.5">
+                            {chainInfo?.chainStatus || 'Active'}
+                          </Badge>
+                        </div>
+                      </div>
+                    </div>
+                  </TableCell>
+                  {showPortfolioColumn && <TableCell></TableCell>}
+                  <TableCell></TableCell>
+                  <TableCell></TableCell>
+                  <TableCell></TableCell>
+                  <TableCell></TableCell>
+                  {pricesAvailable && <TableCell></TableCell>}
+                  <TableCell></TableCell>
+                  <TableCell></TableCell>
+                  <TableCell className={`font-bold ${chainPnL >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    ${chainPnL.toFixed(2)}
+                    <div className="text-xs text-gray-500 font-normal">Chain P&L</div>
+                  </TableCell>
+                  <TableCell></TableCell>
+                  <TableCell></TableCell>
+                  <TableCell></TableCell>
+                </TableRow>
+              );
+
+              // Individual transactions in the chain (if not collapsed)
+              if (!isCollapsed) {
+                chainTransactions.forEach((transaction, index) => {
+                  const isLast = index === chainTransactions.length - 1;
+                  renderElements.push(
+                    <TableRow
+                      key={transaction.id}
+                      className={`hover:bg-muted/50 bg-blue-25 border-l-4 border-l-blue-200 ${
+                        ['Closed', 'Expired', 'Assigned'].includes(transaction.status)
+                          ? 'bg-gray-200/80'
+                          : transaction.status === 'Rolled'
+                          ? 'bg-amber-50/70'
+                          : ''
+                      }`}
+                    >
+                      <TableCell className="font-medium pl-8">
+                        <div className="flex items-center space-x-2">
+                          <span className="text-gray-400">└─</span>
+                          <span>{transaction.stockSymbol}</span>
+                          <span
+                            className="text-xs bg-gray-100 text-gray-700 px-1.5 py-0.5 rounded"
+                            title="Number of Contracts"
+                          >
+                            {transaction.numberOfContracts}
+                          </span>
+                          {stockPrices[transaction.stockSymbol] && transaction.status === 'Open' && (
+                            <ITMIndicator
+                              currentPrice={stockPrices[transaction.stockSymbol]!.price}
+                              strikePrice={transaction.strikePrice}
+                              optionType={transaction.callOrPut}
+                            />
+                          )}
+                          {isLast && transaction.status === 'Open' && (
+                            <Badge variant="outline" className="text-xs px-1.5 py-0.5 bg-green-50 text-green-700 border-green-200">
+                              Current
+                            </Badge>
+                          )}
+                        </div>
+                      </TableCell>
+                      {showPortfolioColumn && (
+                        <TableCell>
+                          {portfolios.find(p => p.id === transaction.portfolioId)?.name || 'Unknown'}
+                        </TableCell>
+                      )}
+                      <TableCell>
+                        {formatDate(transaction.tradeOpenDate)}
+                      </TableCell>
+                      <TableCell>
+                        {formatDate(transaction.expiryDate)}
+                      </TableCell>
+                      <TableCell>
+                        <Badge
+                          variant={transaction.callOrPut === 'Call' ? 'default' : 'secondary'}
+                          className={transaction.callOrPut === 'Call'
+                            ? 'bg-green-100 text-green-800 hover:bg-green-200'
+                            : 'bg-red-100 text-red-800 hover:bg-red-200'
+                          }
+                        >
+                          {transaction.callOrPut}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <span>${transaction.strikePrice.toFixed(2)}</span>
+                      </TableCell>
+                      {pricesAvailable && (
+                        <TableCell>
+                          {stockPrices[transaction.stockSymbol] ? (
+                            <StockPriceDisplay
+                              symbol={transaction.stockSymbol}
+                              stockPrice={stockPrices[transaction.stockSymbol]!}
+                              strikePrice={transaction.strikePrice}
+                              showComparison={false}
+                            />
+                          ) : (
+                            <span className="text-gray-400">Loading...</span>
+                          )}
+                        </TableCell>
+                      )}
+                      <TableCell>${transaction.premium.toFixed(2)}</TableCell>
+                      <TableCell>
+                        <Badge
+                          variant={
+                            transaction.status === 'Open' ? 'default' :
+                            transaction.status === 'Closed' ? 'secondary' :
+                            transaction.status === 'Rolled' ? 'outline' :
+                            'destructive'
+                          }
+                        >
+                          {transaction.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className={transaction.profitLoss && transaction.profitLoss >= 0 ? 'text-green-600' : 'text-red-600'}>
+                        <div className="flex items-center">
+                          {transaction.profitLoss !== undefined && transaction.profitLoss !== 0 && (
+                            <>
+                              {transaction.profitLoss > 0 ? (
+                                <TrendingUp className="h-4 w-4 mr-1" />
+                              ) : (
+                                <TrendingDown className="h-4 w-4 mr-1" />
+                              )}
+                            </>
+                          )}
+                          ${transaction.profitLoss?.toFixed(2) || '0.00'}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <span className={`font-medium ${
+                          calculateDTE(transaction.expiryDate) <= 7
+                            ? 'text-red-600 bg-red-50 px-2 py-1 rounded'
+                            : calculateDTE(transaction.expiryDate) <= 30
+                            ? 'text-orange-600 bg-orange-50 px-2 py-1 rounded'
+                            : 'text-gray-600'
+                        }`}>
+                          {calculateDTE(transaction.expiryDate)}
+                        </span>
+                      </TableCell>
+                      <TableCell>{calculateDH(transaction.tradeOpenDate)}</TableCell>
+                      <TableCell>
+                        <div className="flex space-x-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => onEdit(transaction)}
+                            className="h-8 w-8 p-0"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => onDelete(transaction.id)}
+                            className="h-8 w-8 p-0"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                });
+              }
+            });
+
+            // Render standalone transactions (no chains)
+            standaloneTransactions.forEach((transaction) => {
+              renderElements.push(
+                <TableRow
+                  key={transaction.id}
+                  className={`hover:bg-muted/50 ${
+                    ['Closed', 'Expired', 'Assigned'].includes(transaction.status)
+                      ? 'bg-gray-200/80'
+                      : transaction.status === 'Rolled'
+                      ? 'bg-amber-50/70'
+                      : ''
+                  }`}
+            >
               <TableCell className="font-medium">
-                {transaction.stockSymbol}
+                <div className="flex items-center space-x-2">
+                  <span>{transaction.stockSymbol}</span>
+                  <span
+                    className="text-xs bg-gray-100 text-gray-700 px-1.5 py-0.5 rounded"
+                    title="Number of Contracts"
+                  >
+                    {transaction.numberOfContracts}
+                  </span>
+                  {stockPrices[transaction.stockSymbol] && transaction.status === 'Open' && (
+                    <ITMIndicator
+                      currentPrice={stockPrices[transaction.stockSymbol]!.price}
+                      strikePrice={transaction.strikePrice}
+                      optionType={transaction.callOrPut}
+                    />
+                  )}
+                  <Badge
+                    variant={transaction.buyOrSell === 'Buy' ? 'outline' : 'default'}
+                    className={`text-xs ${transaction.buyOrSell === 'Buy'
+                      ? 'bg-blue-100 text-blue-800 border-blue-300 hover:bg-blue-200'
+                      : 'bg-orange-100 text-orange-800 border-orange-300 hover:bg-orange-200'
+                    }`}
+                  >
+                    {transaction.buyOrSell}
+                  </Badge>
+                  {transaction.chainId && (
+                    <Badge variant="outline" className="text-xs px-1.5 py-0.5 bg-blue-50 text-blue-700 border-blue-200">
+                      🔗
+                    </Badge>
+                  )}
+                </div>
               </TableCell>
               {showPortfolioColumn && (
                 <TableCell>
@@ -227,6 +557,9 @@ export default function TransactionTable({ transactions, onDelete, onEdit, portf
               )}
               <TableCell>
                 {formatDate(transaction.tradeOpenDate)}
+              </TableCell>
+              <TableCell>
+                {formatDate(transaction.expiryDate)}
               </TableCell>
               <TableCell>
                 <Badge
@@ -240,33 +573,24 @@ export default function TransactionTable({ transactions, onDelete, onEdit, portf
                 </Badge>
               </TableCell>
               <TableCell>
-                <div className="flex items-center space-x-2">
-                  <span>${transaction.strikePrice.toFixed(2)}</span>
-                  {stockPrices[transaction.stockSymbol] && transaction.status === 'Open' && (
-                    <ITMIndicator
-                      currentPrice={stockPrices[transaction.stockSymbol]!.price}
-                      strikePrice={transaction.strikePrice}
-                      optionType={transaction.callOrPut}
-                    />
-                  )}
-                </div>
+                <span>${transaction.strikePrice.toFixed(2)}</span>
               </TableCell>
               {pricesAvailable && (
                 <TableCell>
-                  <StockPriceDisplay
-                    symbol={transaction.stockSymbol}
-                    stockPrice={stockPrices[transaction.stockSymbol] || null}
-                    strikePrice={transaction.strikePrice}
-                    loading={pricesLoading}
-                    showComparison={false}
-                  />
+                  {stockPrices[transaction.stockSymbol] ? (
+                    <StockPriceDisplay
+                      symbol={transaction.stockSymbol}
+                      stockPrice={stockPrices[transaction.stockSymbol]!}
+                      strikePrice={transaction.strikePrice}
+                      showComparison={false}
+                    />
+                  ) : (
+                    <span className="text-gray-400">Loading...</span>
+                  )}
                 </TableCell>
               )}
               <TableCell>
                 ${transaction.premium.toFixed(2)}
-              </TableCell>
-              <TableCell>
-                {transaction.numberOfContracts}
               </TableCell>
               <TableCell>
                 <Badge
@@ -290,17 +614,17 @@ export default function TransactionTable({ transactions, onDelete, onEdit, portf
               </TableCell>
               <TableCell>
                 <span className={`font-medium ${
-                  transaction.daysToExpiry <= 7
+                  calculateDTE(transaction.expiryDate) <= 7
                     ? 'text-red-600 bg-red-50 px-2 py-1 rounded'
-                    : transaction.daysToExpiry <= 30
+                    : calculateDTE(transaction.expiryDate) <= 30
                     ? 'text-orange-600 bg-orange-50 px-2 py-1 rounded'
                     : 'text-gray-600'
                 }`}>
-                  {transaction.daysToExpiry}
+                  {calculateDTE(transaction.expiryDate)}
                 </span>
               </TableCell>
               <TableCell>
-                {transaction.daysHeld}
+                {calculateDH(transaction.tradeOpenDate)}
               </TableCell>
               <TableCell>
                 <div className="flex space-x-1">
@@ -320,10 +644,14 @@ export default function TransactionTable({ transactions, onDelete, onEdit, portf
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
-                </div>
+        </div>
               </TableCell>
-            </TableRow>
-          ))}
+                </TableRow>
+              );
+            });
+
+            return renderElements;
+          })()}
         </TableBody>
       </Table>
     </div>
