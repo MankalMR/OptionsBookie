@@ -44,6 +44,21 @@ export default function TransactionTable({ transactions, onDelete, onEdit, portf
       .reduce((total, t) => total + (t.profitLoss || 0), 0);
   };
 
+  // Helper function to get chain styling based on status
+  const getChainStyling = (chainId: string, chainTransactions: OptionsTransaction[]) => {
+    const chainInfo = chains.find(c => c.id === chainId);
+    const hasOpenTransactions = chainTransactions.some(t => t.status === 'Open');
+    const isActiveChain = chainInfo?.chainStatus === 'Active';
+
+    // If chain is active and has open transactions, treat it like an open transaction
+    if (isActiveChain && hasOpenTransactions) {
+      return "hover:bg-muted/50 border-l-4 border-l-blue-500"; // No background (like open transactions)
+    }
+
+    // Otherwise use the default blue chain styling
+    return "bg-blue-50 hover:bg-blue-100 border-l-4 border-l-blue-500";
+  };
+
   // Organize transactions into chains and standalone transactions
   const organizeTransactions = () => {
     const chainMap = new Map<string, OptionsTransaction[]>();
@@ -128,8 +143,14 @@ export default function TransactionTable({ transactions, onDelete, onEdit, portf
         return 'bg-blue-100 text-blue-800 hover:bg-blue-200';
       case 'Closed':
         return 'bg-gray-100 text-gray-800 hover:bg-gray-200';
+      case 'Rolled':
+        return 'bg-orange-100 text-orange-800 hover:bg-orange-200';
+      case 'Expired':
+        return 'bg-red-100 text-red-800 hover:bg-red-200';
+      case 'Assigned':
+        return 'bg-purple-100 text-purple-800 hover:bg-purple-200';
       default:
-        return 'bg-gray-100 text-gray-800';
+        return 'bg-gray-100 text-gray-800 hover:bg-gray-200';
     }
   };
 
@@ -266,7 +287,7 @@ export default function TransactionTable({ transactions, onDelete, onEdit, portf
 
               // Chain header row
               renderElements.push(
-                <TableRow key={`chain-${chainId}`} className="bg-blue-50 hover:bg-blue-100 border-l-4 border-l-blue-500">
+                <TableRow key={`chain-${chainId}`} className={getChainStyling(chainId, chainTransactions)}>
                   <TableCell className="font-medium">
                     <div className="flex items-center space-x-2">
                       <Button
@@ -284,18 +305,25 @@ export default function TransactionTable({ transactions, onDelete, onEdit, portf
                           <Badge
                             variant={activeTransaction.buyOrSell === 'Buy' ? 'outline' : 'default'}
                             className={`text-xs ${activeTransaction.buyOrSell === 'Buy'
-                              ? 'bg-blue-100 text-blue-800 border-blue-300 hover:bg-blue-200'
-                              : 'bg-orange-100 text-orange-800 border-orange-300 hover:bg-orange-200'
+                              ? 'bg-blue-100 text-blue-800 hover:bg-blue-200'
+                              : 'bg-orange-100 text-orange-800 hover:bg-orange-200'
                             }`}
                           >
                             {activeTransaction.buyOrSell}
                           </Badge>
                         </div>
                         <div className="flex items-center space-x-2 mt-1">
-                          <Badge variant="outline" className="text-xs px-1.5 py-0.5 bg-blue-100 text-blue-800 border-blue-300">
+                          <Badge variant="outline" className="text-xs px-1.5 py-0.5 bg-blue-100 text-blue-800">
                             {chainTransactions.length} trades
                           </Badge>
-                          <Badge variant={chainInfo?.chainStatus === 'Active' ? 'default' : 'secondary'} className="text-xs px-1.5 py-0.5">
+                          <Badge
+                            variant={chainInfo?.chainStatus === 'Active' ? 'default' : 'secondary'}
+                            className={`text-xs px-1.5 py-0.5 ${
+                              chainInfo?.chainStatus === 'Active'
+                                ? 'bg-blue-100 text-blue-800 hover:bg-blue-200'
+                                : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
+                            }`}
+                          >
                             {chainInfo?.chainStatus || 'Active'}
                           </Badge>
                         </div>
@@ -375,7 +403,7 @@ export default function TransactionTable({ transactions, onDelete, onEdit, portf
                           variant={transaction.callOrPut === 'Call' ? 'default' : 'secondary'}
                           className={transaction.callOrPut === 'Call'
                             ? 'bg-green-100 text-green-800 hover:bg-green-200'
-                            : 'bg-red-100 text-red-800 hover:bg-red-200'
+                            : 'bg-orange-100 text-orange-800 hover:bg-orange-200'
                           }
                         >
                           {transaction.callOrPut}
@@ -407,6 +435,7 @@ export default function TransactionTable({ transactions, onDelete, onEdit, portf
                             transaction.status === 'Rolled' ? 'outline' :
                             'destructive'
                           }
+                          className={getStatusColor(transaction.status)}
                         >
                           {transaction.status}
                         </Badge>
@@ -451,7 +480,7 @@ export default function TransactionTable({ transactions, onDelete, onEdit, portf
                             variant="ghost"
                             size="sm"
                             onClick={() => onDelete(transaction.id)}
-                            className="h-8 w-8 p-0"
+                            className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
@@ -495,14 +524,14 @@ export default function TransactionTable({ transactions, onDelete, onEdit, portf
                   <Badge
                     variant={transaction.buyOrSell === 'Buy' ? 'outline' : 'default'}
                     className={`text-xs ${transaction.buyOrSell === 'Buy'
-                      ? 'bg-blue-100 text-blue-800 border-blue-300 hover:bg-blue-200'
-                      : 'bg-orange-100 text-orange-800 border-orange-300 hover:bg-orange-200'
+                      ? 'bg-blue-100 text-blue-800 hover:bg-blue-200'
+                      : 'bg-orange-100 text-orange-800 hover:bg-orange-200'
                     }`}
                   >
                     {transaction.buyOrSell}
                   </Badge>
                   {transaction.chainId && (
-                    <Badge variant="outline" className="text-xs px-1.5 py-0.5 bg-blue-50 text-blue-700 border-blue-200">
+                    <Badge variant="outline" className="text-xs px-1.5 py-0.5 bg-blue-50 text-blue-700">
                       🔗
                     </Badge>
                   )}
@@ -524,7 +553,7 @@ export default function TransactionTable({ transactions, onDelete, onEdit, portf
                   variant={transaction.callOrPut === 'Call' ? 'default' : 'secondary'}
                   className={transaction.callOrPut === 'Call'
                     ? 'bg-green-100 text-green-800 hover:bg-green-200'
-                    : 'bg-red-100 text-red-800 hover:bg-red-200'
+                    : 'bg-orange-100 text-orange-800 hover:bg-orange-200'
                   }
                 >
                   {transaction.callOrPut}
