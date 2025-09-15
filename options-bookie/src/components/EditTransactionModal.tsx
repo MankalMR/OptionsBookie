@@ -30,7 +30,6 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
     expiryDate: expiryDate.toISOString().split('T')[0],
     callOrPut: transaction.callOrPut,
     buyOrSell: transaction.buyOrSell,
-    stockPriceCurrent: transaction.stockPriceCurrent,
     strikePrice: transaction.strikePrice,
     premium: transaction.premium,
     numberOfContracts: transaction.numberOfContracts,
@@ -69,25 +68,35 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
       return calculateRolledProfitLoss();
     }
 
-    if (!formData.stockPriceCurrent || formData.stockPriceCurrent <= 0) {
-      return 0;
+    // For closed trades, use the exit price to calculate actual P&L
+    if (formData.status === 'Closed' && formData.exitPrice > 0) {
+      const tempTransaction: OptionsTransaction = {
+        ...transaction,
+        stockSymbol: formData.stockSymbol,
+        callOrPut: formData.callOrPut,
+        buyOrSell: formData.buyOrSell,
+        strikePrice: formData.strikePrice,
+        premium: formData.premium,
+        numberOfContracts: formData.numberOfContracts,
+        tradeOpenDate: tradeOpenDate,
+        expiryDate: expiryDate,
+        closeDate: closeDate,
+      };
+      return calculateProfitLoss(tempTransaction, formData.exitPrice);
     }
 
-    const tempTransaction: OptionsTransaction = {
-      ...transaction,
-      stockSymbol: formData.stockSymbol,
-      callOrPut: formData.callOrPut,
-      buyOrSell: formData.buyOrSell,
-      strikePrice: formData.strikePrice,
-      premium: formData.premium,
-      numberOfContracts: formData.numberOfContracts,
-      stockPriceCurrent: formData.stockPriceCurrent,
-      tradeOpenDate: tradeOpenDate,
-      expiryDate: expiryDate,
-      closeDate: closeDate,
-    };
+    // For open trades, P&L is based purely on premium (not stock price)
+    // This represents the unrealized P&L from the premium received/paid
+    const contracts = formData.numberOfContracts;
+    const premium = formData.premium;
 
-    return calculateProfitLoss(tempTransaction, formData.stockPriceCurrent);
+    if (formData.buyOrSell === 'Buy') {
+      // If you bought the option, you paid the premium (negative P&L until closed)
+      return -premium * contracts * 100;
+    } else {
+      // If you sold the option, you received the premium (positive P&L until closed)
+      return premium * contracts * 100;
+    }
   };
 
   const calculateRolledProfitLoss = () => {
@@ -173,7 +182,6 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
       expiryDate: new Date(formData.expiryDate),
       callOrPut: formData.callOrPut,
       buyOrSell: formData.buyOrSell,
-      stockPriceCurrent: formData.stockPriceCurrent,
       strikePrice: formData.strikePrice,
       premium: formData.premium,
       numberOfContracts: formData.numberOfContracts,
@@ -357,7 +365,6 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
           expiryDate: newExpiryDate,
           callOrPut: formData.callOrPut,
           buyOrSell: formData.buyOrSell,
-          stockPriceCurrent: formData.stockPriceCurrent,
           strikePrice: formData.newStrikePrice,
           premium: formData.newPremium,
           numberOfContracts: formData.numberOfContracts,
@@ -518,29 +525,16 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Action</label>
-                <select
-                  value={formData.buyOrSell}
-                  onChange={(e) => handleChange('buyOrSell', e.target.value)}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm bg-white text-gray-900"
-                >
-                  <option value="Buy">Buy</option>
-                  <option value="Sell">Sell</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Current Stock Price</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={formData.stockPriceCurrent}
-                  onChange={(e) => handleChange('stockPriceCurrent', parseFloat(e.target.value) || 0)}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm bg-white text-gray-900"
-                />
-              </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Action</label>
+              <select
+                value={formData.buyOrSell}
+                onChange={(e) => handleChange('buyOrSell', e.target.value)}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm bg-white text-gray-900"
+              >
+                <option value="Buy">Buy</option>
+                <option value="Sell">Sell</option>
+              </select>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -784,7 +778,7 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
                       ? (formData.exitPrice > 0 ? `$${calculateFinalProfitLoss().toFixed(2)}` : 'Enter exit price')
                       : formData.status === 'Rolled'
                       ? (formData.exitPremium > 0 && formData.newPremium > 0 ? `$${calculateCurrentProfitLoss().toFixed(2)}` : 'Enter roll details')
-                      : (formData.stockPriceCurrent > 0 ? `$${calculateCurrentProfitLoss().toFixed(2)}` : 'Enter stock price')
+                      : `$${calculateCurrentProfitLoss().toFixed(2)}`
                     }
                   </span>
                 </div>

@@ -17,7 +17,7 @@ export interface OptionsTransaction {
   expiryDate: Date;
   callOrPut: 'Call' | 'Put';
   buyOrSell: 'Buy' | 'Sell';
-  stockPriceCurrent: number;
+  stockPriceCurrent?: number;
   breakEvenPrice: number;
   strikePrice: number;
   premium: number;

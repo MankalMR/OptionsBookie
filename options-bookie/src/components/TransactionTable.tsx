@@ -257,6 +257,16 @@ export default function TransactionTable({ transactions, onDelete, onEdit, portf
               Expires
             </TableHead>
             <TableHead
+              title="Days to Expiry"
+            >
+              DTE
+            </TableHead>
+            <TableHead
+              title="Days Held"
+            >
+              DH
+            </TableHead>
+            <TableHead
               className="cursor-pointer hover:bg-muted/50"
               onClick={() => handleSort('strikePrice')}
             >
@@ -284,16 +294,6 @@ export default function TransactionTable({ transactions, onDelete, onEdit, portf
               onClick={() => handleSort('profitLoss')}
             >
               P&L
-            </TableHead>
-            <TableHead
-              title="Days to Expiry"
-            >
-              DTE
-            </TableHead>
-            <TableHead
-              title="Days Held"
-            >
-              DH
             </TableHead>
             <TableHead>Actions</TableHead>
           </TableRow>
@@ -362,6 +362,8 @@ export default function TransactionTable({ transactions, onDelete, onEdit, portf
                   <TableCell></TableCell>
                   <TableCell></TableCell>
                   <TableCell></TableCell>
+                  <TableCell></TableCell>
+                  <TableCell></TableCell>
                   {pricesAvailable && <TableCell></TableCell>}
                   <TableCell></TableCell>
                   <TableCell></TableCell>
@@ -369,8 +371,6 @@ export default function TransactionTable({ transactions, onDelete, onEdit, portf
                     ${chainPnL.toFixed(2)}
                     <div className="text-xs text-gray-500 font-normal">Chain P&L</div>
                   </TableCell>
-                  <TableCell></TableCell>
-                  <TableCell></TableCell>
                   <TableCell></TableCell>
                 </TableRow>
               );
@@ -428,6 +428,18 @@ export default function TransactionTable({ transactions, onDelete, onEdit, portf
                         {formatDate(transaction.expiryDate)}
                       </TableCell>
                       <TableCell>
+                        <span className={`font-medium ${
+                          calculateDTE(transaction.expiryDate) <= 7
+                            ? 'text-red-600 bg-red-50 px-2 py-1 rounded'
+                            : calculateDTE(transaction.expiryDate) <= 30
+                            ? 'text-orange-600 bg-orange-50 px-2 py-1 rounded'
+                            : 'text-gray-600'
+                        }`}>
+                          {calculateDTE(transaction.expiryDate)}
+                        </span>
+                      </TableCell>
+                      <TableCell>{calculateDH(transaction.tradeOpenDate)}</TableCell>
+                      <TableCell>
                         <div className="flex items-center space-x-2">
                           <span>${transaction.strikePrice.toFixed(2)}</span>
                           <span
@@ -482,18 +494,6 @@ export default function TransactionTable({ transactions, onDelete, onEdit, portf
                           ${transaction.profitLoss?.toFixed(2) || '0.00'}
                         </div>
                       </TableCell>
-                      <TableCell>
-                        <span className={`font-medium ${
-                          calculateDTE(transaction.expiryDate) <= 7
-                            ? 'text-red-600 bg-red-50 px-2 py-1 rounded'
-                            : calculateDTE(transaction.expiryDate) <= 30
-                            ? 'text-orange-600 bg-orange-50 px-2 py-1 rounded'
-                            : 'text-gray-600'
-                        }`}>
-                          {calculateDTE(transaction.expiryDate)}
-                        </span>
-                      </TableCell>
-                      <TableCell>{calculateDH(transaction.tradeOpenDate)}</TableCell>
                       <TableCell>
                         <div className="flex space-x-1">
                           <Button
@@ -579,6 +579,20 @@ export default function TransactionTable({ transactions, onDelete, onEdit, portf
                 {formatDate(transaction.expiryDate)}
               </TableCell>
               <TableCell>
+                <span className={`font-medium ${
+                  calculateDTE(transaction.expiryDate) <= 7
+                    ? 'text-red-600 bg-red-50 px-2 py-1 rounded'
+                    : calculateDTE(transaction.expiryDate) <= 30
+                    ? 'text-orange-600 bg-orange-50 px-2 py-1 rounded'
+                    : 'text-gray-600'
+                }`}>
+                  {calculateDTE(transaction.expiryDate)}
+                </span>
+              </TableCell>
+              <TableCell>
+                {calculateDH(transaction.tradeOpenDate)}
+              </TableCell>
+              <TableCell>
                 <div className="flex items-center space-x-2">
                   <span>${transaction.strikePrice.toFixed(2)}</span>
                   <span
@@ -627,20 +641,6 @@ export default function TransactionTable({ transactions, onDelete, onEdit, portf
                     {(transaction.profitLoss ?? 0) >= 0 ? '+' : ''}${(transaction.profitLoss ?? 0).toFixed(2)}
                   </span>
                 </div>
-              </TableCell>
-              <TableCell>
-                <span className={`font-medium ${
-                  calculateDTE(transaction.expiryDate) <= 7
-                    ? 'text-red-600 bg-red-50 px-2 py-1 rounded'
-                    : calculateDTE(transaction.expiryDate) <= 30
-                    ? 'text-orange-600 bg-orange-50 px-2 py-1 rounded'
-                    : 'text-gray-600'
-                }`}>
-                  {calculateDTE(transaction.expiryDate)}
-                </span>
-              </TableCell>
-              <TableCell>
-                {calculateDH(transaction.tradeOpenDate)}
               </TableCell>
               <TableCell>
                 <div className="flex space-x-1">

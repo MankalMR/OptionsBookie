@@ -18,7 +18,6 @@ export default function AddTransactionModal({ onClose, onSave, portfolios = [], 
     expiryDate: '',
     callOrPut: 'Call' as 'Call' | 'Put',
     buyOrSell: 'Buy' as 'Buy' | 'Sell',
-    stockPriceCurrent: 0,
     strikePrice: 0,
     premium: 0,
     numberOfContracts: 1,
@@ -103,7 +102,6 @@ export default function AddTransactionModal({ onClose, onSave, portfolios = [], 
       tradeOpenDate: new Date(formData.tradeOpenDate),
       expiryDate: new Date(formData.expiryDate),
       breakEvenPrice,
-      stockPriceCurrent: formData.stockPriceCurrent || 0,
       profitLoss, // Will be 0 for new trades
       annualizedROR: undefined, // No ROR for new trades since P&L is 0
     };
@@ -285,16 +283,6 @@ export default function AddTransactionModal({ onClose, onSave, portfolios = [], 
               </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Current Stock Price (Optional)</label>
-              <input
-                type="number"
-                step="0.01"
-                value={formData.stockPriceCurrent}
-                onChange={(e) => handleChange('stockPriceCurrent', parseFloat(e.target.value) || 0)}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm bg-white text-gray-900"
-              />
-            </div>
 
             {/* Calculated Fields */}
             <div className="bg-gray-50 p-3 rounded-md">
