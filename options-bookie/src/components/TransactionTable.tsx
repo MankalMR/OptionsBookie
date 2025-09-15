@@ -201,19 +201,6 @@ export default function TransactionTable({ transactions, onDelete, onEdit, portf
 
   return (
     <div className="rounded-md border">
-      <div className="flex items-center justify-between p-4 border-b">
-        <h3 className="text-lg font-semibold">Recent Trades</h3>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={refreshPrices}
-          disabled={pricesLoading}
-          className="flex items-center space-x-2"
-        >
-          <TrendingUp className="h-4 w-4" />
-          <span>{pricesLoading ? 'Refreshing...' : 'Refresh Prices'}</span>
-        </Button>
-      </div>
 
       {/* Stock price availability notification */}
       {!pricesAvailable && pricesError && (

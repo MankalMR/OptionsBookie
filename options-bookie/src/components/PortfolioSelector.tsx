@@ -2,6 +2,8 @@
 
 import { Portfolio } from '@/types/options';
 import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
 import { Plus, Trash2, Star, StarOff } from 'lucide-react';
 
 interface PortfolioSelectorProps {
@@ -24,8 +26,8 @@ export default function PortfolioSelector({
   loading = false,
 }: PortfolioSelectorProps) {
 
-  const handlePortfolioChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const portfolioId = e.target.value || null;
+  const handlePortfolioChange = (value: string) => {
+    const portfolioId = value === 'all' ? null : value;
     onPortfolioChange(portfolioId);
   };
 
@@ -78,26 +80,26 @@ export default function PortfolioSelector({
   return (
     <div className="flex items-center space-x-4">
       <div className="flex items-center space-x-2">
-        <label htmlFor="portfolio-select" className="text-sm font-medium text-gray-700">
+        <Label htmlFor="portfolio-select" className="text-sm font-medium text-gray-700">
           Portfolio:
-        </label>
-        <select
-          id="portfolio-select"
-          value={selectedPortfolioId || ''}
-          onChange={handlePortfolioChange}
-          className="block w-48 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm bg-white text-gray-900"
-        >
-          <option value="">All Portfolios</option>
-          {portfolios.map((portfolio) => (
-            <option key={portfolio.id} value={portfolio.id}>
-              {portfolio.name} {portfolio.isDefault ? '⭐' : ''}
-            </option>
-          ))}
-        </select>
+        </Label>
+        <Select value={selectedPortfolioId || 'all'} onValueChange={handlePortfolioChange}>
+          <SelectTrigger className="w-48">
+            <SelectValue placeholder="All Portfolios" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Portfolios</SelectItem>
+            {portfolios.map((portfolio) => (
+              <SelectItem key={portfolio.id} value={portfolio.id}>
+                {portfolio.name} {portfolio.isDefault ? '⭐' : ''}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       <div className="flex items-center space-x-2">
-        <Button onClick={onAddPortfolio}>
+        <Button variant="default" onClick={onAddPortfolio}>
           <Plus className="mr-2 h-4 w-4" />
           Add Portfolio
         </Button>

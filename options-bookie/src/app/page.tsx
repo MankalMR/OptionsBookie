@@ -16,7 +16,9 @@ import ProtectedRoute from '@/components/ProtectedRoute';
 import AuthButton from '@/components/AuthButton';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Plus, RefreshCw } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Plus, RefreshCw, TrendingUp } from 'lucide-react';
+import { useStockPrices } from '@/hooks/useStockPrices';
 
 export default function Home() {
   const {
@@ -42,6 +44,10 @@ export default function Home() {
   const [portfoliosLoading, setPortfoliosLoading] = useState(true);
   const [chains, setChains] = useState<TradeChain[]>([]);
   const [filteredTransactions, setFilteredTransactions] = useState<OptionsTransaction[]>([]);
+
+  // Get unique symbols for stock prices
+  const uniqueSymbols = [...new Set(transactions.map(t => t.stockSymbol))];
+  const { refreshPrices, loading: pricesLoading } = useStockPrices(uniqueSymbols);
 
   // Filter transactions based on selected portfolio and status
   useEffect(() => {
@@ -218,8 +224,8 @@ export default function Home() {
     setSelectedPortfolioId(portfolioId);
   };
 
-  const handleStatusChange = (status: string | null) => {
-    setSelectedStatus(status);
+  const handleStatusChange = (status: string) => {
+    setSelectedStatus(status === 'all' ? null : status);
   };
 
   const handleAddPortfolio = () => {
@@ -407,6 +413,15 @@ export default function Home() {
               </div>
               <div className="flex space-x-3">
                 <Button
+                  onClick={refreshPrices}
+                  variant="outline"
+                  disabled={pricesLoading}
+                  className="flex items-center space-x-2"
+                >
+                  <TrendingUp className="h-4 w-4" />
+                  <span>{pricesLoading ? 'Refreshing...' : 'Refresh Prices'}</span>
+                </Button>
+                <Button
                   onClick={handleUpdatePandL}
                   variant="outline"
                   className="bg-green-600 hover:bg-green-700 text-white border-green-600 hover:border-green-700"
@@ -511,26 +526,26 @@ export default function Home() {
                     <CardTitle className="text-xl">Recent Trades</CardTitle>
 
                     {/* Status Filter */}
-                    <select
-                      id="status-filter"
-                      value={selectedStatus || ''}
-                      onChange={(e) => handleStatusChange(e.target.value || null)}
-                      className="block w-32 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm bg-white text-gray-900"
-                    >
-                      <option value="">All Status</option>
-                      <option value="Open">Open</option>
-                      <option value="Closed">Closed</option>
-                      <option value="Rolled">Rolled</option>
-                      <option value="Expired">Expired</option>
-                      <option value="Assigned">Assigned</option>
-                    </select>
+                    <Select value={selectedStatus || 'all'} onValueChange={handleStatusChange}>
+                      <SelectTrigger className="w-32">
+                        <SelectValue placeholder="All Status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Status</SelectItem>
+                        <SelectItem value="Open">Open</SelectItem>
+                        <SelectItem value="Closed">Closed</SelectItem>
+                        <SelectItem value="Rolled">Rolled</SelectItem>
+                        <SelectItem value="Expired">Expired</SelectItem>
+                        <SelectItem value="Assigned">Assigned</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
 
                   <div className="flex items-center space-x-4">
                     <div className="text-sm text-muted-foreground">
                       💡 Click the ✏️ button to edit or close trades
                     </div>
-                    <Button onClick={() => setShowAddModal(true)}>
+                    <Button variant="default" onClick={() => setShowAddModal(true)}>
                       <Plus className="mr-2 h-4 w-4" />
                       Add Trade
                     </Button>

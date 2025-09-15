@@ -2,6 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import { OptionsTransaction } from '@/types/options';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Button } from '@/components/ui/button';
 
 interface AddTransactionModalProps {
   onClose: () => void;
@@ -133,152 +137,158 @@ export default function AddTransactionModal({ onClose, onSave, portfolios = [], 
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Portfolio</label>
-              <select
-                value={formData.portfolioId}
-                onChange={(e) => handleChange('portfolioId', e.target.value)}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm bg-white text-gray-900"
-              >
-                {portfolios.map((portfolio) => (
-                  <option key={portfolio.id} value={portfolio.id}>
-                    {portfolio.name} {portfolio.isDefault ? '(Default)' : ''}
-                  </option>
-                ))}
-              </select>
+            <div className="space-y-2">
+              <Label htmlFor="portfolioId">Portfolio</Label>
+              <Select value={formData.portfolioId} onValueChange={(value) => handleChange('portfolioId', value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a portfolio" />
+                </SelectTrigger>
+                <SelectContent>
+                  {portfolios.map((portfolio) => (
+                    <SelectItem key={portfolio.id} value={portfolio.id}>
+                      {portfolio.name} {portfolio.isDefault ? '(Default)' : ''}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Stock Symbol</label>
-                <input
+              <div className="space-y-2">
+                <Label htmlFor="stockSymbol" className={errors.stockSymbol ? 'text-destructive' : ''}>
+                  Stock Symbol
+                </Label>
+                <Input
+                  id="stockSymbol"
                   type="text"
                   value={formData.stockSymbol}
                   onChange={(e) => handleChange('stockSymbol', e.target.value.toUpperCase())}
-                  className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm bg-white text-gray-900 ${
-                    errors.stockSymbol ? 'border-red-500' : ''
-                  }`}
+                  className={errors.stockSymbol ? 'border-destructive focus-visible:ring-destructive' : ''}
                   placeholder="AAPL"
                 />
-                {errors.stockSymbol && <p className="mt-1 text-sm text-red-600">{errors.stockSymbol}</p>}
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Type</label>
-                <select
-                  value={formData.callOrPut}
-                  onChange={(e) => handleChange('callOrPut', e.target.value)}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm bg-white text-gray-900"
-                >
-                  <option value="Call">Call</option>
-                  <option value="Put">Put</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Action</label>
-                <select
-                  value={formData.buyOrSell}
-                  onChange={(e) => handleChange('buyOrSell', e.target.value)}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm bg-white text-gray-900"
-                >
-                  <option value="Buy">Buy</option>
-                  <option value="Sell">Sell</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Status</label>
-                <select
-                  value={formData.status}
-                  onChange={(e) => handleChange('status', e.target.value)}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm bg-white text-gray-900"
-                >
-                  <option value="Open">Open</option>
-                  <option value="Closed">Closed</option>
-                </select>
+              <div className="space-y-2">
+                <Label htmlFor="callOrPut">Type</Label>
+                <Select value={formData.callOrPut} onValueChange={(value) => handleChange('callOrPut', value)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select option type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Call">Call</SelectItem>
+                    <SelectItem value="Put">Put</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Open Date</label>
-                <input
+              <div className="space-y-2">
+                <Label htmlFor="buyOrSell">Action</Label>
+                <Select value={formData.buyOrSell} onValueChange={(value) => handleChange('buyOrSell', value)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select action" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Buy">Buy</SelectItem>
+                    <SelectItem value="Sell">Sell</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="status">Status</Label>
+                <Select value={formData.status} onValueChange={(value) => handleChange('status', value)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Open">Open</SelectItem>
+                    <SelectItem value="Closed">Closed</SelectItem>
+                    <SelectItem value="Expired">Expired</SelectItem>
+                    <SelectItem value="Assigned">Assigned</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="tradeOpenDate">Open Date</Label>
+                <Input
+                  id="tradeOpenDate"
                   type="date"
                   value={formData.tradeOpenDate}
                   onChange={(e) => handleChange('tradeOpenDate', e.target.value)}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm bg-white text-gray-900"
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Expiry Date</label>
-                <input
+              <div className="space-y-2">
+                <Label htmlFor="expiryDate" className={errors.expiryDate ? 'text-destructive' : ''}>
+                  Expiry Date
+                </Label>
+                <Input
+                  id="expiryDate"
                   type="date"
                   value={formData.expiryDate}
                   onChange={(e) => handleChange('expiryDate', e.target.value)}
-                  className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm bg-white text-gray-900 ${
-                    errors.expiryDate ? 'border-red-500' : ''
-                  }`}
+                  className={errors.expiryDate ? 'border-destructive focus-visible:ring-destructive' : ''}
                 />
-                {errors.expiryDate && <p className="mt-1 text-sm text-red-600">{errors.expiryDate}</p>}
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Strike Price</label>
-                <input
+              <div className="space-y-2">
+                <Label htmlFor="strikePrice" className={errors.strikePrice ? 'text-destructive' : ''}>
+                  Strike Price
+                </Label>
+                <Input
+                  id="strikePrice"
                   type="number"
                   step="0.01"
                   value={formData.strikePrice}
                   onChange={(e) => handleChange('strikePrice', parseFloat(e.target.value) || 0)}
-                  className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm bg-white text-gray-900 ${
-                    errors.strikePrice ? 'border-red-500' : ''
-                  }`}
+                  className={errors.strikePrice ? 'border-destructive focus-visible:ring-destructive' : ''}
                 />
-                {errors.strikePrice && <p className="mt-1 text-sm text-red-600">{errors.strikePrice}</p>}
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Premium</label>
-                <input
+              <div className="space-y-2">
+                <Label htmlFor="premium" className={errors.premium ? 'text-destructive' : ''}>
+                  Premium
+                </Label>
+                <Input
+                  id="premium"
                   type="number"
                   step="0.01"
                   value={formData.premium}
                   onChange={(e) => handleChange('premium', parseFloat(e.target.value) || 0)}
-                  className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm bg-white text-gray-900 ${
-                    errors.premium ? 'border-red-500' : ''
-                  }`}
+                  className={errors.premium ? 'border-destructive focus-visible:ring-destructive' : ''}
                 />
-                {errors.premium && <p className="mt-1 text-sm text-red-600">{errors.premium}</p>}
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Contracts</label>
-                <input
+              <div className="space-y-2">
+                <Label htmlFor="numberOfContracts" className={errors.numberOfContracts ? 'text-destructive' : ''}>
+                  Contracts
+                </Label>
+                <Input
+                  id="numberOfContracts"
                   type="number"
                   value={formData.numberOfContracts}
                   onChange={(e) => handleChange('numberOfContracts', parseInt(e.target.value) || 1)}
-                  className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm bg-white text-gray-900 ${
-                    errors.numberOfContracts ? 'border-red-500' : ''
-                  }`}
+                  className={errors.numberOfContracts ? 'border-destructive focus-visible:ring-destructive' : ''}
                 />
-                {errors.numberOfContracts && <p className="mt-1 text-sm text-red-600">{errors.numberOfContracts}</p>}
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Fees</label>
-                <input
+              <div className="space-y-2">
+                <Label htmlFor="fees">Fees</Label>
+                <Input
+                  id="fees"
                   type="number"
                   step="0.01"
                   value={formData.fees}
                   onChange={(e) => handleChange('fees', parseFloat(e.target.value) || 0)}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm bg-white text-gray-900"
                 />
               </div>
             </div>
@@ -316,19 +326,19 @@ export default function AddTransactionModal({ onClose, onSave, portfolios = [], 
             </div>
 
             <div className="flex justify-end space-x-3 pt-4">
-              <button
+              <Button
                 type="button"
+                variant="outline"
                 onClick={onClose}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
               >
                 Cancel
-              </button>
-              <button
+              </Button>
+              <Button
                 type="submit"
-                className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                variant="default"
               >
                 Save Trade
-              </button>
+              </Button>
             </div>
           </form>
         </div>
