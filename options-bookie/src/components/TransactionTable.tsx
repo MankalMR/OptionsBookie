@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Edit, Trash2, TrendingUp, TrendingDown, ChevronDown, ChevronRight, Link } from 'lucide-react';
+import { Edit, Trash2, TrendingUp, TrendingDown, ChevronDown, ChevronRight, Link, Circle, FileText, Minus, User, Diamond } from 'lucide-react';
 import { useStockPrices } from '@/hooks/useStockPrices';
 import StockPriceDisplay, { ITMIndicator } from '@/components/StockPriceDisplay';
 import { calculateDTE, calculateDH } from '@/utils/optionsCalculations';
@@ -239,7 +239,13 @@ export default function TransactionTable({ transactions, onDelete, onEdit, portf
               className="cursor-pointer hover:bg-muted/50"
               onClick={() => handleSort('stockSymbol')}
             >
-              Symbol
+              <div className="flex items-center space-x-1">
+                <div className="h-5 w-5 flex-shrink-0"></div>
+                <div className="flex items-center space-x-2">
+                  <div className="h-4 w-4 flex-shrink-0"></div>
+                  <span>Symbol</span>
+                </div>
+              </div>
             </TableHead>
             {showPortfolioColumn && (
               <TableHead>Portfolio</TableHead>
@@ -314,27 +320,27 @@ export default function TransactionTable({ transactions, onDelete, onEdit, portf
               renderElements.push(
                 <TableRow key={`chain-${chainId}`} className={getChainStyling(chainId, chainTransactions)}>
                   <TableCell className="font-medium">
-                    <div className="flex items-center space-x-2">
+                    <div className="flex items-start space-x-1">
                       <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => toggleChainCollapse(chainId)}
-                        className="h-6 w-6 p-0"
+                        className="h-5 w-5 p-0 mt-0.5 flex-shrink-0"
                       >
-                        {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                        {isCollapsed ? <ChevronRight className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
                       </Button>
-                      <Link className="h-4 w-4 text-blue-600" />
-                      <div>
+                      <div className="flex-1 min-w-0">
                         <div className="flex items-center space-x-2">
-                          <span className="font-semibold">{activeTransaction.stockSymbol} Chain</span>
+                          <Link className="h-4 w-4 text-blue-600 flex-shrink-0" />
+                          <span className="font-semibold text-sm">{activeTransaction.stockSymbol} Chain</span>
                           <span
-                            className="text-xs bg-gray-100 text-gray-700 px-1.5 py-0.5 rounded"
+                            className="text-xs bg-gray-100 text-gray-700 px-1.5 py-0.5 rounded flex-shrink-0"
                             title="Number of Trades"
                           >
                             {chainTransactions.length} trades
                           </span>
                         </div>
-                        <div className="flex items-center space-x-2 mt-1">
+                        <div className="flex items-center space-x-1 mt-1 ml-5">
                           <Badge
                             variant={activeTransaction.buyOrSell === 'Buy' ? 'outline' : 'default'}
                             className={`text-xs ${activeTransaction.buyOrSell === 'Buy'
@@ -343,16 +349,6 @@ export default function TransactionTable({ transactions, onDelete, onEdit, portf
                             }`}
                           >
                             {activeTransaction.buyOrSell}
-                          </Badge>
-                          <Badge
-                            variant={chainInfo?.chainStatus === 'Active' ? 'default' : 'secondary'}
-                            className={`text-xs px-1.5 py-0.5 ${
-                              chainInfo?.chainStatus === 'Active'
-                                ? 'bg-blue-100 text-blue-800 hover:bg-blue-200'
-                                : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
-                            }`}
-                          >
-                            {chainInfo?.chainStatus || 'Active'}
                           </Badge>
                         </div>
                       </div>
@@ -366,7 +362,18 @@ export default function TransactionTable({ transactions, onDelete, onEdit, portf
                   <TableCell></TableCell>
                   {pricesAvailable && <TableCell></TableCell>}
                   <TableCell></TableCell>
-                  <TableCell></TableCell>
+                  <TableCell>
+                    <Badge
+                      variant={chainInfo?.chainStatus === 'Active' ? 'default' : 'secondary'}
+                      className={`text-xs px-1.5 py-0.5 ${
+                        chainInfo?.chainStatus === 'Active'
+                          ? 'bg-blue-100 text-blue-800 hover:bg-blue-200'
+                          : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
+                      }`}
+                    >
+                      {chainInfo?.chainStatus || 'Active'}
+                    </Badge>
+                  </TableCell>
                   <TableCell className={`font-bold ${chainPnL >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                     ${chainPnL.toFixed(2)}
                     <div className="text-xs text-gray-500 font-normal">Chain P&L</div>
@@ -536,35 +543,53 @@ export default function TransactionTable({ transactions, onDelete, onEdit, portf
                   }`}
             >
               <TableCell className="font-medium">
+                <div className="flex items-start space-x-1">
+                  {/* Spacer to align with chevron button in chain headers */}
+                  <div className="h-5 w-5 flex-shrink-0"></div>
+                  <div className="flex-1 min-w-0">
+                    <div>
                 <div className="flex items-center space-x-2">
-                  <span>{transaction.stockSymbol}</span>
-                  <span
-                    className="text-xs bg-gray-100 text-gray-700 px-1.5 py-0.5 rounded"
-                    title="Number of Contracts"
-                  >
-                    {transaction.numberOfContracts}
-                  </span>
-                  {stockPrices[transaction.stockSymbol] && transaction.status === 'Open' && (
-                    <ITMIndicator
-                      currentPrice={stockPrices[transaction.stockSymbol]!.price}
-                      strikePrice={transaction.strikePrice}
-                      optionType={transaction.callOrPut}
-                    />
-                  )}
-                  <Badge
-                    variant={transaction.buyOrSell === 'Buy' ? 'outline' : 'default'}
-                    className={`text-xs ${transaction.buyOrSell === 'Buy'
-                      ? 'bg-blue-100 text-blue-800 hover:bg-blue-200'
-                      : 'bg-orange-100 text-orange-800 hover:bg-orange-200'
-                    }`}
-                  >
-                    {transaction.buyOrSell}
-                  </Badge>
-                  {transaction.chainId && (
-                    <Badge variant="outline" className="text-xs px-1.5 py-0.5 bg-blue-50 text-blue-700">
-                      🔗
-                    </Badge>
-                  )}
+                        {/* Icon for standalone transactions (replaces chain link icon) */}
+                        <Circle className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                        {/* Alternative options:
+                            <FileText className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                            <Minus className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                            <User className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                            <Diamond className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                        */}
+                        <span className="font-semibold text-sm">{transaction.stockSymbol}</span>
+                        <span
+                          className="text-xs bg-gray-100 text-gray-700 px-1.5 py-0.5 rounded"
+                          title="Number of Contracts"
+                        >
+                          {transaction.numberOfContracts}
+                        </span>
+                        {stockPrices[transaction.stockSymbol] && transaction.status === 'Open' && (
+                          <ITMIndicator
+                            currentPrice={stockPrices[transaction.stockSymbol]!.price}
+                            strikePrice={transaction.strikePrice}
+                            optionType={transaction.callOrPut}
+                          />
+                        )}
+                      </div>
+                      <div className="flex items-center space-x-1 mt-1 ml-5">
+                        <Badge
+                          variant={transaction.buyOrSell === 'Buy' ? 'outline' : 'default'}
+                          className={`text-xs ${transaction.buyOrSell === 'Buy'
+                            ? 'bg-blue-100 text-blue-800 hover:bg-blue-200'
+                            : 'bg-orange-100 text-orange-800 hover:bg-orange-200'
+                          }`}
+                        >
+                          {transaction.buyOrSell}
+                        </Badge>
+                        {transaction.chainId && (
+                          <Badge variant="outline" className="text-xs px-1.5 py-0.5 bg-blue-50 text-blue-700">
+                            🔗
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </TableCell>
               {showPortfolioColumn && (
@@ -639,7 +664,7 @@ export default function TransactionTable({ transactions, onDelete, onEdit, portf
                   )}
                   <span className={`font-medium ${(transaction.profitLoss ?? 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                     {(transaction.profitLoss ?? 0) >= 0 ? '+' : ''}${(transaction.profitLoss ?? 0).toFixed(2)}
-                  </span>
+                </span>
                 </div>
               </TableCell>
               <TableCell>
