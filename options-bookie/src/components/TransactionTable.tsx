@@ -227,12 +227,6 @@ export default function TransactionTable({ transactions, onDelete, onEdit, portf
             </TableHead>
             <TableHead
               className="cursor-pointer hover:bg-muted/50"
-              onClick={() => handleSort('callOrPut')}
-            >
-              Type
-            </TableHead>
-            <TableHead
-              className="cursor-pointer hover:bg-muted/50"
               onClick={() => handleSort('strikePrice')}
             >
               Strike
@@ -302,6 +296,14 @@ export default function TransactionTable({ transactions, onDelete, onEdit, portf
                       <div>
                         <div className="flex items-center space-x-2">
                           <span className="font-semibold">{activeTransaction.stockSymbol} Chain</span>
+                          <span
+                            className="text-xs bg-gray-100 text-gray-700 px-1.5 py-0.5 rounded"
+                            title="Number of Trades"
+                          >
+                            {chainTransactions.length} trades
+                          </span>
+                        </div>
+                        <div className="flex items-center space-x-2 mt-1">
                           <Badge
                             variant={activeTransaction.buyOrSell === 'Buy' ? 'outline' : 'default'}
                             className={`text-xs ${activeTransaction.buyOrSell === 'Buy'
@@ -310,11 +312,6 @@ export default function TransactionTable({ transactions, onDelete, onEdit, portf
                             }`}
                           >
                             {activeTransaction.buyOrSell}
-                          </Badge>
-                        </div>
-                        <div className="flex items-center space-x-2 mt-1">
-                          <Badge variant="outline" className="text-xs px-1.5 py-0.5 bg-blue-100 text-blue-800">
-                            {chainTransactions.length} trades
                           </Badge>
                           <Badge
                             variant={chainInfo?.chainStatus === 'Active' ? 'default' : 'secondary'}
@@ -331,7 +328,6 @@ export default function TransactionTable({ transactions, onDelete, onEdit, portf
                     </div>
                   </TableCell>
                   {showPortfolioColumn && <TableCell></TableCell>}
-                  <TableCell></TableCell>
                   <TableCell></TableCell>
                   <TableCell></TableCell>
                   <TableCell></TableCell>
@@ -399,18 +395,17 @@ export default function TransactionTable({ transactions, onDelete, onEdit, portf
                         {formatDate(transaction.expiryDate)}
                       </TableCell>
                       <TableCell>
-                        <Badge
-                          variant={transaction.callOrPut === 'Call' ? 'default' : 'secondary'}
-                          className={transaction.callOrPut === 'Call'
-                            ? 'bg-green-100 text-green-800 hover:bg-green-200'
-                            : 'bg-orange-100 text-orange-800 hover:bg-orange-200'
-                          }
-                        >
-                          {transaction.callOrPut}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <span>${transaction.strikePrice.toFixed(2)}</span>
+                        <div className="flex items-center space-x-2">
+                          <span>${transaction.strikePrice.toFixed(2)}</span>
+                          <span
+                            className={`text-xs px-1.5 py-0.5 rounded font-medium ${transaction.callOrPut === 'Call'
+                              ? 'bg-green-100 text-green-800'
+                              : 'bg-orange-100 text-orange-800'
+                            }`}
+                          >
+                            {transaction.callOrPut === 'Call' ? 'C' : 'P'}
+                          </span>
+                        </div>
                       </TableCell>
                       {pricesAvailable && (
                         <TableCell>
@@ -549,18 +544,17 @@ export default function TransactionTable({ transactions, onDelete, onEdit, portf
                 {formatDate(transaction.expiryDate)}
               </TableCell>
               <TableCell>
-                <Badge
-                  variant={transaction.callOrPut === 'Call' ? 'default' : 'secondary'}
-                  className={transaction.callOrPut === 'Call'
-                    ? 'bg-green-100 text-green-800 hover:bg-green-200'
-                    : 'bg-orange-100 text-orange-800 hover:bg-orange-200'
-                  }
-                >
-                  {transaction.callOrPut}
-                </Badge>
-              </TableCell>
-              <TableCell>
-                <span>${transaction.strikePrice.toFixed(2)}</span>
+                <div className="flex items-center space-x-2">
+                  <span>${transaction.strikePrice.toFixed(2)}</span>
+                  <span
+                    className={`text-xs px-1.5 py-0.5 rounded font-medium ${transaction.callOrPut === 'Call'
+                      ? 'bg-green-100 text-green-800'
+                      : 'bg-orange-100 text-orange-800'
+                    }`}
+                  >
+                    {transaction.callOrPut === 'Call' ? 'C' : 'P'}
+                  </span>
+                </div>
               </TableCell>
               {pricesAvailable && (
                 <TableCell>
