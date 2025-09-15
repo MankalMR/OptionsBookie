@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Edit, Trash2, TrendingUp, TrendingDown, ChevronDown, ChevronRight, Link } from 'lucide-react';
 import { useStockPrices } from '@/hooks/useStockPrices';
 import StockPriceDisplay, { ITMIndicator } from '@/components/StockPriceDisplay';
+import { calculateDTE, calculateDH } from '@/utils/optionsCalculations';
 
 interface TransactionTableProps {
   transactions: OptionsTransaction[];
@@ -120,45 +121,6 @@ export default function TransactionTable({ transactions, onDelete, onEdit, portf
     return portfolio ? portfolio.name : 'Unknown Portfolio';
   };
 
-  // Calculate Days to Expiry dynamically
-  const calculateDTE = (expiryDate: string | Date) => {
-    try {
-      const expiry = new Date(expiryDate);
-      const today = new Date();
-      
-      // Set time to start of day for accurate day calculation
-      expiry.setHours(0, 0, 0, 0);
-      today.setHours(0, 0, 0, 0);
-      
-      const diffTime = expiry.getTime() - today.getTime();
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      
-      return diffDays;
-    } catch (error) {
-      console.error('Error calculating DTE:', error);
-      return 0;
-    }
-  };
-
-  // Calculate Days Held dynamically
-  const calculateDH = (openDate: string | Date) => {
-    try {
-      const opened = new Date(openDate);
-      const today = new Date();
-      
-      // Set time to start of day for accurate day calculation
-      opened.setHours(0, 0, 0, 0);
-      today.setHours(0, 0, 0, 0);
-      
-      const diffTime = today.getTime() - opened.getTime();
-      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-      
-      return Math.max(0, diffDays); // Don't show negative days
-    } catch (error) {
-      console.error('Error calculating DH:', error);
-      return 0;
-    }
-  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -278,15 +240,11 @@ export default function TransactionTable({ transactions, onDelete, onEdit, portf
               P&L
             </TableHead>
             <TableHead
-              className="cursor-pointer hover:bg-muted/50"
-              onClick={() => handleSort('daysToExpiry')}
               title="Days to Expiry"
             >
               DTE
             </TableHead>
             <TableHead
-              className="cursor-pointer hover:bg-muted/50"
-              onClick={() => handleSort('daysHeld')}
               title="Days Held"
             >
               DH

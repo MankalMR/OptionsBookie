@@ -2,7 +2,7 @@
 
 import { OptionsTransaction, Portfolio } from '@/types/options';
 import { useState } from 'react';
-import { calculateProfitLoss } from '@/utils/optionsCalculations';
+import { calculateProfitLoss, calculateDH } from '@/utils/optionsCalculations';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -20,6 +20,7 @@ interface TransactionTableProps {
 export default function TransactionTable({ transactions, onUpdate, onDelete, onEdit, portfolios = [], showPortfolioColumn = false }: TransactionTableProps) {
   const [sortBy, setSortBy] = useState<keyof OptionsTransaction>('tradeOpenDate');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+
 
   const sortedTransactions = [...transactions].sort((a, b) => {
     const aValue = a[sortBy];
@@ -147,10 +148,7 @@ export default function TransactionTable({ transactions, onUpdate, onDelete, onE
             >
               P&L
             </TableHead>
-            <TableHead
-              className="cursor-pointer hover:bg-muted/50"
-              onClick={() => handleSort('daysHeld')}
-            >
+            <TableHead>
               Days Held
             </TableHead>
             <TableHead>Actions</TableHead>
@@ -211,7 +209,7 @@ export default function TransactionTable({ transactions, onUpdate, onDelete, onE
                 </div>
               </TableCell>
               <TableCell>
-                {transaction.daysHeld}
+                {calculateDH(transaction.tradeOpenDate)}
               </TableCell>
               <TableCell>
                 <div className="flex space-x-1">

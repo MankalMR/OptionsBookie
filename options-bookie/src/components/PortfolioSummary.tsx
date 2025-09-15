@@ -1,7 +1,7 @@
 'use client';
 
 import { OptionsTransaction, TradeChain } from '@/types/options';
-import { calculateUnrealizedPnL } from '@/utils/optionsCalculations';
+import { calculateUnrealizedPnL, calculateDaysHeld } from '@/utils/optionsCalculations';
 import { useMemo } from 'react';
 
 interface PortfolioSummaryProps {
@@ -20,6 +20,9 @@ export default function PortfolioSummary({ transactions, chains = [] }: Portfoli
     // Only closed, expired, and assigned positions contribute to realized P&L (excluding rolled)
     const realizedPositions = [...closedPositions, ...expiredPositions, ...assignedPositions];
 
+    // For average days held calculation, include rolled positions since they represent completed trades
+    const completedPositions = [...realizedPositions, ...rolledPositions];
+
     const totalProfitLoss = realizedPositions.reduce((sum, t) => sum + (t.profitLoss || 0), 0);
 
     // Calculate unrealized P&L using chain-aware logic
@@ -30,8 +33,9 @@ export default function PortfolioSummary({ transactions, chains = [] }: Portfoli
     const winningTrades = realizedPositions.filter(t => (t.profitLoss || 0) > 0);
     const winRate = realizedPositions.length > 0 ? (winningTrades.length / realizedPositions.length) * 100 : 0;
 
-    const averageDaysHeld = realizedPositions.length > 0
-      ? realizedPositions.reduce((sum, t) => sum + (t.daysHeld || 0), 0) / realizedPositions.length
+
+    const averageDaysHeld = completedPositions.length > 0
+      ? completedPositions.reduce((sum, t) => sum + calculateDaysHeld(t.tradeOpenDate, t.closeDate), 0) / completedPositions.length
       : 0;
 
     return {

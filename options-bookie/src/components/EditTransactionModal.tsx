@@ -122,20 +122,12 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
   };
 
   const calculateDaysHeldValue = () => {
-    if (formData.status === 'Closed' && formData.closeDate) {
-      const openDate = new Date(formData.tradeOpenDate);
-      const closeDate = new Date(formData.closeDate);
-      const diffTime = closeDate.getTime() - openDate.getTime();
-      return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    }
-    // Create a proper transaction object with Date objects for calculateDaysHeld
-    const transactionWithDates = {
-      ...transaction,
-      tradeOpenDate: tradeOpenDate,
-      expiryDate: expiryDate,
-      closeDate: closeDate,
-    };
-    return calculateDaysHeld(transactionWithDates);
+    const openDate = new Date(formData.tradeOpenDate);
+    const closeDate = formData.status === 'Closed' && formData.closeDate
+      ? new Date(formData.closeDate)
+      : undefined;
+
+    return calculateDaysHeld(openDate, closeDate);
   };
 
   const isFormValid = useMemo(() => {

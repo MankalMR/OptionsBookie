@@ -1,6 +1,7 @@
 'use client';
 
 import { OptionsTransaction } from '@/types/options';
+import { calculateDaysHeld } from '@/utils/optionsCalculations';
 import { useMemo, useState } from 'react';
 
 interface SummaryViewProps {
@@ -37,15 +38,21 @@ interface MonthlySummary {
 export default function SummaryView({ transactions }: SummaryViewProps) {
   const [selectedYear, setSelectedYear] = useState<number | null>(null);
 
+
   const yearlySummaries = useMemo(() => {
-    const closedTransactions = transactions.filter(t => t.status === 'Closed' && t.closeDate);
+    // Include both closed and rolled transactions for yearly summaries
+    const completedTransactions = transactions.filter(t =>
+      (t.status === 'Closed' || t.status === 'Rolled') &&
+      (t.closeDate || t.status === 'Rolled') // Rolled trades might not have explicit closeDate
+    );
 
     const yearlyData: Record<number, YearlySummary> = {};
 
-    closedTransactions.forEach(transaction => {
-      if (!transaction.closeDate) return;
-
-      const closeDate = new Date(transaction.closeDate);
+    completedTransactions.forEach(transaction => {
+      // For rolled transactions, use current date if no closeDate is set
+      const closeDate = transaction.closeDate
+        ? new Date(transaction.closeDate)
+        : new Date(); // Use current date for rolled transactions
       const year = closeDate.getFullYear();
       const month = closeDate.getMonth();
 
@@ -67,7 +74,8 @@ export default function SummaryView({ transactions }: SummaryViewProps) {
 
       const pnl = transaction.profitLoss || 0;
       const fees = transaction.fees || 0;
-      const daysHeld = transaction.daysHeld || 0;
+
+      const daysHeld = calculateDaysHeld(transaction.tradeOpenDate, transaction.closeDate);
 
       yearlyData[year].totalPnL += pnl;
       yearlyData[year].totalTrades += 1;
@@ -91,12 +99,15 @@ export default function SummaryView({ transactions }: SummaryViewProps) {
     Object.values(yearlyData).forEach(yearData => {
       const monthlyData: Record<number, MonthlySummary> = {};
 
-      closedTransactions
-        .filter(t => t.closeDate && new Date(t.closeDate).getFullYear() === yearData.year)
+      completedTransactions
+        .filter(t => {
+          const transactionCloseDate = t.closeDate ? new Date(t.closeDate) : new Date();
+          return transactionCloseDate.getFullYear() === yearData.year;
+        })
         .forEach(transaction => {
-          if (!transaction.closeDate) return;
-
-          const closeDate = new Date(transaction.closeDate);
+          const closeDate = transaction.closeDate
+            ? new Date(transaction.closeDate)
+            : new Date();
           const month = closeDate.getMonth();
           const monthName = closeDate.toLocaleString('default', { month: 'long' });
 
@@ -117,7 +128,7 @@ export default function SummaryView({ transactions }: SummaryViewProps) {
 
           const pnl = transaction.profitLoss || 0;
           const fees = transaction.fees || 0;
-          const daysHeld = transaction.daysHeld || 0;
+          const daysHeld = calculateDaysHeld(transaction.tradeOpenDate, transaction.closeDate);
 
           monthlyData[month].totalPnL += pnl;
           monthlyData[month].totalTrades += 1;
@@ -157,10 +168,16 @@ export default function SummaryView({ transactions }: SummaryViewProps) {
 
   const overallStats = useMemo(() => {
     const closedTransactions = transactions.filter(t => t.status === 'Closed');
+    const rolledTransactions = transactions.filter(t => t.status === 'Rolled');
+
+    // For P&L calculation, only use truly closed transactions
     const totalPnL = closedTransactions.reduce((sum, t) => sum + (t.profitLoss || 0), 0);
     const totalTrades = closedTransactions.length;
     const winningTrades = closedTransactions.filter(t => (t.profitLoss || 0) > 0).length;
     const totalFees = transactions.reduce((sum, t) => sum + t.fees, 0);
+
+    // For average days held, include both closed and rolled transactions
+    const completedTransactions = [...closedTransactions, ...rolledTransactions];
 
     return {
       totalPnL,
@@ -168,8 +185,8 @@ export default function SummaryView({ transactions }: SummaryViewProps) {
       winningTrades,
       winRate: totalTrades > 0 ? (winningTrades / totalTrades) * 100 : 0,
       totalFees,
-      averageDaysHeld: totalTrades > 0
-        ? closedTransactions.reduce((sum, t) => sum + (t.daysHeld || 0), 0) / totalTrades
+      averageDaysHeld: completedTransactions.length > 0
+        ? completedTransactions.reduce((sum, t) => sum + calculateDaysHeld(t.tradeOpenDate, t.closeDate), 0) / completedTransactions.length
         : 0
     };
   }, [transactions]);

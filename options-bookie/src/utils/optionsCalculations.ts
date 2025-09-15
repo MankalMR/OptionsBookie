@@ -43,16 +43,10 @@ export const calculateNewTradeProfitLoss = (transaction: Omit<OptionsTransaction
   return 0;
 };
 
-export const calculateDaysHeld = (transaction: OptionsTransaction): number => {
-  const openDate = new Date(transaction.tradeOpenDate);
-  const closeDate = transaction.closeDate ? new Date(transaction.closeDate) : new Date();
-  const diffTime = closeDate.getTime() - openDate.getTime();
-  return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-};
 
 export const calculateAnnualizedROR = (transaction: OptionsTransaction): number | undefined => {
   const profitLoss = transaction.profitLoss || 0;
-  const daysHeld = transaction.daysHeld || calculateDaysHeld(transaction);
+  const daysHeld = calculateDaysHeld(transaction.tradeOpenDate, transaction.closeDate);
   const totalCost = transaction.premium * transaction.numberOfContracts * 100;
 
   if (daysHeld <= 0 || totalCost <= 0) {
@@ -64,13 +58,12 @@ export const calculateAnnualizedROR = (transaction: OptionsTransaction): number 
 
 export const updateTransactionPandL = (transaction: OptionsTransaction, currentStockPrice?: number): OptionsTransaction => {
   const profitLoss = calculateProfitLoss(transaction, currentStockPrice);
-  const daysHeld = calculateDaysHeld(transaction);
-  const annualizedROR = calculateAnnualizedROR({ ...transaction, profitLoss, daysHeld });
+  const daysHeld = calculateDaysHeld(transaction.tradeOpenDate, transaction.closeDate);
+  const annualizedROR = calculateAnnualizedROR({ ...transaction, profitLoss });
 
   return {
     ...transaction,
     profitLoss,
-    daysHeld,
     annualizedROR,
     stockPriceCurrent: currentStockPrice || transaction.stockPriceCurrent,
     updatedAt: new Date(),
@@ -85,12 +78,6 @@ export const calculateBreakEven = (transaction: OptionsTransaction): number => {
   }
 };
 
-export const calculateDaysToExpiry = (expiryDate: Date): number => {
-  const today = new Date();
-  const expiry = new Date(expiryDate);
-  const diffTime = expiry.getTime() - today.getTime();
-  return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-};
 
 export const isTradeExpired = (expiryDate: Date): boolean => {
   const today = new Date();
@@ -141,3 +128,62 @@ export const calculateUnrealizedPnL = (transactions: any[], chains: any[] = []):
 
   return unrealizedPnL;
 };
+
+/**
+ * Calculate days held from trade open date to current date (or close date for closed trades)
+ * @param openDate - The date the trade was opened
+ * @param closeDate - Optional close date for closed trades, defaults to current date
+ * @returns Number of days held (minimum 0)
+ */
+export const calculateDaysHeld = (openDate: string | Date, closeDate?: string | Date): number => {
+  try {
+    const opened = new Date(openDate);
+    const closed = closeDate ? new Date(closeDate) : new Date();
+
+    // Set time to start of day for accurate day calculation
+    opened.setHours(0, 0, 0, 0);
+    closed.setHours(0, 0, 0, 0);
+
+    const diffTime = closed.getTime() - opened.getTime();
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+    return Math.max(0, diffDays); // Don't show negative days
+  } catch (error) {
+    console.error('Error calculating days held:', error);
+    return 0;
+  }
+};
+
+/**
+ * Calculate days to expiry from current date to expiry date
+ * @param expiryDate - The expiry date of the option
+ * @returns Number of days to expiry (can be negative for expired options)
+ */
+export const calculateDaysToExpiry = (expiryDate: string | Date): number => {
+  try {
+    const expiry = new Date(expiryDate);
+    const today = new Date();
+
+    // Set time to start of day for accurate day calculation
+    expiry.setHours(0, 0, 0, 0);
+    today.setHours(0, 0, 0, 0);
+
+    const diffTime = expiry.getTime() - today.getTime();
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+    return diffDays; // Can be negative for expired options
+  } catch (error) {
+    console.error('Error calculating days to expiry:', error);
+    return 0;
+  }
+};
+
+/**
+ * Alias for calculateDaysHeld with shorter name for convenience
+ */
+export const calculateDH = calculateDaysHeld;
+
+/**
+ * Alias for calculateDaysToExpiry with shorter name for convenience
+ */
+export const calculateDTE = calculateDaysToExpiry;
