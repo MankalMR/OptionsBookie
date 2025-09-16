@@ -90,6 +90,44 @@ export const shouldUpdateTradeStatus = (transaction: any): boolean => {
   return transaction.status === 'Open' && isTradeExpired(transaction.expiryDate);
 };
 
+// Centralized utility to get all realized transactions
+export const getRealizedTransactions = (transactions: OptionsTransaction[]) => {
+  return transactions.filter(t =>
+    t.status === 'Closed' ||
+    t.status === 'Rolled' ||
+    t.status === 'Expired' ||
+    t.status === 'Assigned'
+  );
+};
+
+// Centralized utility to calculate total realized P&L
+export const calculateTotalRealizedPnL = (transactions: OptionsTransaction[]): number => {
+  const realizedTransactions = getRealizedTransactions(transactions);
+  return realizedTransactions.reduce((sum, t) => sum + (t.profitLoss || 0), 0);
+};
+
+// Centralized utility to format P&L as currency (rounded to whole numbers)
+export const formatPnLCurrency = (amount: number): string => {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(Math.round(amount));
+};
+
+// Centralized utility to format P&L as simple number (rounded)
+export const formatPnLNumber = (amount: number): string => {
+  return `$${Math.round(amount)}`;
+};
+
+// Centralized utility to calculate Chain P&L
+export const calculateChainPnL = (chainId: string, transactions: OptionsTransaction[]): number => {
+  return transactions
+    .filter(t => t.chainId === chainId)
+    .reduce((total, t) => total + (t.profitLoss || 0), 0);
+};
+
 export const calculateUnrealizedPnL = (transactions: any[], chains: any[] = []): number => {
   // Group transactions by chain
   const chainMap = new Map();

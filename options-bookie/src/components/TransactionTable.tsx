@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Edit, Trash2, TrendingUp, TrendingDown, ChevronDown, ChevronRight, Link, Circle, FileText, Minus, User, Diamond } from 'lucide-react';
 import { useStockPrices } from '@/hooks/useStockPrices';
 import StockPriceDisplay, { ITMIndicator } from '@/components/StockPriceDisplay';
-import { calculateDTE, calculateDH } from '@/utils/optionsCalculations';
+import { calculateDTE, calculateDH, formatPnLNumber, calculateChainPnL } from '@/utils/optionsCalculations';
 
 interface TransactionTableProps {
   transactions: OptionsTransaction[];
@@ -62,12 +62,8 @@ export default function TransactionTable({ transactions, onDelete, onEdit, portf
     setCollapsedChains(newCollapsed);
   };
 
-  // Helper function to calculate chain P&L
-  const calculateChainPnL = (chainId: string) => {
-    return transactions
-      .filter(t => t.chainId === chainId)
-      .reduce((total, t) => total + (t.profitLoss || 0), 0);
-  };
+  // Use centralized chain P&L calculation
+  const getChainPnL = (chainId: string) => calculateChainPnL(chainId, transactions);
 
   // Helper function to get chain styling based on status
   const getChainStyling = (chainId: string, chainTransactions: OptionsTransaction[]) => {
@@ -311,7 +307,7 @@ export default function TransactionTable({ transactions, onDelete, onEdit, portf
             // Render chains first
             Array.from(chainMap.entries()).forEach(([chainId, chainTransactions]) => {
               const isCollapsed = collapsedChains.has(chainId);
-              const chainPnL = calculateChainPnL(chainId);
+              const chainPnL = getChainPnL(chainId);
               const chainInfo = chains.find(c => c.id === chainId);
               const activeTransaction = chainTransactions.find(t => t.status === 'Open') || chainTransactions[chainTransactions.length - 1];
 
@@ -374,7 +370,7 @@ export default function TransactionTable({ transactions, onDelete, onEdit, portf
                     </Badge>
                   </TableCell>
                   <TableCell className={`font-bold ${chainPnL >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                    ${chainPnL.toFixed(2)}
+                    {formatPnLNumber(chainPnL)}
                     <div className="text-xs text-gray-500 font-normal">Chain P&L</div>
                   </TableCell>
                   <TableCell></TableCell>
@@ -508,7 +504,7 @@ export default function TransactionTable({ transactions, onDelete, onEdit, portf
                               )}
                             </>
                           )}
-                          ${transaction.profitLoss?.toFixed(2) || '0.00'}
+                          {formatPnLNumber(transaction.profitLoss || 0)}
                         </div>
                       </TableCell>
                       <TableCell>
@@ -686,8 +682,8 @@ export default function TransactionTable({ transactions, onDelete, onEdit, portf
                     <TrendingDown className="h-4 w-4 text-red-600" />
                   )}
                   <span className={`font-medium ${(transaction.profitLoss ?? 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                    {(transaction.profitLoss ?? 0) >= 0 ? '+' : ''}${(transaction.profitLoss ?? 0).toFixed(2)}
-                </span>
+                    {(transaction.profitLoss ?? 0) >= 0 ? '+' : ''}{formatPnLNumber(transaction.profitLoss || 0).substring(1)}
+                  </span>
                 </div>
               </TableCell>
               <TableCell>

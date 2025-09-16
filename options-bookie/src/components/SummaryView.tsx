@@ -1,7 +1,7 @@
 'use client';
 
 import { OptionsTransaction } from '@/types/options';
-import { calculateDaysHeld } from '@/utils/optionsCalculations';
+import { calculateDaysHeld, getRealizedTransactions, calculateTotalRealizedPnL, formatPnLCurrency } from '@/utils/optionsCalculations';
 import { useMemo, useState } from 'react';
 
 interface SummaryViewProps {
@@ -40,10 +40,9 @@ export default function SummaryView({ transactions }: SummaryViewProps) {
 
 
   const yearlySummaries = useMemo(() => {
-    // Include both closed and rolled transactions for yearly summaries
-    const completedTransactions = transactions.filter(t =>
-      (t.status === 'Closed' || t.status === 'Rolled') &&
-      (t.closeDate || t.status === 'Rolled') // Rolled trades might not have explicit closeDate
+    // Use centralized utility and filter for transactions with close dates
+    const completedTransactions = getRealizedTransactions(transactions).filter(t =>
+      t.closeDate || t.status === 'Rolled' // Rolled trades might not have explicit closeDate
     );
 
     const yearlyData: Record<number, YearlySummary> = {};
@@ -167,17 +166,15 @@ export default function SummaryView({ transactions }: SummaryViewProps) {
   }, [transactions]);
 
   const overallStats = useMemo(() => {
-    const closedTransactions = transactions.filter(t => t.status === 'Closed');
-    const rolledTransactions = transactions.filter(t => t.status === 'Rolled');
-
-    // For P&L calculation, only use truly closed transactions
-    const totalPnL = closedTransactions.reduce((sum, t) => sum + (t.profitLoss || 0), 0);
-    const totalTrades = closedTransactions.length;
-    const winningTrades = closedTransactions.filter(t => (t.profitLoss || 0) > 0).length;
+    // Use centralized utilities for realized transactions and P&L calculation
+    const realizedTransactions = getRealizedTransactions(transactions);
+    const totalPnL = calculateTotalRealizedPnL(transactions);
+    const totalTrades = realizedTransactions.length;
+    const winningTrades = realizedTransactions.filter(t => (t.profitLoss || 0) > 0).length;
     const totalFees = transactions.reduce((sum, t) => sum + t.fees, 0);
 
-    // For average days held, include both closed and rolled transactions
-    const completedTransactions = [...closedTransactions, ...rolledTransactions];
+    // For average days held, use all realized transactions
+    const completedTransactions = realizedTransactions;
 
     return {
       totalPnL,
@@ -191,12 +188,8 @@ export default function SummaryView({ transactions }: SummaryViewProps) {
     };
   }, [transactions]);
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    }).format(amount);
-  };
+  // Use centralized formatting utility
+  const formatCurrency = formatPnLCurrency;
 
   const selectedYearData = selectedYear ? yearlySummaries.find(y => y.year === selectedYear) : null;
 
@@ -232,7 +225,7 @@ export default function SummaryView({ transactions }: SummaryViewProps) {
           </div>
           <div className="text-center">
             <p className="text-sm text-gray-600">Win Rate</p>
-            <p className="text-3xl font-bold text-gray-900">{overallStats.winRate.toFixed(1)}%</p>
+            <p className="text-3xl font-bold text-gray-900">{Math.round(overallStats.winRate)}%</p>
           </div>
           <div className="text-center">
             <p className="text-sm text-gray-600">Total Fees</p>
@@ -270,11 +263,11 @@ export default function SummaryView({ transactions }: SummaryViewProps) {
                 </div>
                 <div>
                   <p className="text-sm text-gray-600">Win Rate</p>
-                  <p className="text-lg font-semibold text-gray-900">{yearData.winRate.toFixed(1)}%</p>
+                  <p className="text-lg font-semibold text-gray-900">{Math.round(yearData.winRate)}%</p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-600">Avg Days Held</p>
-                  <p className="text-lg font-semibold text-gray-900">{yearData.averageDaysHeld.toFixed(1)}</p>
+                  <p className="text-lg font-semibold text-gray-900">{Math.round(yearData.averageDaysHeld)}</p>
                 </div>
               </div>
 
@@ -300,7 +293,7 @@ export default function SummaryView({ transactions }: SummaryViewProps) {
                               {formatCurrency(month.totalPnL)}
                             </td>
                             <td className="px-4 py-2 text-sm text-gray-900">{month.totalTrades}</td>
-                            <td className="px-4 py-2 text-sm text-gray-900">{month.winRate.toFixed(1)}%</td>
+                            <td className="px-4 py-2 text-sm text-gray-900">{Math.round(month.winRate)}%</td>
                             <td className="px-4 py-2 text-sm text-gray-900">{formatCurrency(month.totalFees)}</td>
                           </tr>
                         ))}

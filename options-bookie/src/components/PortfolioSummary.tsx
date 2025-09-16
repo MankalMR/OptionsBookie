@@ -1,7 +1,7 @@
 'use client';
 
 import { OptionsTransaction, TradeChain } from '@/types/options';
-import { calculateUnrealizedPnL, calculateDaysHeld } from '@/utils/optionsCalculations';
+import { calculateUnrealizedPnL, calculateDaysHeld, getRealizedTransactions, calculateTotalRealizedPnL, formatPnLNumber } from '@/utils/optionsCalculations';
 import { useMemo } from 'react';
 
 interface PortfolioSummaryProps {
@@ -13,17 +13,10 @@ export default function PortfolioSummary({ transactions, chains = [] }: Portfoli
   const summary = useMemo(() => {
     const openPositions = transactions.filter(t => t.status === 'Open');
     const rolledPositions = transactions.filter(t => t.status === 'Rolled');
-    const closedPositions = transactions.filter(t => t.status === 'Closed');
-    const expiredPositions = transactions.filter(t => t.status === 'Expired');
-    const assignedPositions = transactions.filter(t => t.status === 'Assigned');
 
-    // Only closed, expired, and assigned positions contribute to realized P&L (excluding rolled)
-    const realizedPositions = [...closedPositions, ...expiredPositions, ...assignedPositions];
-
-    // For average days held calculation, include rolled positions since they represent completed trades
-    const completedPositions = [...realizedPositions, ...rolledPositions];
-
-    const totalProfitLoss = realizedPositions.reduce((sum, t) => sum + (t.profitLoss || 0), 0);
+    // Use centralized utility for realized transactions and P&L calculation
+    const realizedPositions = getRealizedTransactions(transactions);
+    const totalProfitLoss = calculateTotalRealizedPnL(transactions);
 
     // Calculate unrealized P&L using chain-aware logic
     const unrealizedPnL = calculateUnrealizedPnL(transactions, chains);
@@ -33,9 +26,8 @@ export default function PortfolioSummary({ transactions, chains = [] }: Portfoli
     const winningTrades = realizedPositions.filter(t => (t.profitLoss || 0) > 0);
     const winRate = realizedPositions.length > 0 ? (winningTrades.length / realizedPositions.length) * 100 : 0;
 
-
-    const averageDaysHeld = completedPositions.length > 0
-      ? completedPositions.reduce((sum, t) => sum + calculateDaysHeld(t.tradeOpenDate, t.closeDate), 0) / completedPositions.length
+    const averageDaysHeld = realizedPositions.length > 0
+      ? realizedPositions.reduce((sum, t) => sum + calculateDaysHeld(t.tradeOpenDate, t.closeDate), 0) / realizedPositions.length
       : 0;
 
     return {
@@ -64,18 +56,18 @@ export default function PortfolioSummary({ transactions, chains = [] }: Portfoli
         <div>
           <p className="text-sm text-gray-600">Realized P&L</p>
           <p className={`text-2xl font-bold ${summary.totalProfitLoss >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-            ${summary.totalProfitLoss.toFixed(2)}
+            {formatPnLNumber(summary.totalProfitLoss)}
           </p>
         </div>
         <div>
           <p className="text-sm text-gray-600">Unrealized P&L</p>
           <p className={`text-2xl font-bold ${summary.unrealizedPnL >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-            ${summary.unrealizedPnL.toFixed(2)}
+            {formatPnLNumber(summary.unrealizedPnL)}
           </p>
         </div>
         <div>
           <p className="text-sm text-gray-600">Win Rate</p>
-          <p className="text-2xl font-bold text-gray-900">{summary.winRate.toFixed(1)}%</p>
+          <p className="text-2xl font-bold text-gray-900">{Math.round(summary.winRate)}%</p>
         </div>
       </div>
     </div>
