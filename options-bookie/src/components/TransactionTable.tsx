@@ -134,7 +134,19 @@ export default function TransactionTable({ transactions, onDelete, onEdit, portf
 
   const formatDate = (date: Date | string) => {
     try {
-      const dateObj = date instanceof Date ? date : new Date(date);
+      let dateObj: Date;
+
+      if (date instanceof Date) {
+        dateObj = date;
+      } else {
+        // For string dates (YYYY-MM-DD format), parse as local date to avoid timezone shifts
+        if (typeof date === 'string' && date.match(/^\d{4}-\d{2}-\d{2}$/)) {
+          const [year, month, day] = date.split('-').map(Number);
+          dateObj = new Date(year, month - 1, day); // month is 0-indexed
+        } else {
+          dateObj = new Date(date);
+        }
+      }
 
       // Check if the date is valid
       if (isNaN(dateObj.getTime())) {
@@ -250,9 +262,9 @@ export default function TransactionTable({ transactions, onDelete, onEdit, portf
               Expires
             </TableHead>
             <TableHead
-              title="Days to Expiry"
+              title="Days to Expiry for open trades, Close date for finished trades"
             >
-              DTE
+              DTE/Closed
             </TableHead>
             <TableHead
               title="Days Held"
@@ -422,17 +434,28 @@ export default function TransactionTable({ transactions, onDelete, onEdit, portf
                         {formatDate(transaction.expiryDate)}
                       </TableCell>
                       <TableCell>
-                        <span className={`font-medium ${
-                          calculateDTE(transaction.expiryDate) <= 7
-                            ? 'text-red-600 bg-red-50 px-2 py-1 rounded'
-                            : calculateDTE(transaction.expiryDate) <= 30
-                            ? 'text-orange-600 bg-orange-50 px-2 py-1 rounded'
-                            : 'text-gray-600'
-                        }`}>
-                          {calculateDTE(transaction.expiryDate)}
-                        </span>
+                        {transaction.status === 'Open' ? (
+                          <span className={`font-medium ${
+                            calculateDTE(transaction.expiryDate) <= 7
+                              ? 'text-red-600 bg-red-50 px-2 py-1 rounded'
+                              : calculateDTE(transaction.expiryDate) <= 30
+                              ? 'text-orange-600 bg-orange-50 px-2 py-1 rounded'
+                              : 'text-gray-600'
+                          }`}>
+                            {calculateDTE(transaction.expiryDate)}
+                          </span>
+                        ) : (
+                          <div className="text-gray-600 text-sm">
+                            {transaction.status === 'Expired'
+                              ? formatDate(transaction.expiryDate)
+                              : transaction.closeDate
+                                ? formatDate(transaction.closeDate)
+                                : <span className="text-gray-400">-</span>
+                            }
+                          </div>
+                        )}
                       </TableCell>
-                      <TableCell>{calculateDH(transaction.tradeOpenDate)}</TableCell>
+                      <TableCell>{calculateDH(transaction.tradeOpenDate, transaction.closeDate)}</TableCell>
                       <TableCell>
                         <div className="flex items-center space-x-2">
                           <span>${transaction.strikePrice.toFixed(2)}</span>
@@ -593,18 +616,29 @@ export default function TransactionTable({ transactions, onDelete, onEdit, portf
                 {formatDate(transaction.expiryDate)}
               </TableCell>
               <TableCell>
-                <span className={`font-medium ${
-                  calculateDTE(transaction.expiryDate) <= 7
-                    ? 'text-red-600 bg-red-50 px-2 py-1 rounded'
-                    : calculateDTE(transaction.expiryDate) <= 30
-                    ? 'text-orange-600 bg-orange-50 px-2 py-1 rounded'
-                    : 'text-gray-600'
-                }`}>
-                  {calculateDTE(transaction.expiryDate)}
-                </span>
+                {transaction.status === 'Open' ? (
+                  <span className={`font-medium ${
+                    calculateDTE(transaction.expiryDate) <= 7
+                      ? 'text-red-600 bg-red-50 px-2 py-1 rounded'
+                      : calculateDTE(transaction.expiryDate) <= 30
+                      ? 'text-orange-600 bg-orange-50 px-2 py-1 rounded'
+                      : 'text-gray-600'
+                  }`}>
+                    {calculateDTE(transaction.expiryDate)}
+                  </span>
+                ) : (
+                  <div className="text-gray-600 text-sm">
+                    {transaction.status === 'Expired'
+                      ? formatDate(transaction.expiryDate)
+                      : transaction.closeDate
+                        ? formatDate(transaction.closeDate)
+                        : <span className="text-gray-400">-</span>
+                    }
+                  </div>
+                )}
               </TableCell>
               <TableCell>
-                {calculateDH(transaction.tradeOpenDate)}
+                {calculateDH(transaction.tradeOpenDate, transaction.closeDate)}
               </TableCell>
               <TableCell>
                 <div className="flex items-center space-x-2">

@@ -17,12 +17,26 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey);
 const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
 // Helper function to convert Supabase row to OptionsTransaction
+// Helper function to parse date strings correctly as local dates
+function parseLocalDate(dateString: string | Date): Date {
+  if (dateString instanceof Date) return dateString;
+  if (typeof dateString === 'string') {
+    // Handle ISO date strings (YYYY-MM-DDTHH:mm:ss.sssZ) - extract just the date part
+    const isoDateMatch = dateString.match(/^(\d{4}-\d{2}-\d{2})/);
+    if (isoDateMatch) {
+      const [year, month, day] = isoDateMatch[1].split('-').map(Number);
+      return new Date(year, month - 1, day); // month is 0-indexed
+    }
+  }
+  return new Date(dateString);
+}
+
 function rowToTransaction(row: any): OptionsTransaction {
   return {
     id: row.id,
     stockSymbol: row.stock_symbol,
-    tradeOpenDate: new Date(row.trade_open_date),
-    expiryDate: new Date(row.expiry_date),
+    tradeOpenDate: parseLocalDate(row.trade_open_date),
+    expiryDate: parseLocalDate(row.expiry_date),
     callOrPut: row.call_or_put,
     buyOrSell: row.buy_or_sell,
     stockPriceCurrent: parseFloat(row.stock_price_current),
@@ -33,7 +47,7 @@ function rowToTransaction(row: any): OptionsTransaction {
     fees: parseFloat(row.fees || 0),
     status: row.status,
     exitPrice: row.exit_price ? parseFloat(row.exit_price) : undefined,
-    closeDate: row.close_date ? new Date(row.close_date) : undefined,
+    closeDate: row.close_date ? parseLocalDate(row.close_date) : undefined,
     profitLoss: parseFloat(row.profit_loss || 0),
     annualizedROR: row.annualized_ror ? parseFloat(row.annualized_ror) : undefined,
     cashReserve: row.cash_reserve ? parseFloat(row.cash_reserve) : undefined,
@@ -41,8 +55,8 @@ function rowToTransaction(row: any): OptionsTransaction {
     costBasisPerShare: row.cost_basis_per_share ? parseFloat(row.cost_basis_per_share) : undefined,
     portfolioId: row.portfolio_id || '',
     chainId: row.chain_id || undefined, // Added missing chainId mapping
-    createdAt: new Date(row.created_at),
-    updatedAt: new Date(row.updated_at),
+    createdAt: parseLocalDate(row.created_at),
+    updatedAt: parseLocalDate(row.updated_at),
   };
 }
 

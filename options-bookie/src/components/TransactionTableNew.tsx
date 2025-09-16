@@ -209,7 +209,7 @@ export default function TransactionTable({ transactions, onUpdate, onDelete, onE
                 </div>
               </TableCell>
               <TableCell>
-                {calculateDH(transaction.tradeOpenDate)}
+                {calculateDH(transaction.tradeOpenDate, transaction.closeDate)}
               </TableCell>
               <TableCell>
                 <div className="flex space-x-1">
