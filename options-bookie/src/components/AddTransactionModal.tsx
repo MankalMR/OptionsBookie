@@ -25,7 +25,7 @@ export default function AddTransactionModal({ onClose, onSave, portfolios = [], 
     strikePrice: 0,
     premium: 0,
     numberOfContracts: 1,
-    fees: 0.66, // Default broker fee per transaction
+    fees: 0.66, // Default broker fee (0.66 per contract)
     status: 'Open' as 'Open' | 'Closed' | 'Expired' | 'Assigned',
     stockPriceCurrent: 0, // Default value since we removed from UI
   });
@@ -116,7 +116,18 @@ export default function AddTransactionModal({ onClose, onSave, portfolios = [], 
   };
 
   const handleChange = (field: string, value: string | number) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    setFormData(prev => {
+      const newData = { ...prev, [field]: value };
+
+      // Auto-calculate fees based on number of contracts (0.66 per contract)
+      if (field === 'numberOfContracts') {
+        const contracts = typeof value === 'number' ? value : parseInt(value as string) || 1;
+        newData.fees = contracts * 0.66;
+      }
+
+      return newData;
+    });
+
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: '' }));
     }

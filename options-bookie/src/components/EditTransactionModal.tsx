@@ -37,7 +37,7 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
     strikePrice: transaction.strikePrice,
     premium: transaction.premium,
     numberOfContracts: transaction.numberOfContracts,
-    fees: transaction.fees,
+    fees: transaction.fees || (transaction.numberOfContracts * 0.66), // Auto-calculate if no fees set
     status: transaction.status,
     exitPrice: transaction.exitPrice || 0,
     closeDate: closeDate ? closeDate.toISOString().split('T')[0] : '',
@@ -46,7 +46,7 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
     newStrikePrice: transaction.strikePrice,
     newPremium: 0,
     exitPremium: 0,
-        rollFees: 0.66, // Default roll fee (individual transaction fees handled separately)
+        rollFees: transaction.numberOfContracts * 0.66, // Roll fee per contract
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -275,7 +275,19 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
   };
 
   const handleChange = (field: string, value: string | number) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    setFormData(prev => {
+      const newData = { ...prev, [field]: value };
+
+      // Auto-calculate fees based on number of contracts (0.66 per contract)
+      if (field === 'numberOfContracts') {
+        const contracts = typeof value === 'number' ? value : parseInt(value as string) || 1;
+        newData.fees = contracts * 0.66;
+        newData.rollFees = contracts * 0.66; // Also update roll fees
+      }
+
+      return newData;
+    });
+
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: '' }));
     }
