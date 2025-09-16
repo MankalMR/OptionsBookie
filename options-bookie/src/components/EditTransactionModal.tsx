@@ -440,12 +440,12 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Portfolio Selection */}
+            {/* Portfolio - Full Width */}
             {portfolios.length > 0 && (
               <div className="space-y-2">
                 <Label htmlFor="portfolioId">Portfolio</Label>
                 <Select value={formData.portfolioId} onValueChange={(value) => handleChange('portfolioId', value)}>
-                  <SelectTrigger>
+                  <SelectTrigger className="w-full">
                     <SelectValue placeholder="Select a portfolio" />
                   </SelectTrigger>
                   <SelectContent>
@@ -460,26 +460,7 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
               </div>
             )}
 
-            {/* Status Selection */}
-            <div>
-              <Label>Status</Label>
-              <Select
-                value={formData.status}
-                onValueChange={(value) => handleStatusChange(value as 'Open' | 'Closed' | 'Expired' | 'Assigned' | 'Rolled')}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Open">Open</SelectItem>
-                  <SelectItem value="Closed">Closed</SelectItem>
-                  <SelectItem value="Expired">Expired</SelectItem>
-                  <SelectItem value="Assigned">Assigned</SelectItem>
-                  <SelectItem value="Rolled">Rolled</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
+            {/* Stock Symbol and Status */}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="stockSymbol">Stock Symbol</Label>
@@ -488,16 +469,38 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
                   type="text"
                   value={formData.stockSymbol}
                   onChange={(e) => handleChange('stockSymbol', e.target.value.toUpperCase())}
-                  className={errors.stockSymbol ? 'border-destructive' : ''}
+                  className={errors.stockSymbol ? 'border-destructive w-full' : 'w-full'}
                   placeholder="AAPL"
                 />
                 {errors.stockSymbol && <p className="text-sm text-destructive">{errors.stockSymbol}</p>}
               </div>
 
               <div className="space-y-2">
+                <Label>Status</Label>
+                <Select
+                  value={formData.status}
+                  onValueChange={(value) => handleStatusChange(value as 'Open' | 'Closed' | 'Expired' | 'Assigned' | 'Rolled')}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Open">Open</SelectItem>
+                    <SelectItem value="Closed">Closed</SelectItem>
+                    <SelectItem value="Expired">Expired</SelectItem>
+                    <SelectItem value="Assigned">Assigned</SelectItem>
+                    <SelectItem value="Rolled">Rolled</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* Type and Action */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
                 <Label htmlFor="callOrPut">Type</Label>
                 <Select value={formData.callOrPut} onValueChange={(value) => handleChange('callOrPut', value)}>
-                  <SelectTrigger>
+                  <SelectTrigger className="w-full">
                     <SelectValue placeholder="Select option type" />
                   </SelectTrigger>
                   <SelectContent>
@@ -506,19 +509,19 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
                   </SelectContent>
                 </Select>
               </div>
-            </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="buyOrSell">Action</Label>
-              <Select value={formData.buyOrSell} onValueChange={(value) => handleChange('buyOrSell', value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select action" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Buy">Buy</SelectItem>
-                  <SelectItem value="Sell">Sell</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="space-y-2">
+                <Label htmlFor="buyOrSell">Action</Label>
+                <Select value={formData.buyOrSell} onValueChange={(value) => handleChange('buyOrSell', value)}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select action" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Buy">Buy</SelectItem>
+                    <SelectItem value="Sell">Sell</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -529,6 +532,7 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
                   type="date"
                   value={formData.tradeOpenDate}
                   onChange={(e) => handleChange('tradeOpenDate', e.target.value)}
+                  className="w-full"
                 />
               </div>
 
@@ -539,7 +543,7 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
                   type="date"
                   value={formData.expiryDate}
                   onChange={(e) => handleChange('expiryDate', e.target.value)}
-                  className={errors.expiryDate ? 'border-destructive' : ''}
+                  className={errors.expiryDate ? 'border-destructive w-full' : 'w-full'}
                 />
                 {errors.expiryDate && <p className="text-sm text-destructive">{errors.expiryDate}</p>}
               </div>
@@ -554,7 +558,7 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
                   step="0.01"
                   value={formData.strikePrice}
                   onChange={(e) => handleChange('strikePrice', parseFloat(e.target.value) || 0)}
-                  className={errors.strikePrice ? 'border-destructive' : ''}
+                  className={errors.strikePrice ? 'border-destructive w-full' : 'w-full'}
                 />
                 {errors.strikePrice && <p className="text-sm text-destructive">{errors.strikePrice}</p>}
               </div>
@@ -567,7 +571,7 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
                   step="0.01"
                   value={formData.premium}
                   onChange={(e) => handleChange('premium', parseFloat(e.target.value) || 0)}
-                  className={errors.premium ? 'border-destructive' : ''}
+                  className={errors.premium ? 'border-destructive w-full' : 'w-full'}
                 />
                 {errors.premium && <p className="text-sm text-destructive">{errors.premium}</p>}
               </div>
@@ -581,7 +585,7 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
                   type="number"
                   value={formData.numberOfContracts}
                   onChange={(e) => handleChange('numberOfContracts', parseInt(e.target.value) || 1)}
-                  className={errors.numberOfContracts ? 'border-destructive' : ''}
+                  className={errors.numberOfContracts ? 'border-destructive w-full' : 'w-full'}
                 />
                 {errors.numberOfContracts && <p className="text-sm text-destructive">{errors.numberOfContracts}</p>}
               </div>
@@ -594,6 +598,7 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
                   step="0.01"
                   value={formData.fees}
                   onChange={(e) => handleChange('fees', parseFloat(e.target.value) || 0)}
+                  className="w-full"
                 />
               </div>
             </div>
@@ -611,7 +616,7 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
                       step="0.01"
                       value={formData.exitPrice}
                       onChange={(e) => handleChange('exitPrice', parseFloat(e.target.value) || 0)}
-                      className={errors.exitPrice ? 'border-destructive' : ''}
+                      className={errors.exitPrice ? 'border-destructive w-full' : 'w-full'}
                     />
                     {errors.exitPrice && <p className="text-sm text-destructive">{errors.exitPrice}</p>}
                   </div>
@@ -623,7 +628,7 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
                       type="date"
                       value={formData.closeDate}
                       onChange={(e) => handleChange('closeDate', e.target.value)}
-                      className={errors.closeDate ? 'border-destructive' : ''}
+                      className={errors.closeDate ? 'border-destructive w-full' : 'w-full'}
                     />
                     {errors.closeDate && <p className="text-sm text-destructive">{errors.closeDate}</p>}
                   </div>
@@ -644,7 +649,7 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
                       step="0.01"
                       value={formData.exitPremium}
                       onChange={(e) => handleChange('exitPremium', parseFloat(e.target.value) || 0)}
-                      className={errors.exitPremium ? 'border-destructive' : ''}
+                      className={errors.exitPremium ? 'border-destructive w-full' : 'w-full'}
                     />
                     {errors.exitPremium && <p className="text-sm text-destructive">{errors.exitPremium}</p>}
                   </div>
@@ -656,7 +661,7 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
                       type="date"
                       value={formData.newExpiryDate}
                       onChange={(e) => handleChange('newExpiryDate', e.target.value)}
-                      className={errors.newExpiryDate ? 'border-destructive' : ''}
+                      className={errors.newExpiryDate ? 'border-destructive w-full' : 'w-full'}
                     />
                     {errors.newExpiryDate && <p className="text-sm text-destructive">{errors.newExpiryDate}</p>}
                   </div>
@@ -669,7 +674,7 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
                       step="0.01"
                       value={formData.newStrikePrice}
                       onChange={(e) => handleChange('newStrikePrice', parseFloat(e.target.value) || 0)}
-                      className={errors.newStrikePrice ? 'border-destructive' : ''}
+                      className={errors.newStrikePrice ? 'border-destructive w-full' : 'w-full'}
                     />
                     {errors.newStrikePrice && <p className="text-sm text-destructive">{errors.newStrikePrice}</p>}
                   </div>
@@ -682,7 +687,7 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
                       step="0.01"
                       value={formData.newPremium}
                       onChange={(e) => handleChange('newPremium', parseFloat(e.target.value) || 0)}
-                      className={errors.newPremium ? 'border-destructive' : ''}
+                      className={errors.newPremium ? 'border-destructive w-full' : 'w-full'}
                     />
                     {errors.newPremium && <p className="text-sm text-destructive">{errors.newPremium}</p>}
                   </div>
@@ -695,6 +700,7 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
                       step="0.01"
                       value={formData.rollFees}
                       onChange={(e) => handleChange('rollFees', parseFloat(e.target.value) || 0)}
+                      className="w-full"
                     />
                   </div>
 

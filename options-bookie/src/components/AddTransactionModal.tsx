@@ -139,10 +139,11 @@ export default function AddTransactionModal({ onClose, onSave, portfolios = [], 
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Portfolio - Full Width */}
             <div className="space-y-2">
               <Label htmlFor="portfolioId">Portfolio</Label>
               <Select value={formData.portfolioId} onValueChange={(value) => handleChange('portfolioId', value)}>
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue placeholder="Select a portfolio" />
                 </SelectTrigger>
                 <SelectContent>
@@ -155,6 +156,7 @@ export default function AddTransactionModal({ onClose, onSave, portfolios = [], 
               </Select>
             </div>
 
+            {/* Stock Symbol and Status */}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="stockSymbol" className={errors.stockSymbol ? 'text-destructive' : ''}>
@@ -165,15 +167,33 @@ export default function AddTransactionModal({ onClose, onSave, portfolios = [], 
                   type="text"
                   value={formData.stockSymbol}
                   onChange={(e) => handleChange('stockSymbol', e.target.value.toUpperCase())}
-                  className={errors.stockSymbol ? 'border-destructive focus-visible:ring-destructive' : ''}
+                  className={errors.stockSymbol ? 'border-destructive focus-visible:ring-destructive w-full' : 'w-full'}
                   placeholder="AAPL"
                 />
               </div>
 
               <div className="space-y-2">
+                <Label htmlFor="status">Status</Label>
+                <Select value={formData.status} onValueChange={(value) => handleChange('status', value)}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Open">Open</SelectItem>
+                    <SelectItem value="Closed">Closed</SelectItem>
+                    <SelectItem value="Expired">Expired</SelectItem>
+                    <SelectItem value="Assigned">Assigned</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* Type and Action */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
                 <Label htmlFor="callOrPut">Type</Label>
                 <Select value={formData.callOrPut} onValueChange={(value) => handleChange('callOrPut', value)}>
-                  <SelectTrigger>
+                  <SelectTrigger className="w-full">
                     <SelectValue placeholder="Select option type" />
                   </SelectTrigger>
                   <SelectContent>
@@ -182,33 +202,16 @@ export default function AddTransactionModal({ onClose, onSave, portfolios = [], 
                   </SelectContent>
                 </Select>
               </div>
-            </div>
 
-            <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="buyOrSell">Action</Label>
                 <Select value={formData.buyOrSell} onValueChange={(value) => handleChange('buyOrSell', value)}>
-                  <SelectTrigger>
+                  <SelectTrigger className="w-full">
                     <SelectValue placeholder="Select action" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="Buy">Buy</SelectItem>
                     <SelectItem value="Sell">Sell</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="status">Status</Label>
-                <Select value={formData.status} onValueChange={(value) => handleChange('status', value)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Open">Open</SelectItem>
-                    <SelectItem value="Closed">Closed</SelectItem>
-                    <SelectItem value="Expired">Expired</SelectItem>
-                    <SelectItem value="Assigned">Assigned</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -222,6 +225,7 @@ export default function AddTransactionModal({ onClose, onSave, portfolios = [], 
                   type="date"
                   value={formData.tradeOpenDate}
                   onChange={(e) => handleChange('tradeOpenDate', e.target.value)}
+                  className="w-full"
                 />
               </div>
 
@@ -234,7 +238,7 @@ export default function AddTransactionModal({ onClose, onSave, portfolios = [], 
                   type="date"
                   value={formData.expiryDate}
                   onChange={(e) => handleChange('expiryDate', e.target.value)}
-                  className={errors.expiryDate ? 'border-destructive focus-visible:ring-destructive' : ''}
+                  className={errors.expiryDate ? 'border-destructive focus-visible:ring-destructive w-full' : 'w-full'}
                 />
               </div>
             </div>
@@ -250,7 +254,7 @@ export default function AddTransactionModal({ onClose, onSave, portfolios = [], 
                   step="0.01"
                   value={formData.strikePrice}
                   onChange={(e) => handleChange('strikePrice', parseFloat(e.target.value) || 0)}
-                  className={errors.strikePrice ? 'border-destructive focus-visible:ring-destructive' : ''}
+                  className={errors.strikePrice ? 'border-destructive focus-visible:ring-destructive w-full' : 'w-full'}
                 />
               </div>
 
@@ -264,7 +268,7 @@ export default function AddTransactionModal({ onClose, onSave, portfolios = [], 
                   step="0.01"
                   value={formData.premium}
                   onChange={(e) => handleChange('premium', parseFloat(e.target.value) || 0)}
-                  className={errors.premium ? 'border-destructive focus-visible:ring-destructive' : ''}
+                  className={errors.premium ? 'border-destructive focus-visible:ring-destructive w-full' : 'w-full'}
                 />
               </div>
             </div>
@@ -279,7 +283,7 @@ export default function AddTransactionModal({ onClose, onSave, portfolios = [], 
                   type="number"
                   value={formData.numberOfContracts}
                   onChange={(e) => handleChange('numberOfContracts', parseInt(e.target.value) || 1)}
-                  className={errors.numberOfContracts ? 'border-destructive focus-visible:ring-destructive' : ''}
+                  className={errors.numberOfContracts ? 'border-destructive focus-visible:ring-destructive w-full' : 'w-full'}
                 />
               </div>
 
@@ -291,6 +295,7 @@ export default function AddTransactionModal({ onClose, onSave, portfolios = [], 
                   step="0.01"
                   value={formData.fees}
                   onChange={(e) => handleChange('fees', parseFloat(e.target.value) || 0)}
+                  className="w-full"
                 />
               </div>
             </div>
