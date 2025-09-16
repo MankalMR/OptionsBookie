@@ -135,3 +135,38 @@
   --tw-ring-color: hsl(0 84.2% 60.2%) !important;
 }
 
+/* Consistent outline colors from shadcn/ui blue theme */
+*:focus,
+*:focus-visible,
+button:focus,
+input:focus,
+select:focus,
+textarea:focus {
+  outline: 2px solid hsl(221.2 83.2% 53.3% / 0.5) !important;
+  outline-offset: 2px !important;
+}
+
+/* Consistent styling for all shadcn/ui components */
+[data-slot="card"],
+.bg-card,
+.card {
+  border-color: hsl(var(--border)) !important;
+}
+
+[data-slot="table"] {
+  border-color: hsl(var(--border)) !important;
+}
+
+[data-slot="table"] th {
+  border-color: hsl(var(--border)) !important;
+}
+
+[data-slot="table"] td {
+  border-color: hsl(var(--border)) !important;
+}
+
+/* Ensure all data-slot components use consistent border colors */
+[data-slot] {
+  border-color: hsl(var(--border)) !important;
+}
+

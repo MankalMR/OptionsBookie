@@ -27,6 +27,7 @@ export default function AddTransactionModal({ onClose, onSave, portfolios = [], 
     numberOfContracts: 1,
     fees: 0.66, // Default broker fee per transaction
     status: 'Open' as 'Open' | 'Closed' | 'Expired' | 'Assigned',
+    stockPriceCurrent: 0, // Default value since we removed from UI
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -59,17 +60,18 @@ export default function AddTransactionModal({ onClose, onSave, portfolios = [], 
   };
 
   const calculateProfitLoss = () => {
-    // For new trades, show premium received/paid as P&L
+    // For new trades, show premium received/paid as P&L, minus fees
     const contracts = formData.numberOfContracts;
     const premium = formData.premium;
+    const fees = formData.fees;
 
     let profitLoss = 0;
     if (formData.buyOrSell === 'Buy') {
-      // If you bought the option, you paid the premium (negative P&L until closed)
-      profitLoss = -premium * contracts * 100;
+      // If you bought the option, you paid the premium plus fees (negative P&L until closed)
+      profitLoss = -premium * contracts * 100 - fees;
     } else {
-      // If you sold the option, you received the premium (positive P&L until closed)
-      profitLoss = premium * contracts * 100;
+      // If you sold the option, you received the premium minus fees (positive P&L until closed)
+      profitLoss = premium * contracts * 100 - fees;
     }
 
     return profitLoss;

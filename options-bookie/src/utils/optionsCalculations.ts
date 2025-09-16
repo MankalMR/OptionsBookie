@@ -1,12 +1,15 @@
 import { OptionsTransaction } from '@/types/options';
 
 export const calculateProfitLoss = (transaction: OptionsTransaction, exitPrice?: number): number => {
+  // Universal P&L calculation: always deduct fees for consistency
+  const contracts = transaction.numberOfContracts;
+  const premium = transaction.premium;
+  const fees = transaction.fees;
+
+  let profitLoss = 0;
+
   // If exit price is provided, calculate P&L based on actual trade execution
   if (exitPrice !== undefined && exitPrice > 0) {
-    const contracts = transaction.numberOfContracts;
-    const premium = transaction.premium;
-
-    let profitLoss = 0;
     if (transaction.buyOrSell === 'Buy') {
       // If you bought the option, profit = (exit price - premium paid) * contracts * 100
       // Positive exit price means you sold it for more than you paid
@@ -16,22 +19,19 @@ export const calculateProfitLoss = (transaction: OptionsTransaction, exitPrice?:
       // Exit price is what you paid to buy it back
       profitLoss = (premium - exitPrice) * contracts * 100;
     }
-
-    return profitLoss;
-  }
-
-  // For open trades, show premium received/paid as P&L
-  const contracts = transaction.numberOfContracts;
-  const premium = transaction.premium;
-
-  let profitLoss = 0;
-  if (transaction.buyOrSell === 'Buy') {
-    // If you bought the option, you paid the premium (negative P&L until closed)
-    profitLoss = -premium * contracts * 100;
   } else {
-    // If you sold the option, you received the premium (positive P&L until closed)
-    profitLoss = premium * contracts * 100;
+    // For open trades, show premium received/paid as P&L
+    if (transaction.buyOrSell === 'Buy') {
+      // If you bought the option, you paid the premium (negative P&L until closed)
+      profitLoss = -premium * contracts * 100;
+    } else {
+      // If you sold the option, you received the premium (positive P&L until closed)
+      profitLoss = premium * contracts * 100;
+    }
   }
+
+  // Universal rule: always deduct fees from P&L
+  profitLoss -= fees;
 
   return profitLoss;
 };

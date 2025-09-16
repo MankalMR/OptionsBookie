@@ -47,7 +47,7 @@ export default function PortfolioSummary({ transactions, chains = [] }: Portfoli
       winRate,
       averageDaysHeld
     };
-  }, [transactions]);
+  }, [transactions, chains]);
 
   return (
     <div className="bg-white rounded-lg shadow p-6">

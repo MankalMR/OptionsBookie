@@ -10,14 +10,13 @@ import DeleteConfirmationModal from '@/components/DeleteConfirmationModal';
 import SummaryView from '@/components/SummaryView';
 import PortfolioSelector from '@/components/PortfolioSelector';
 import PortfolioModal from '@/components/PortfolioModal';
-import { updateTransactionPandL } from '@/utils/optionsCalculations';
 import { useTransactions } from '@/hooks/useTransactions';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import AuthButton from '@/components/AuthButton';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, RefreshCw, TrendingUp } from 'lucide-react';
+import { Plus, TrendingUp } from 'lucide-react';
 import { useStockPrices } from '@/hooks/useStockPrices';
 
 export default function Home() {
@@ -121,40 +120,56 @@ export default function Home() {
     const updateChainStatuses = async () => {
       if (chains.length === 0 || transactions.length === 0) return;
 
+      console.log('🔍 Checking chain statuses...', {
+        chains: chains.length,
+        transactions: transactions.length
+      });
+
       const chainsToUpdate = [];
 
       for (const chain of chains) {
+        // Get all transactions for this chain
+        const chainTransactions = transactions.filter(t => t.chainId === chain.id);
+        const hasOpenTransactions = chainTransactions.some(t => t.status === 'Open');
+
+        console.log(`🔗 Chain ${chain.id} (${chain.symbol}): ${chainTransactions.length} transactions, hasOpen: ${hasOpenTransactions}, currentStatus: ${chain.chainStatus}`,
+          chainTransactions.map(t => `${t.stockSymbol}-${t.status}`));
+
         if (chain.chainStatus === 'Active') {
-          // Get all transactions for this chain
-          const chainTransactions = transactions.filter(t => t.chainId === chain.id);
-
-          // Check if there are any open transactions
-          const hasOpenTransactions = chainTransactions.some(t => t.status === 'Open');
-
           // If no open transactions, this chain should be closed
           if (!hasOpenTransactions && chainTransactions.length > 0) {
-            console.log(`Chain ${chain.id} (${chain.symbol}) should be closed - no open transactions found`);
-            chainsToUpdate.push(chain.id);
+            console.log(`❌ Chain ${chain.id} (${chain.symbol}) should be closed - no open transactions found`);
+            chainsToUpdate.push({ id: chain.id, status: 'Closed' });
+          } else if (hasOpenTransactions) {
+            console.log(`✅ Chain ${chain.id} (${chain.symbol}) staying active - has open transactions`);
+          }
+        } else if (chain.chainStatus === 'Closed') {
+          // If there are open transactions, this chain should be active
+          if (hasOpenTransactions) {
+            console.log(`🔄 Chain ${chain.id} (${chain.symbol}) should be active - has open transactions`);
+            chainsToUpdate.push({ id: chain.id, status: 'Active' });
+          } else {
+            console.log(`✅ Chain ${chain.id} (${chain.symbol}) staying closed - no open transactions`);
           }
         }
       }
 
-      // Update chains that should be closed
-      for (const chainId of chainsToUpdate) {
+      // Update chains that need status changes
+      for (const chainUpdate of chainsToUpdate) {
         try {
-          const chainResponse = await fetch(`/api/trade-chains/${chainId}`, {
+          const chainResponse = await fetch(`/api/trade-chains/${chainUpdate.id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ chainStatus: 'Closed' })
+            body: JSON.stringify({ chainStatus: chainUpdate.status })
           });
 
           if (chainResponse.ok) {
-            console.log(`Successfully updated chain ${chainId} to Closed status`);
+            console.log(`Successfully updated chain ${chainUpdate.id} to ${chainUpdate.status} status`);
           } else {
-            console.error(`Failed to update chain ${chainId}:`, await chainResponse.text());
+            console.error(`Failed to update chain ${chainUpdate.id}:`, await chainResponse.text());
           }
         } catch (error) {
-          console.error(`Error updating chain ${chainId}:`, error);
+          console.error(`Error updating chain ${chainUpdate.id}:`, error);
         }
       }
 
@@ -291,6 +306,10 @@ export default function Home() {
         portfolioId: selectedPortfolioId || portfolios.find(p => p.isDefault)?.id || '',
       };
       await addTransaction(transactionWithPortfolio);
+
+      // Refresh chains to ensure unrealized P&L updates correctly
+      await fetchChains();
+
       setShowAddModal(false);
     } catch (error) {
       console.error('Failed to add transaction:', error);
@@ -307,9 +326,12 @@ export default function Home() {
   const handleSaveEdit = async (id: string, updates: Partial<OptionsTransaction>) => {
     try {
       const originalTransaction = transactions.find(t => t.id === id);
+
+
       await updateTransaction(id, updates);
 
       // Check if this transaction is part of a chain and is being closed
+      // NOTE: "Rolled" trades don't close the chain since they create new open trades
       if (originalTransaction?.chainId && updates.status && ['Closed', 'Expired', 'Assigned'].includes(updates.status)) {
         // Check if this was the open trade in the chain
         const chainTransactions = transactions.filter(t => t.chainId === originalTransaction.chainId);
@@ -339,11 +361,11 @@ export default function Home() {
       setShowEditModal(false);
       setEditingTransaction(null);
 
-      // Refresh chains and transactions if a trade was rolled (chainId was added) or if chain status was updated
-      if (updates.chainId || (originalTransaction?.chainId && updates.status && ['Closed', 'Expired', 'Assigned'].includes(updates.status))) {
-        await fetchChains();
-        // Also refresh transactions to show the new open trade created by the roll
+      // Refresh chains and transactions if a trade was rolled (chainId was added/reused) or if chain status was updated
+      if (updates.chainId || updates.status === 'Rolled' || (originalTransaction?.chainId && updates.status && ['Closed', 'Expired', 'Assigned'].includes(updates.status))) {
+        // Refresh transactions FIRST to ensure new open trades are loaded before chain status is evaluated
         await refreshTransactions();
+        await fetchChains();
       }
     } catch (error) {
       console.error('Failed to save edit:', error);
@@ -383,23 +405,10 @@ export default function Home() {
     setDeletingTransaction(null);
   };
 
-  const handleUpdatePandL = useCallback(async () => {
-    try {
-      // Update all open transactions with fresh P&L data
-      const openTransactions = transactions.filter(t => t.status === 'Open');
-      const updatePromises = openTransactions.map(transaction => {
-        const updated = updateTransactionPandL(transaction);
-        return updateTransaction(transaction.id, updated);
-      });
 
-      await Promise.all(updatePromises);
-    } catch (error) {
-      console.error('Failed to update P&L:', error);
-    }
-  }, [transactions, updateTransaction]);
-
-  // Auto-update P&L removed - P&L is now calculated from stored profitLoss values
-  // and doesn't require live price updates
+  // P&L for options is premium-based, not stock-price-based
+  // Open trades: P&L = premium received/paid
+  // Closed trades: P&L = (exit premium - entry premium) × contracts × 100 ± fees
 
   return (
     <ProtectedRoute>
@@ -420,14 +429,6 @@ export default function Home() {
                 >
                   <TrendingUp className="h-4 w-4" />
                   <span>{pricesLoading ? 'Refreshing...' : 'Refresh Prices'}</span>
-                </Button>
-                <Button
-                  onClick={handleUpdatePandL}
-                  variant="outline"
-                  className="bg-green-600 hover:bg-green-700 text-white border-green-600 hover:border-green-700"
-                >
-                  <RefreshCw className="mr-2 h-4 w-4" />
-                  Refresh P&L
                 </Button>
                 <AuthButton />
               </div>

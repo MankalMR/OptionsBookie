@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { OptionsTransaction, Portfolio } from '@/types/options';
-import { calculateProfitLoss, calculateDaysHeld, calculateBreakEven } from '@/utils/optionsCalculations';
+import { calculateProfitLoss, calculateDaysHeld } from '@/utils/optionsCalculations';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -46,7 +46,7 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
     newStrikePrice: transaction.strikePrice,
     newPremium: 0,
     exitPremium: 0,
-    rollFees: 1.32, // Default fees for rolled trades (2 transactions)
+        rollFees: 0.66, // Default roll fee (individual transaction fees handled separately)
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -67,9 +67,9 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
   };
 
   const calculateCurrentProfitLoss = () => {
-    // For rolled trades, calculate P&L based on roll credit/debit
+    // For rolled trades, calculate P&L for display (without double-deducting fees)
     if (formData.status === 'Rolled') {
-      return calculateRolledProfitLoss();
+      return calculateRolledDisplayProfitLoss();
     }
 
     // For closed trades, use the exit price to calculate actual P&L
@@ -103,14 +103,27 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
     }
   };
 
-  const calculateRolledProfitLoss = () => {
-    // For rolled trades, P&L is based on the net credit/debit from the roll
-    if (!formData.exitPremium || !formData.newPremium) {
+
+  const calculateRolledDisplayProfitLoss = () => {
+    // Universal P&L calculation: always deduct fees for consistency
+    const exitPremium = parseFloat(String(formData.exitPremium || '0')) || 0;
+    if (exitPremium <= 0) {
       return 0;
     }
 
-    const netCreditDebit = (formData.newPremium - formData.exitPremium) * formData.numberOfContracts * 100;
-    return netCreditDebit;
+    let profitLoss = 0;
+    if (formData.buyOrSell === 'Sell') {
+      // Sold originally (received premium), buying back at exit premium
+      profitLoss = (formData.premium - exitPremium) * formData.numberOfContracts * 100;
+    } else {
+      // Bought originally (paid premium), selling at exit premium
+      profitLoss = (exitPremium - formData.premium) * formData.numberOfContracts * 100;
+    }
+
+    // Universal rule: always deduct fees from P&L
+    profitLoss -= formData.fees;
+
+    return profitLoss;
   };
 
   const calculateFinalProfitLoss = () => {
@@ -261,7 +274,7 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleChange = (field: string, value: any) => {
+  const handleChange = (field: string, value: string | number) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: '' }));
@@ -316,22 +329,20 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
         chain = await chainResponse.json();
       }
 
-      // Calculate P&L for the rolled trade
-      // For rolled trades, P&L should reflect the net credit/debit from the roll
-      // Net Credit = New Premium - Exit Premium (positive = credit, negative = debit)
-      const netCreditDebit = (formData.newPremium - formData.exitPremium) * formData.numberOfContracts * 100;
-
+      // Calculate P&L for the rolled trade (closing the original position)
+      // P&L = (Original Premium - Exit Premium) for closing the position
       let rolledProfitLoss = 0;
-      if (formData.buyOrSell === 'Buy') {
-        // For bought options: Net credit from roll is profit
-        rolledProfitLoss = netCreditDebit;
+      if (formData.buyOrSell === 'Sell') {
+        // Sold originally (received premium), buying back at exit premium
+        rolledProfitLoss = (formData.premium - formData.exitPremium) * formData.numberOfContracts * 100;
       } else {
-        // For sold options: Net credit from roll is profit
-        rolledProfitLoss = netCreditDebit;
+        // Bought originally (paid premium), selling at exit premium
+        rolledProfitLoss = (formData.exitPremium - formData.premium) * formData.numberOfContracts * 100;
       }
 
-      // Calculate days held for the rolled trade
-      const rolledDaysHeld = Math.ceil((new Date().getTime() - new Date(formData.tradeOpenDate).getTime()) / (1000 * 60 * 60 * 24));
+      // Only subtract the original transaction fees (roll fees go to the new trade)
+      rolledProfitLoss -= formData.fees;
+
 
       // Update current trade to "Rolled" status and link to chain
       const rolledTradeUpdates = {
@@ -344,14 +355,13 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
 
       // Calculate required fields for the new trade
       const newExpiryDate = new Date(formData.newExpiryDate);
-      const today = new Date();
 
       // Calculate break-even price based on option type
       const breakEvenPrice = formData.callOrPut === 'Call'
         ? formData.newStrikePrice + formData.newPremium
         : formData.newStrikePrice - formData.newPremium;
 
-        // Calculate profit/loss for the new trade based on premium
+        // Calculate profit/loss for the new trade based on premium and fees
         let newProfitLoss = 0;
         if (formData.buyOrSell === 'Buy') {
           // If you bought the option, you paid the premium (negative P&L until closed)
@@ -360,6 +370,9 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
           // If you sold the option, you received the premium (positive P&L until closed)
           newProfitLoss = formData.newPremium * formData.numberOfContracts * 100;
         }
+
+        // Subtract roll fees from the new trade P&L
+        newProfitLoss -= parseFloat(String(formData.rollFees || '0'));
 
         // Create new open trade with updated terms
         const newTradeData = {
@@ -377,8 +390,10 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
           chainId: chain.id,
           breakEvenPrice: breakEvenPrice,
           profitLoss: newProfitLoss, // Calculate P&L based on premium
+          stockPriceCurrent: 0, // Default value since we removed from UI
           annualizedROR: undefined // No ROR for new trades
         };
+
 
       // 1. Update current trade to "Rolled" status
       onSave(transaction.id, rolledTradeUpdates);
@@ -446,60 +461,23 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
             )}
 
             {/* Status Selection */}
-            <div className="bg-blue-50 p-4 rounded-lg">
-              <label className="block text-sm font-medium text-gray-700 mb-2">Trade Status</label>
-              <div className="flex space-x-4">
-                <label className="flex items-center">
-                  <input
-                    type="radio"
-                    value="Open"
-                    checked={formData.status === 'Open'}
-                    onChange={(e) => handleStatusChange(e.target.value as 'Open')}
-                    className="mr-2"
-                  />
-                  <span className="text-sm">Open</span>
-                </label>
-                <label className="flex items-center">
-                  <input
-                    type="radio"
-                    value="Closed"
-                    checked={formData.status === 'Closed'}
-                    onChange={(e) => handleStatusChange(e.target.value as 'Closed')}
-                    className="mr-2"
-                  />
-                  <span className="text-sm">Closed</span>
-                </label>
-                <label className="flex items-center">
-                  <input
-                    type="radio"
-                    value="Expired"
-                    checked={formData.status === 'Expired'}
-                    onChange={(e) => handleStatusChange(e.target.value as 'Expired')}
-                    className="mr-2"
-                  />
-                  <span className="text-sm">Expired</span>
-                </label>
-                <label className="flex items-center">
-                  <input
-                    type="radio"
-                    value="Assigned"
-                    checked={formData.status === 'Assigned'}
-                    onChange={(e) => handleStatusChange(e.target.value as 'Assigned')}
-                    className="mr-2"
-                  />
-                  <span className="text-sm">Assigned</span>
-                </label>
-                <label className="flex items-center">
-                  <input
-                    type="radio"
-                    value="Rolled"
-                    checked={formData.status === 'Rolled'}
-                    onChange={(e) => handleStatusChange(e.target.value as 'Rolled')}
-                    className="mr-2"
-                  />
-                  <span className="text-sm">Rolled</span>
-                </label>
-              </div>
+            <div>
+              <Label>Status</Label>
+              <Select
+                value={formData.status}
+                onValueChange={(value) => handleStatusChange(value as 'Open' | 'Closed' | 'Expired' | 'Assigned' | 'Rolled')}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Open">Open</SelectItem>
+                  <SelectItem value="Closed">Closed</SelectItem>
+                  <SelectItem value="Expired">Expired</SelectItem>
+                  <SelectItem value="Assigned">Assigned</SelectItem>
+                  <SelectItem value="Rolled">Rolled</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -724,13 +702,20 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
                     <div>
                       <span className="text-sm text-gray-600">Net Credit/Debit:</span>
                       <div className="text-lg font-medium">
-                        {formData.exitPremium > 0 && formData.newPremium > 0 ? (
-                          <span className={formData.newPremium - formData.exitPremium >= 0 ? 'text-green-600' : 'text-red-600'}>
-                            ${Math.abs((formData.newPremium - formData.exitPremium) * formData.numberOfContracts).toFixed(2)}
-                            <span className="text-xs ml-1">
-                              {formData.newPremium - formData.exitPremium >= 0 ? '(Credit)' : '(Debit)'}
-                            </span>
-                          </span>
+                        {parseFloat(String(formData.exitPremium || '0')) > 0 && parseFloat(String(formData.newPremium || '0')) > 0 ? (
+                          (() => {
+                            // Net Credit/Debit = (New Premium - Exit Premium) * Contracts * 100 - Roll Fees
+                            // Note: Original transaction fees are handled in individual P&L calculations
+                            const netAmount = (parseFloat(String(formData.newPremium || '0')) - parseFloat(String(formData.exitPremium || '0'))) * formData.numberOfContracts * 100 - parseFloat(String(formData.rollFees || '0'));
+                            return (
+                              <span className={netAmount >= 0 ? 'text-green-600' : 'text-red-600'}>
+                                ${Math.abs(netAmount).toFixed(2)}
+                                <span className="text-xs ml-1">
+                                  {netAmount >= 0 ? '(Credit)' : '(Debit)'}
+                                </span>
+                              </span>
+                            );
+                          })()
                         ) : (
                           <span className="text-gray-400">Enter premiums</span>
                         )}
@@ -773,7 +758,7 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
                     {formData.status === 'Closed'
                       ? (formData.exitPrice > 0 ? `$${calculateFinalProfitLoss().toFixed(2)}` : 'Enter exit price')
                       : formData.status === 'Rolled'
-                      ? (formData.exitPremium > 0 && formData.newPremium > 0 ? `$${calculateCurrentProfitLoss().toFixed(2)}` : 'Enter roll details')
+                      ? (parseFloat(String(formData.exitPremium || '0')) > 0 && parseFloat(String(formData.newPremium || '0')) > 0 ? `$${calculateCurrentProfitLoss().toFixed(2)}` : 'Enter roll details')
                       : `$${calculateCurrentProfitLoss().toFixed(2)}`
                     }
                   </span>
