@@ -358,7 +358,7 @@ export default function TransactionTable({ transactions, onDelete, onDeleteChain
                           <span className="font-semibold text-sm">{activeTransaction.stockSymbol} Chain</span>
                           {!isMobile && (
                             <span
-                              className="text-xs bg-muted text-muted-foreground px-1.5 py-0.5 rounded flex-shrink-0"
+                              className="text-xs bg-gray-200 dark:bg-gray-950/30 text-gray-700 dark:text-gray-200 px-1.5 py-0.5 rounded flex-shrink-0"
                               title="Number of Trades"
                             >
                               {chainTransactions.length} trades
@@ -470,7 +470,7 @@ export default function TransactionTable({ transactions, onDelete, onDeleteChain
                             <div className="flex items-center space-x-2">
                               <span>{transaction.stockSymbol}</span>
                               <span
-                                className="text-xs bg-muted text-muted-foreground px-1.5 py-0.5 rounded"
+                                className="text-xs bg-gray-200 dark:bg-gray-950/30 text-gray-700 dark:text-gray-200 px-1.5 py-0.5 rounded"
                                 title="Number of Contracts"
                               >
                                 {transaction.numberOfContracts}
@@ -674,7 +674,7 @@ export default function TransactionTable({ transactions, onDelete, onDeleteChain
                 <div className="flex items-center space-x-2">
                             <span className="font-semibold text-sm">{transaction.stockSymbol}</span>
                             <span
-                              className="text-xs bg-muted text-muted-foreground px-1.5 py-0.5 rounded"
+                              className="text-xs bg-gray-200 dark:bg-gray-950/30 text-gray-700 dark:text-gray-200 px-1.5 py-0.5 rounded"
                               title="Number of Contracts"
                             >
                               {transaction.numberOfContracts}
