@@ -1,9 +1,12 @@
 'use client';
 
 import { useSession, signIn, signOut } from 'next-auth/react';
+import { useIsMobile } from '@/hooks/useMediaQuery';
+import { LogOut } from 'lucide-react';
 
 export default function AuthButton() {
   const { data: session, status } = useSession();
+  const isMobile = useIsMobile();
 
   if (status === 'loading') {
     return (
@@ -16,7 +19,7 @@ export default function AuthButton() {
 
   if (session) {
     return (
-      <div className="flex items-center space-x-4">
+      <div className="flex items-center space-x-2">
         <div className="flex items-center space-x-2">
           {session.user?.image && (
             <img
@@ -25,15 +28,27 @@ export default function AuthButton() {
               className="w-8 h-8 rounded-full"
             />
           )}
-          <span className="text-sm text-gray-700">
-            {session.user?.name || session.user?.email}
-          </span>
+          {!isMobile && (
+            <span className="text-sm text-gray-700">
+              {session.user?.name || session.user?.email}
+            </span>
+          )}
         </div>
         <button
           onClick={() => signOut()}
-          className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+          className={`bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium transition-colors flex items-center ${
+            isMobile ? 'p-2' : 'px-4 py-2 space-x-2'
+          }`}
+          title={isMobile ? 'Sign Out' : undefined}
         >
-          Sign Out
+          {isMobile ? (
+            <LogOut className="h-4 w-4" />
+          ) : (
+            <>
+              <LogOut className="h-4 w-4" />
+              <span>Sign Out</span>
+            </>
+          )}
         </button>
       </div>
     );

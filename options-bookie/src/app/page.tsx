@@ -10,6 +10,7 @@ import DeleteConfirmationModal from '@/components/DeleteConfirmationModal';
 import DeleteChainModal from '@/components/DeleteChainModal';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import SummaryView from '@/components/SummaryView';
+import { useIsMobile } from '@/hooks/useMediaQuery';
 import PortfolioSelector from '@/components/PortfolioSelector';
 import PortfolioModal from '@/components/PortfolioModal';
 import { useTransactions } from '@/hooks/useTransactions';
@@ -22,6 +23,8 @@ import { Plus, TrendingUp } from 'lucide-react';
 import { useStockPrices } from '@/hooks/useStockPrices';
 
 export default function Home() {
+  const isMobile = useIsMobile();
+
   const {
     transactions,
     loading,
@@ -41,6 +44,13 @@ export default function Home() {
   const [deletingTransaction, setDeletingTransaction] = useState<OptionsTransaction | null>(null);
   const [deletingChainId, setDeletingChainId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'trades' | 'summary'>('trades');
+
+  // Force mobile users to trades tab
+  useEffect(() => {
+    if (isMobile && activeTab === 'summary') {
+      setActiveTab('trades');
+    }
+  }, [isMobile, activeTab]);
   const [selectedPortfolioId, setSelectedPortfolioId] = useState<string | null>(null);
   const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
   const [portfolios, setPortfolios] = useState<Portfolio[]>([]);
@@ -451,29 +461,31 @@ export default function Home() {
     <ProtectedRoute>
       <div className="min-h-screen bg-background">
         <header className="bg-card shadow-sm border-b">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex justify-between items-center py-6">
-              <div className="flex items-center space-x-4">
+          <div className={`${isMobile ? 'px-2' : 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'}`}>
+            <div className={`flex justify-between items-center ${isMobile ? 'py-3' : 'py-6'}`}>
+              <div className="flex items-center space-x-2">
                 <img
                   src="/images/OptionBookie1.png"
                   alt="OptionsBookie Logo"
-                  className="h-20 w-20 object-contain"
+                  className={`object-contain ${isMobile ? 'h-10 w-10' : 'h-20 w-20'}`}
                 />
                 <div>
-                  <h1 className="text-3xl font-bold text-foreground">OptionsBookie</h1>
-                  <p className="text-muted-foreground">Track your options trades with precision</p>
+                  <h1 className={`font-bold text-foreground ${isMobile ? 'text-lg' : 'text-3xl'}`}>OptionsBookie</h1>
+                  {!isMobile && <p className="text-muted-foreground">Track your options trades with precision</p>}
                 </div>
               </div>
-              <div className="flex items-center space-x-3">
-                <Button
-                  onClick={refreshPrices}
-                  variant="outline"
-                  disabled={pricesLoading}
-                  className="flex items-center space-x-2"
-                >
-                  <TrendingUp className="h-4 w-4" />
-                  <span>{pricesLoading ? 'Refreshing...' : 'Refresh Prices'}</span>
-                </Button>
+              <div className="flex items-center space-x-2">
+                {!isMobile && (
+                  <Button
+                    onClick={refreshPrices}
+                    variant="outline"
+                    disabled={pricesLoading}
+                    className="flex items-center space-x-2"
+                  >
+                    <TrendingUp className="h-4 w-4" />
+                    <span>{pricesLoading ? 'Refreshing...' : 'Refresh Prices'}</span>
+                  </Button>
+                )}
                 <ThemeToggle />
                 <AuthButton />
               </div>
@@ -483,7 +495,7 @@ export default function Home() {
 
       {/* Error Display */}
       {error && (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+        <div className={`py-4 ${isMobile ? 'px-2' : 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'}`}>
           <div className="bg-red-50 border border-red-200 rounded-md p-4">
             <div className="flex">
               <div className="ml-3">
@@ -507,7 +519,7 @@ export default function Home() {
 
       {/* Loading State */}
       {loading && (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className={`py-8 ${isMobile ? 'px-2' : 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'}`}>
           <div className="flex justify-center items-center">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
             <span className="ml-2 text-gray-600">Loading transactions...</span>
@@ -516,7 +528,7 @@ export default function Home() {
       )}
 
       {!loading && (
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <main className={`py-8 ${isMobile ? 'px-2' : 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'}`}>
         {/* Portfolio Selector */}
         <div className="mb-6">
           <PortfolioSelector
@@ -531,32 +543,34 @@ export default function Home() {
         </div>
 
         {/* Tab Navigation */}
-        <div className="mb-8">
-          <div className="border-b border-border">
-            <nav className="-mb-px flex space-x-8">
-              <button
-                onClick={() => setActiveTab('trades')}
-                className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors ${
-                  activeTab === 'trades'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground'
-                }`}
-              >
-                Options Trades
-              </button>
-              <button
-                onClick={() => setActiveTab('summary')}
-                className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors ${
-                  activeTab === 'summary'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground'
-                }`}
-              >
-                Summary & Analytics
-              </button>
-            </nav>
+        {!isMobile && (
+          <div className="mb-8">
+            <div className="border-b border-border">
+              <nav className="-mb-px flex space-x-8">
+                <button
+                  onClick={() => setActiveTab('trades')}
+                  className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors ${
+                    activeTab === 'trades'
+                      ? 'border-blue-500 text-blue-600'
+                      : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground'
+                  }`}
+                >
+                  Options Trades
+                </button>
+                <button
+                  onClick={() => setActiveTab('summary')}
+                  className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors ${
+                    activeTab === 'summary'
+                      ? 'border-blue-500 text-blue-600'
+                      : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground'
+                  }`}
+                >
+                  Summary & Analytics
+                </button>
+              </nav>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Tab Content */}
         {activeTab === 'trades' ? (
@@ -572,28 +586,32 @@ export default function Home() {
                     <CardTitle className="text-xl">Recent Trades</CardTitle>
 
                     {/* Status Filter */}
-                    <Select value={selectedStatus || 'all'} onValueChange={handleStatusChange}>
-                      <SelectTrigger className="w-32">
-                        <SelectValue placeholder="All Status" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Status</SelectItem>
-                        <SelectItem value="Open">Open</SelectItem>
-                        <SelectItem value="Closed">Closed</SelectItem>
-                        <SelectItem value="Rolled">Rolled</SelectItem>
-                        <SelectItem value="Expired">Expired</SelectItem>
-                        <SelectItem value="Assigned">Assigned</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    {!isMobile && (
+                      <Select value={selectedStatus || 'all'} onValueChange={handleStatusChange}>
+                        <SelectTrigger className="w-32">
+                          <SelectValue placeholder="All Status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Status</SelectItem>
+                          <SelectItem value="Open">Open</SelectItem>
+                          <SelectItem value="Closed">Closed</SelectItem>
+                          <SelectItem value="Rolled">Rolled</SelectItem>
+                          <SelectItem value="Expired">Expired</SelectItem>
+                          <SelectItem value="Assigned">Assigned</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    )}
                   </div>
 
                   <div className="flex items-center space-x-4">
-                    <div className="text-sm text-muted-foreground">
-                      💡 Click the ✏️ button to edit or close trades
-                    </div>
+                    {!isMobile && (
+                      <div className="text-sm text-muted-foreground">
+                        💡 Click the ✏️ button to edit or close trades
+                      </div>
+                    )}
                     <Button variant="default" onClick={() => setShowAddModal(true)}>
                       <Plus className="mr-2 h-4 w-4" />
-                      Add Trade
+                      {isMobile ? 'Add' : 'Add Trade'}
                     </Button>
                   </div>
                 </div>

@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Plus, Trash2, Star, StarOff } from 'lucide-react';
+import { useIsMobile } from '@/hooks/useMediaQuery';
 
 interface PortfolioSelectorProps {
   portfolios: Portfolio[];
@@ -25,6 +26,7 @@ export default function PortfolioSelector({
   onSetDefaultPortfolio,
   loading = false,
 }: PortfolioSelectorProps) {
+  const isMobile = useIsMobile();
 
   const handlePortfolioChange = (value: string) => {
     const portfolioId = value === 'all' ? null : value;
@@ -77,12 +79,65 @@ export default function PortfolioSelector({
     );
   }
 
+  if (isMobile) {
+    // Mobile: Full-width stacked layout
+    return (
+      <div className="space-y-3">
+        <div className="flex space-x-2">
+          <Select value={selectedPortfolioId || 'all'} onValueChange={handlePortfolioChange}>
+            <SelectTrigger className="flex-1">
+              <SelectValue placeholder="All Portfolios" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Portfolios</SelectItem>
+              {portfolios.map((portfolio) => (
+                <SelectItem key={portfolio.id} value={portfolio.id}>
+                  {portfolio.name} {portfolio.isDefault ? '⭐' : ''}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button variant="default" onClick={onAddPortfolio}>
+            <Plus className="h-4 w-4" />
+          </Button>
+        </div>
+
+        {/* Additional portfolio actions in second row if needed */}
+        {(selectedPortfolioId && !portfolios.find(p => p.id === selectedPortfolioId)?.isDefault) || canDeleteSelectedPortfolio() ? (
+          <div className="flex space-x-2">
+            {selectedPortfolioId && !portfolios.find(p => p.id === selectedPortfolioId)?.isDefault && (
+              <Button
+                variant="outline"
+                onClick={() => handleSetDefaultPortfolio(selectedPortfolioId)}
+                title="Set as default portfolio"
+                className="flex-1"
+              >
+                <Star className="mr-2 h-4 w-4" />
+                Set Default
+              </Button>
+            )}
+
+            {canDeleteSelectedPortfolio() && (
+              <Button
+                variant="destructive"
+                onClick={handleDeletePortfolio}
+                title="Delete selected portfolio"
+                className="flex-1"
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete
+              </Button>
+            )}
+          </div>
+        ) : null}
+      </div>
+    );
+  }
+
+  // Desktop: Horizontal layout
   return (
     <div className="flex items-center space-x-4">
       <div className="flex items-center space-x-2">
-        <Label htmlFor="portfolio-select" className="text-sm font-medium text-gray-700">
-          Portfolio:
-        </Label>
         <Select value={selectedPortfolioId || 'all'} onValueChange={handlePortfolioChange}>
           <SelectTrigger className="w-48">
             <SelectValue placeholder="All Portfolios" />
