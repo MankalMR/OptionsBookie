@@ -7,6 +7,7 @@ import PortfolioSummary from '@/components/PortfolioSummary';
 import AddTransactionModal from '@/components/AddTransactionModal';
 import EditTransactionModal from '@/components/EditTransactionModal';
 import DeleteConfirmationModal from '@/components/DeleteConfirmationModal';
+import DeleteChainModal from '@/components/DeleteChainModal';
 import SummaryView from '@/components/SummaryView';
 import PortfolioSelector from '@/components/PortfolioSelector';
 import PortfolioModal from '@/components/PortfolioModal';
@@ -34,8 +35,10 @@ export default function Home() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showPortfolioModal, setShowPortfolioModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showDeleteChainModal, setShowDeleteChainModal] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<OptionsTransaction | null>(null);
   const [deletingTransaction, setDeletingTransaction] = useState<OptionsTransaction | null>(null);
+  const [deletingChainId, setDeletingChainId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'trades' | 'summary'>('trades');
   const [selectedPortfolioId, setSelectedPortfolioId] = useState<string | null>(null);
   const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
@@ -388,6 +391,16 @@ export default function Home() {
     setShowDeleteModal(true);
   };
 
+  const handleDeleteChain = async (chainId: string) => {
+    // Find all transactions in the chain
+    const chainTransactions = transactions.filter(t => t.chainId === chainId);
+    if (chainTransactions.length === 0) return;
+
+    // Set chain for deletion and show modal
+    setDeletingChainId(chainId);
+    setShowDeleteChainModal(true);
+  };
+
   const confirmDeleteTransaction = async () => {
     if (!deletingTransaction) return;
 
@@ -400,9 +413,32 @@ export default function Home() {
     }
   };
 
+  const confirmDeleteChain = async () => {
+    if (!deletingChainId) return;
+
+    // Find all transactions in the chain
+    const chainTransactions = transactions.filter(t => t.chainId === deletingChainId);
+    if (chainTransactions.length === 0) return;
+
+    try {
+      // Delete all transactions in the chain
+      await Promise.all(chainTransactions.map(t => deleteTransaction(t.id)));
+      console.log(`Deleted chain ${deletingChainId} with ${chainTransactions.length} transactions`);
+      setDeletingChainId(null);
+    } catch (error) {
+      console.error('Failed to delete chain:', error);
+      // Error is handled by the hook and displayed in the UI
+    }
+  };
+
   const handleCloseDeleteModal = () => {
     setShowDeleteModal(false);
     setDeletingTransaction(null);
+  };
+
+  const handleCloseDeleteChainModal = () => {
+    setShowDeleteChainModal(false);
+    setDeletingChainId(null);
   };
 
 
@@ -572,6 +608,7 @@ export default function Home() {
                 <TransactionTable
                   transactions={filteredTransactions}
                   onDelete={handleDeleteTransaction}
+                  onDeleteChain={handleDeleteChain}
                   onEdit={handleEditTransaction}
                   chains={chains}
                   portfolios={portfolios}
@@ -612,6 +649,16 @@ export default function Home() {
         onClose={handleCloseDeleteModal}
         onConfirm={confirmDeleteTransaction}
         transaction={deletingTransaction}
+      />
+
+      {/* Delete Chain Modal */}
+      <DeleteChainModal
+        isOpen={showDeleteChainModal}
+        onClose={handleCloseDeleteChainModal}
+        onConfirm={confirmDeleteChain}
+        chainId={deletingChainId}
+        chainTransactions={deletingChainId ? transactions.filter(t => t.chainId === deletingChainId) : []}
+        chainInfo={deletingChainId ? chains.find(c => c.id === deletingChainId) : null}
       />
 
       {/* Portfolio Modal */}

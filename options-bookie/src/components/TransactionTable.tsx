@@ -13,13 +13,14 @@ import { calculateDTE, calculateDH, formatPnLNumber, calculateChainPnL } from '@
 interface TransactionTableProps {
   transactions: OptionsTransaction[];
   onDelete: (id: string) => void;
+  onDeleteChain?: (chainId: string) => void;
   onEdit: (transaction: OptionsTransaction) => void;
   portfolios?: Portfolio[];
   showPortfolioColumn?: boolean;
   chains?: TradeChain[];
 }
 
-export default function TransactionTable({ transactions, onDelete, onEdit, portfolios = [], showPortfolioColumn = false, chains = [] }: TransactionTableProps) {
+export default function TransactionTable({ transactions, onDelete, onDeleteChain, onEdit, portfolios = [], showPortfolioColumn = false, chains = [] }: TransactionTableProps) {
   const [sortBy, setSortBy] = useState<keyof OptionsTransaction>('tradeOpenDate');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [collapsedChains, setCollapsedChains] = useState<Set<string>>(new Set());
@@ -373,7 +374,27 @@ export default function TransactionTable({ transactions, onDelete, onEdit, portf
                     {formatPnLNumber(chainPnL)}
                     <div className="text-xs text-gray-500 font-normal">Chain P&L</div>
                   </TableCell>
-                  <TableCell></TableCell>
+                  <TableCell>
+                    {onDeleteChain && (
+                      <div className="flex space-x-1">
+                        <div
+                          className="h-8 w-8 flex items-center justify-center text-gray-400"
+                          title="Chain deletion"
+                        >
+                          <Link className="h-4 w-4" />
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => onDeleteChain(chainId)}
+                          className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                          title="Delete entire chain"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    )}
+                  </TableCell>
                 </TableRow>
               );
 
@@ -509,14 +530,24 @@ export default function TransactionTable({ transactions, onDelete, onEdit, portf
                       </TableCell>
                       <TableCell>
                         <div className="flex space-x-1">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => onEdit(transaction)}
-                            className="h-8 w-8 p-0"
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
+                          {/* Hide edit button for rolled transactions to prevent data integrity issues */}
+                          {transaction.status !== 'Rolled' ? (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => onEdit(transaction)}
+                              className="h-8 w-8 p-0"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                          ) : (
+                            <div
+                              className="h-8 w-8 flex items-center justify-center text-gray-400 cursor-not-allowed"
+                              title="Cannot edit rolled transactions. Delete entire chain to make changes."
+                            >
+                              <Edit className="h-4 w-4" />
+                            </div>
+                          )}
                           <Button
                             variant="ghost"
                             size="sm"
@@ -688,14 +719,24 @@ export default function TransactionTable({ transactions, onDelete, onEdit, portf
               </TableCell>
               <TableCell>
                 <div className="flex space-x-1">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => onEdit(transaction)}
-                    className="h-8 w-8 p-0"
-                  >
-                    <Edit className="h-4 w-4" />
-                  </Button>
+                  {/* Hide edit button for rolled transactions to prevent data integrity issues */}
+                  {transaction.status !== 'Rolled' ? (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => onEdit(transaction)}
+                      className="h-8 w-8 p-0"
+                    >
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                  ) : (
+                    <div
+                      className="h-8 w-8 flex items-center justify-center text-gray-400 cursor-not-allowed"
+                      title="Cannot edit rolled transactions. Delete entire chain to make changes."
+                    >
+                      <Edit className="h-4 w-4" />
+                    </div>
+                  )}
                   <Button
                     variant="ghost"
                     size="sm"
