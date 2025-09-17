@@ -9,6 +9,7 @@ import { Edit, Trash2, ChevronDown, ChevronRight, Link, Circle } from 'lucide-re
 import { useStockPrices } from '@/hooks/useStockPrices';
 import StockPriceDisplay, { ITMIndicator } from '@/components/StockPriceDisplay';
 import { calculateDTE, calculateDH, formatPnLNumber, calculateChainPnL, calculateCollateral, calculateRoR, calculateChainCollateral, calculateChainRoR } from '@/utils/optionsCalculations';
+import { formatDisplayDateShort } from '@/utils/dateUtils';
 import PnLDisplay from '@/components/PnLDisplay';
 import { useIsMobile } from '@/hooks/useMediaQuery';
 
@@ -133,45 +134,18 @@ export default function TransactionTable({ transactions, onDelete, onDeleteChain
   };
 
   const formatDate = (date: Date | string) => {
-    try {
-      let dateObj: Date;
+    const { monthDay, year } = formatDisplayDateShort(date);
 
-      if (date instanceof Date) {
-        dateObj = date;
-      } else {
-        // For string dates (YYYY-MM-DD format), parse as local date to avoid timezone shifts
-        if (typeof date === 'string' && date.match(/^\d{4}-\d{2}-\d{2}$/)) {
-          const [year, month, day] = date.split('-').map(Number);
-          dateObj = new Date(year, month - 1, day); // month is 0-indexed
-        } else {
-          dateObj = new Date(date);
-        }
-      }
-
-      // Check if the date is valid
-      if (isNaN(dateObj.getTime())) {
-        return <span>Invalid Date</span>;
-      }
-
-      const monthDay = new Intl.DateTimeFormat('en-US', {
-        month: 'short',
-        day: 'numeric',
-      }).format(dateObj);
-
-      const year = new Intl.DateTimeFormat('en-US', {
-        year: 'numeric',
-      }).format(dateObj);
-
-      return (
-        <div className="flex flex-col">
-          <span>{monthDay}</span>
-          <span className="text-xs text-muted-foreground">{year}</span>
-        </div>
-      );
-    } catch (error) {
-      console.error('Error formatting date:', error, 'Input:', date);
+    if (monthDay === 'Invalid') {
       return <span>Invalid Date</span>;
     }
+
+    return (
+      <div className="flex flex-col">
+        <span>{monthDay}</span>
+        <span className="text-xs text-muted-foreground">{year}</span>
+      </div>
+    );
   };
 
   const getPortfolioName = (portfolioId: string) => {
@@ -648,9 +622,9 @@ export default function TransactionTable({ transactions, onDelete, onDeleteChain
                   {!isMobile && <div className="h-5 w-5 flex-shrink-0"></div>}
                   <div className="flex-1 min-w-0">
                     <div>
-                      <div className="flex items-center space-x-2">
+                      <div className="flex items-start space-x-2">
                         {/* Icon for standalone transactions (replaces chain link icon) */}
-                        <Circle className={`h-4 w-4 flex-shrink-0 fill-current ${
+                        <Circle className={`h-4 w-4 flex-shrink-0 fill-current mt-0.5 ${
                           transaction.status === 'Open' ? 'text-blue-500' : 'text-gray-400'
                         }`} />
                         <div className="flex flex-col">

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { OptionsTransaction } from '@/types/options';
+import { dateToLocalString, getCurrentDateString } from '@/utils/dateUtils';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -19,7 +20,7 @@ export default function AddTransactionModal({ onClose, onSave, portfolios = [], 
   const [formData, setFormData] = useState({
     portfolioId: selectedPortfolioId || portfolios.find(p => p.isDefault)?.id || '',
     stockSymbol: '',
-    tradeOpenDate: new Date().toISOString().split('T')[0],
+    tradeOpenDate: getCurrentDateString(),
     expiryDate: '',
     callOrPut: 'Call' as 'Call' | 'Put',
     buyOrSell: 'Buy' as 'Buy' | 'Sell',
