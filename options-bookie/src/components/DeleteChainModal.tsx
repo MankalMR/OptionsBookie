@@ -37,8 +37,8 @@ export default function DeleteChainModal({
   const stockSymbol = chainTransactions[0]?.stockSymbol || 'Unknown';
 
   return (
-    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50" onClick={handleOverlayClick}>
-      <div className="relative top-20 mx-auto p-6 border max-w-md shadow-lg rounded-md bg-card">
+    <div className="fixed inset-0 bg-black/50 dark:bg-black/70 overflow-y-auto h-full w-full z-50" onClick={handleOverlayClick}>
+      <div className="relative top-20 mx-auto p-6 border border-border max-w-md shadow-2xl rounded-lg bg-white dark:bg-gray-900">
         <div className="mt-3">
           {/* Header */}
           <div className="flex items-center justify-between mb-4">

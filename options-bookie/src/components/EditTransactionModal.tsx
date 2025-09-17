@@ -434,11 +434,11 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
   };
 
   return (
-    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-      <div className="relative top-10 mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-md bg-card">
+    <div className="fixed inset-0 bg-black/50 dark:bg-black/70 overflow-y-auto h-full w-full z-50">
+      <div className="relative top-10 mx-auto p-6 border border-border w-full max-w-2xl shadow-2xl rounded-lg bg-white dark:bg-gray-900">
         <div className="mt-3">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-medium text-card-foreground">Edit Trade</h3>
+            <h3 className="text-lg font-medium text-foreground">Edit Trade</h3>
             <Button
               variant="ghost"
               size="sm"
@@ -650,8 +650,8 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
 
             {/* Roll Information - Only show when rolling trade */}
             {formData.status === 'Rolled' && (
-              <div className="bg-orange-50 p-4 rounded-lg border border-orange-200">
-                <h4 className="text-sm font-medium text-orange-800 mb-3">Roll Information (Required for Rolled Trades)</h4>
+              <div className="bg-orange-50 dark:bg-orange-950/30 p-4 rounded-lg border border-orange-200 dark:border-orange-800/30">
+                <h4 className="text-sm font-medium text-orange-800 dark:text-orange-200 mb-3">Roll Information (Required for Rolled Trades)</h4>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="exitPremium">Exit Premium (Close Original)</Label>
@@ -718,7 +718,7 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
 
                   <div className="flex items-center">
                     <div>
-                      <span className="text-sm text-gray-600">Net Credit/Debit:</span>
+                      <span className="text-sm text-muted-foreground">Net Credit/Debit:</span>
                       <div className="text-lg font-medium">
                         {parseFloat(String(formData.exitPremium || '0')) > 0 && parseFloat(String(formData.newPremium || '0')) > 0 ? (
                           (() => {

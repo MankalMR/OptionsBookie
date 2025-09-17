@@ -117,11 +117,11 @@ export default function PortfolioModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-      <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-card">
+    <div className="fixed inset-0 bg-black/50 dark:bg-black/70 overflow-y-auto h-full w-full z-50">
+      <div className="relative top-20 mx-auto p-6 border border-border w-96 shadow-2xl rounded-lg bg-white dark:bg-gray-900">
         <div className="mt-3">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-medium text-card-foreground">
+            <h3 className="text-lg font-medium text-foreground">
               {isEdit ? 'Edit Portfolio' : 'Add New Portfolio'}
             </h3>
             <button

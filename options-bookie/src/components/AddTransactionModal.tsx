@@ -134,11 +134,11 @@ export default function AddTransactionModal({ onClose, onSave, portfolios = [], 
   };
 
   return (
-    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-      <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-card">
+    <div className="fixed inset-0 bg-black/50 dark:bg-black/70 overflow-y-auto h-full w-full z-50">
+      <div className="relative top-20 mx-auto p-6 border border-border w-96 shadow-2xl rounded-lg bg-white dark:bg-gray-900">
         <div className="mt-3">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-medium text-card-foreground">Add New Trade</h3>
+            <h3 className="text-lg font-medium text-foreground">Add New Trade</h3>
             <button
               onClick={onClose}
               className="text-muted-foreground hover:text-foreground"
