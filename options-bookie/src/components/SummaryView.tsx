@@ -266,18 +266,59 @@ export default function SummaryView({ transactions }: SummaryViewProps) {
     return monthlyTopTickers.find(data => data.monthKey === monthKey);
   };
 
+  // Calculate best stocks overall
+  const bestStocks = useMemo(() => {
+    const realizedTransactions = getRealizedTransactions(transactions);
+    const stockTotals = new Map<string, { pnl: number; collateral: number; trades: number }>();
+
+    realizedTransactions.forEach(transaction => {
+      const ticker = transaction.stockSymbol;
+      const pnl = transaction.profitLoss || 0;
+      const collateral = calculateCollateral(transaction);
+
+      if (!stockTotals.has(ticker)) {
+        stockTotals.set(ticker, { pnl: 0, collateral: 0, trades: 0 });
+      }
+
+      const stockData = stockTotals.get(ticker)!;
+      stockData.pnl += pnl;
+      stockData.collateral += collateral;
+      stockData.trades += 1;
+    });
+
+    // Calculate RoR for each stock and find best performers
+    const stockPerformance = Array.from(stockTotals.entries()).map(([ticker, data]) => ({
+      ticker,
+      pnl: data.pnl,
+      ror: data.collateral > 0 ? (data.pnl / data.collateral * 100) : 0,
+      trades: data.trades
+    }));
+
+    const bestByPnL = stockPerformance.reduce((best, stock) => 
+      stock.pnl > best.pnl ? stock : best, { ticker: '', pnl: -Infinity, ror: 0, trades: 0 });
+    
+    const bestByRoR = stockPerformance.reduce((best, stock) => 
+      stock.ror > best.ror ? stock : best, { ticker: '', pnl: 0, ror: -Infinity, trades: 0 });
+
+    return {
+      bestByPnL: bestByPnL.pnl > -Infinity ? { ticker: bestByPnL.ticker, pnl: bestByPnL.pnl } : null,
+      bestByRoR: bestByRoR.ror > -Infinity ? { ticker: bestByRoR.ticker, ror: bestByRoR.ror } : null
+    };
+  }, [transactions]);
+
   // Calculate quick stats data
   const quickStatsData = {
     totalPnL: overallStats.totalPnL,
     totalTrades: overallStats.totalTrades,
     winRate: overallStats.winRate,
-    avgRoR: strategyPerformance.length > 0
-      ? strategyPerformance.reduce((sum, s) => sum + s.avgRoR, 0) / strategyPerformance.length
+    avgRoR: strategyPerformance.length > 0 
+      ? strategyPerformance.reduce((sum, s) => sum + s.avgRoR, 0) / strategyPerformance.length 
       : 0,
-    bestStrategy: strategyPerformance.length > 0
+    bestStrategy: strategyPerformance.length > 0 
       ? { name: strategyPerformance[0].strategy, ror: strategyPerformance[0].avgRoR }
       : null,
-    totalFees: overallStats.totalFees
+    bestStockByPnL: bestStocks.bestByPnL,
+    bestStockByRoR: bestStocks.bestByRoR
   };
 
   if (transactions.length === 0) {
