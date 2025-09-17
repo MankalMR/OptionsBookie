@@ -73,18 +73,18 @@ export default function TransactionTable({ transactions, onDelete, onDeleteChain
     const isActiveChain = chainInfo?.chainStatus === 'Active';
     const isClosedChain = chainInfo?.chainStatus === 'Closed';
 
-    // If chain is closed, apply same styling as closed individual transactions
+    // If chain is closed, use muted styling to de-emphasize
     if (isClosedChain) {
-      return "bg-muted/80 hover:bg-muted border-l-4 border-l-muted-foreground";
+      return "bg-muted/70 dark:bg-muted/70 hover:bg-muted/80 dark:hover:bg-muted/80 border-l-4 border-l-muted-foreground";
     }
 
-    // If chain is active and has open transactions, apply light blue background
+    // If chain is active and has open transactions, use blue styling to show activity
     if (isActiveChain && hasOpenTransactions) {
-      return "bg-blue-50/50 dark:bg-blue-950/20 hover:bg-blue-100/50 dark:hover:bg-blue-950/30 border-l-4 border-l-blue-500";
+      return "bg-blue-50/80 dark:bg-blue-950/40 hover:bg-blue-100/70 dark:hover:bg-blue-950/50 border-l-4 border-l-blue-500";
     }
 
-    // Otherwise use the default blue chain styling
-    return "bg-blue-50 dark:bg-blue-950/20 hover:bg-blue-100 dark:hover:bg-blue-950/30 border-l-4 border-l-blue-500";
+    // Default active chain styling
+    return "bg-blue-50/60 dark:bg-blue-950/30 hover:bg-blue-100/50 dark:hover:bg-blue-950/40 border-l-4 border-l-blue-500";
   };
 
   // Organize transactions into chains and standalone transactions
@@ -405,13 +405,13 @@ export default function TransactionTable({ transactions, onDelete, onDeleteChain
                   renderElements.push(
                     <TableRow
                       key={transaction.id}
-                      className={`hover:bg-muted/50 border-l-4 border-l-blue-200 dark:border-l-blue-700 ${
-                        ['Closed', 'Expired', 'Assigned'].includes(transaction.status)
-                          ? 'bg-muted/80'
+                      className={`hover:bg-accent/50 border-l-4 border-l-blue-200 dark:border-l-blue-700 ${
+                        transaction.status === 'Open'
+                          ? 'bg-blue-50/80 dark:bg-blue-950/40 border-l-blue-500'
                           : transaction.status === 'Rolled'
-                          ? 'bg-amber-50/70 dark:bg-amber-950/20'
-                          : transaction.status === 'Open'
-                          ? 'bg-blue-50/50 dark:bg-blue-950/20'
+                          ? 'bg-amber-50/80 dark:bg-amber-950/40 border-l-amber-500'
+                          : ['Closed', 'Expired', 'Assigned'].includes(transaction.status)
+                          ? 'bg-muted/60 dark:bg-muted/60 border-l-muted-foreground'
                           : ''
                       }`}
                     >
@@ -569,13 +569,13 @@ export default function TransactionTable({ transactions, onDelete, onDeleteChain
               renderElements.push(
                 <TableRow
                   key={transaction.id}
-                  className={`hover:bg-muted/50 ${
-                    ['Closed', 'Expired', 'Assigned'].includes(transaction.status)
-                      ? 'bg-muted/80'
+                  className={`hover:bg-accent/50 ${
+                    transaction.status === 'Open'
+                      ? 'bg-blue-50/80 dark:bg-blue-950/40'
                       : transaction.status === 'Rolled'
-                      ? 'bg-amber-50/70 dark:bg-amber-950/20'
-                      : transaction.status === 'Open'
-                      ? 'bg-blue-50/50 dark:bg-blue-950/20'
+                      ? 'bg-amber-50/80 dark:bg-amber-950/40'
+                      : ['Closed', 'Expired', 'Assigned'].includes(transaction.status)
+                      ? 'bg-muted/60 dark:bg-muted/60'
                       : ''
                   }`}
             >
@@ -588,7 +588,7 @@ export default function TransactionTable({ transactions, onDelete, onDeleteChain
                 <div className="flex items-center space-x-2">
                         {/* Icon for standalone transactions (replaces chain link icon) */}
                         <Circle className={`h-4 w-4 flex-shrink-0 fill-current ${
-                          transaction.status === 'Open' ? 'text-blue-500' : 'text-muted-foreground'
+                          transaction.status === 'Open' ? 'text-blue-500' : 'text-gray-400'
                         }`} />
                         {/* Alternative options:
                             <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />
