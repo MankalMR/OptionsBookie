@@ -91,12 +91,13 @@ export const shouldUpdateTradeStatus = (transaction: any): boolean => {
 };
 
 // Centralized utility to get all realized transactions
+// Only truly completed trades count as realized - rolled trades are ongoing strategies
 export const getRealizedTransactions = (transactions: OptionsTransaction[]) => {
   return transactions.filter(t =>
     t.status === 'Closed' ||
-    t.status === 'Rolled' ||
     t.status === 'Expired' ||
     t.status === 'Assigned'
+    // Note: 'Rolled' transactions are NOT realized - they're part of ongoing strategies
   );
 };
 

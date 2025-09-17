@@ -40,9 +40,9 @@ export default function SummaryView({ transactions }: SummaryViewProps) {
 
 
   const yearlySummaries = useMemo(() => {
-    // Use centralized utility and filter for transactions with close dates
+    // Use centralized utility for truly completed transactions only
     const completedTransactions = getRealizedTransactions(transactions).filter(t =>
-      t.closeDate || t.status === 'Rolled' // Rolled trades might not have explicit closeDate
+      t.closeDate // Only include transactions with actual close dates
     );
 
     const yearlyData: Record<number, YearlySummary> = {};
