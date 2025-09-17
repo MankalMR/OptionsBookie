@@ -345,7 +345,7 @@ export const calculateMonthlyChartData = (transactions: OptionsTransaction[]) =>
   });
 
   // Convert to array and calculate RoR
-  return Array.from(monthlyData.values())
+  const chartData = Array.from(monthlyData.values())
     .map(data => ({
       month: data.month,
       pnl: Math.round(data.pnl),
@@ -353,6 +353,164 @@ export const calculateMonthlyChartData = (transactions: OptionsTransaction[]) =>
       trades: data.trades.length
     }))
     .sort((a, b) => new Date(a.month).getTime() - new Date(b.month).getTime());
+
+  return chartData;
+};
+
+// Calculate top tickers by P&L and RoR for each month
+export const calculateMonthlyTopTickers = (transactions: OptionsTransaction[]) => {
+  const realizedTransactions = getRealizedTransactions(transactions);
+
+  // Group by month and ticker
+  const monthlyTickerData = new Map<string, Map<string, {
+    ticker: string;
+    pnl: number;
+    trades: number;
+    totalCollateral: number;
+  }>>();
+
+  realizedTransactions.forEach(transaction => {
+    if (!transaction.closeDate) return;
+
+    const closeDate = new Date(transaction.closeDate);
+    const monthKey = `${closeDate.getFullYear()}-${String(closeDate.getMonth() + 1).padStart(2, '0')}`;
+    const ticker = transaction.stockSymbol;
+
+    if (!monthlyTickerData.has(monthKey)) {
+      monthlyTickerData.set(monthKey, new Map());
+    }
+
+    const monthData = monthlyTickerData.get(monthKey)!;
+
+    if (!monthData.has(ticker)) {
+      monthData.set(ticker, {
+        ticker,
+        pnl: 0,
+        trades: 0,
+        totalCollateral: 0
+      });
+    }
+
+    const tickerData = monthData.get(ticker)!;
+    tickerData.pnl += transaction.profitLoss || 0;
+    tickerData.trades += 1;
+    tickerData.totalCollateral += calculateCollateral(transaction);
+  });
+
+  // Find top tickers by P&L and RoR for each month
+  return Array.from(monthlyTickerData.entries())
+    .map(([monthKey, tickerMap]) => {
+      const tickers = Array.from(tickerMap.values()).map(ticker => ({
+        ...ticker,
+        ror: ticker.totalCollateral > 0 ?
+          Number((ticker.pnl / ticker.totalCollateral * 100).toFixed(1)) : 0
+      }));
+
+      const topByPnL = tickers.reduce((best, current) =>
+        current.pnl > best.pnl ? current : best
+      );
+
+      const topByRoR = tickers.reduce((best, current) =>
+        current.ror > best.ror ? current : best
+      );
+
+      return {
+        monthKey,
+        topByPnL: {
+          ticker: topByPnL.ticker,
+          pnl: Math.round(topByPnL.pnl),
+          ror: topByPnL.ror
+        },
+        topByRoR: {
+          ticker: topByRoR.ticker,
+          pnl: Math.round(topByRoR.pnl),
+          ror: topByRoR.ror
+        }
+      };
+    });
+};
+
+// Calculate top 5 tickers yearly performance for charting
+export const calculateTop5TickersYearlyPerformance = (transactions: OptionsTransaction[]) => {
+  const realizedTransactions = getRealizedTransactions(transactions);
+
+  // First, calculate total P&L per ticker to identify top 5
+  const tickerTotals = new Map<string, number>();
+  realizedTransactions.forEach(transaction => {
+    const ticker = transaction.stockSymbol;
+    const pnl = transaction.profitLoss || 0;
+    tickerTotals.set(ticker, (tickerTotals.get(ticker) || 0) + pnl);
+  });
+
+  // Get top 5 tickers by total P&L
+  const top5Tickers = Array.from(tickerTotals.entries())
+    .sort(([,a], [,b]) => b - a)
+    .slice(0, 5)
+    .map(([ticker]) => ticker);
+
+  // Group by year for top 5 tickers
+  const yearlyData = new Map<string, {
+    year: string;
+    [key: string]: any; // Will contain ticker_pnl and ticker_ror keys
+  }>();
+
+  realizedTransactions
+    .filter(transaction => top5Tickers.includes(transaction.stockSymbol))
+    .forEach(transaction => {
+      if (!transaction.closeDate) return;
+
+      const closeDate = new Date(transaction.closeDate);
+      const year = closeDate.getFullYear().toString();
+      const ticker = transaction.stockSymbol;
+
+      if (!yearlyData.has(year)) {
+        yearlyData.set(year, { year });
+      }
+
+      const yearData = yearlyData.get(year)!;
+      
+      // Initialize ticker data if not exists
+      if (!yearData[`${ticker}_pnl`]) {
+        yearData[`${ticker}_pnl`] = 0;
+        yearData[`${ticker}_trades`] = 0;
+        yearData[`${ticker}_collateral`] = 0;
+      }
+
+      yearData[`${ticker}_pnl`] += transaction.profitLoss || 0;
+      yearData[`${ticker}_trades`] += 1;
+      yearData[`${ticker}_collateral`] += calculateCollateral(transaction);
+    });
+
+  // Calculate RoR and format data
+  const chartData = Array.from(yearlyData.values())
+    .map(data => {
+      const result = { ...data };
+      
+      // Calculate RoR for each ticker
+      top5Tickers.forEach(ticker => {
+        if (result[`${ticker}_collateral`] > 0) {
+          result[`${ticker}_ror`] = Number(
+            ((result[`${ticker}_pnl`] || 0) / result[`${ticker}_collateral`] * 100).toFixed(1)
+          );
+        } else {
+          result[`${ticker}_ror`] = 0;
+        }
+        
+        // Round P&L values
+        result[`${ticker}_pnl`] = Math.round(result[`${ticker}_pnl`] || 0);
+      });
+
+      return result;
+    })
+    .sort((a, b) => parseInt(a.year) - parseInt(b.year));
+
+  return {
+    chartData,
+    top5Tickers,
+    tickerTotals: Object.fromEntries(
+      top5Tickers.map(ticker => [ticker, Math.round(tickerTotals.get(ticker) || 0)])
+    )
+  };
 };
 
 export const calculateUnrealizedPnL = (transactions: any[], chains: any[] = []): number => {

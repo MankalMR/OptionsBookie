@@ -1,0 +1,196 @@
+'use client';
+
+import { formatPnLCurrency } from '@/utils/optionsCalculations';
+import { ResponsiveContainer, ComposedChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend, Bar } from 'recharts';
+
+interface MonthlyData {
+  month: number;
+  monthName: string;
+  totalPnL: number;
+  totalTrades: number;
+  winRate: number;
+  fees: number;
+}
+
+interface TopTickers {
+  topByPnL: { ticker: string; pnl: number };
+  topByRoR: { ticker: string; ror: number };
+}
+
+interface ChartDataPoint {
+  month: string;
+  pnl: number;
+  ror: number;
+}
+
+interface MonthlyBreakdownSectionProps {
+  yearData: {
+    year: number;
+    monthlyBreakdown: MonthlyData[];
+  };
+  chartData: ChartDataPoint[];
+  getTopTickersForMonth: (year: number, month: number) => TopTickers | undefined;
+}
+
+export default function MonthlyBreakdownSection({
+  yearData,
+  chartData,
+  getTopTickersForMonth
+}: MonthlyBreakdownSectionProps) {
+  const formatCurrency = formatPnLCurrency;
+
+  return (
+    <div>
+      <h4 className="text-lg font-medium text-card-foreground mb-4">Monthly Breakdown</h4>
+
+      {/* Monthly P&L and RoR Chart */}
+      <h5 className="text-md font-medium text-card-foreground mb-3">Monthly P&L and RoR Chart</h5>
+      {(() => {
+        return chartData && chartData.length > 0 ? (
+          <div className="mb-6">
+            <ResponsiveContainer width="100%" height={300}>
+              <ComposedChart data={chartData}>
+                <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
+                <XAxis
+                  dataKey="month"
+                  tick={{ fontSize: 12, fill: 'currentColor' }}
+                  className="text-muted-foreground"
+                />
+                <YAxis
+                  yAxisId="pnl"
+                  orientation="left"
+                  tick={{ fontSize: 12, fill: 'currentColor' }}
+                  className="text-muted-foreground"
+                  tickFormatter={(value) => `$${value}`}
+                />
+                <YAxis
+                  yAxisId="ror"
+                  orientation="right"
+                  tick={{ fontSize: 12, fill: 'currentColor' }}
+                  className="text-muted-foreground"
+                  tickFormatter={(value) => `${value}%`}
+                />
+                <Tooltip
+                  content={({ active, payload, label }) => {
+                    if (active && payload && payload.length) {
+                      const month = label;
+                      const pnlValue = payload.find(p => p.dataKey === 'pnl')?.value || 0;
+                      const rorValue = payload.find(p => p.dataKey === 'ror')?.value || 0;
+
+                      // Find top tickers for this month
+                      const monthDate = new Date(month + ' 1');
+                      const topTickers = getTopTickersForMonth(monthDate.getFullYear(), monthDate.getMonth());
+
+                      return (
+                        <div className="bg-popover border border-border rounded-lg p-3 shadow-lg">
+                          <p className="font-medium text-popover-foreground mb-2">{month}</p>
+                          <div className="space-y-1 text-sm">
+                            <div className="flex justify-between items-center">
+                              <span className="text-emerald-600 dark:text-emerald-400">P&L:</span>
+                              <span className="font-medium">${pnlValue}</span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                              <span className="text-sky-600 dark:text-sky-400">RoR:</span>
+                              <span className="font-medium">{rorValue}%</span>
+                            </div>
+                            {topTickers && (
+                              <div className="mt-2 pt-2 border-t border-border">
+                                <div className="flex justify-between items-center text-xs">
+                                  <span className="text-muted-foreground">Top by P&L:</span>
+                                  <span className="font-medium text-emerald-600 dark:text-emerald-400">{topTickers.topByPnL.ticker}</span>
+                                </div>
+                                <div className="flex justify-between items-center text-xs">
+                                  <span className="text-muted-foreground">Top by RoR:</span>
+                                  <span className="font-medium text-sky-600 dark:text-sky-400">{topTickers.topByRoR.ticker}</span>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    }
+                    return null;
+                  }}
+                />
+                <Legend
+                  wrapperStyle={{ color: 'hsl(var(--card-foreground))' }}
+                />
+                <Bar
+                  yAxisId="pnl"
+                  dataKey="pnl"
+                  fill="hsl(160 60% 40%)"
+                  fillOpacity={0.8}
+                  radius={[4, 4, 0, 0]}
+                  name="P&L ($)"
+                />
+                <Bar
+                  yAxisId="ror"
+                  dataKey="ror"
+                  fill="hsl(210 60% 55%)"
+                  fillOpacity={0.8}
+                  radius={[4, 4, 0, 0]}
+                  name="RoR (%)"
+                />
+              </ComposedChart>
+            </ResponsiveContainer>
+          </div>
+        ) : (
+          <div className="mb-6 text-center py-4 text-muted-foreground">
+            <p>No chart data available for {yearData.year}</p>
+          </div>
+        );
+      })()}
+
+      {/* Monthly Table */}
+      <div className="overflow-x-auto">
+        <table className="min-w-full divide-y divide-border">
+          <thead className="bg-muted">
+            <tr>
+              <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Month</th>
+              <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">P&L</th>
+              <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Trades</th>
+              <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Win Rate</th>
+              <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Top by P&L</th>
+              <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Top by RoR</th>
+              <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Fees</th>
+            </tr>
+          </thead>
+          <tbody className="bg-card divide-y divide-border">
+            {yearData.monthlyBreakdown.map((month) => {
+              const topTickers = getTopTickersForMonth(yearData.year, month.month);
+              return (
+                <tr key={month.month}>
+                  <td className="px-4 py-2 text-sm font-medium text-card-foreground">{month.monthName}</td>
+                  <td className={`px-4 py-2 text-sm ${month.totalPnL >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
+                    {formatCurrency(month.totalPnL)}
+                  </td>
+                  <td className="px-4 py-2 text-sm text-card-foreground">{month.totalTrades}</td>
+                  <td className="px-4 py-2 text-sm text-card-foreground">{Math.round(month.winRate)}%</td>
+                  <td className="px-4 py-2 text-sm">
+                    {topTickers ? (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-emerald-100 dark:bg-emerald-950/30 text-emerald-800 dark:text-emerald-200">
+                        {topTickers.topByPnL.ticker} ({formatCurrency(topTickers.topByPnL.pnl)})
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground text-xs">-</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-2 text-sm">
+                    {topTickers ? (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-sky-100 dark:bg-sky-950/30 text-sky-800 dark:text-sky-200">
+                        {topTickers.topByRoR.ticker} ({topTickers.topByRoR.ror.toFixed(1)}%)
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground text-xs">-</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-2 text-sm text-card-foreground">{formatCurrency(month.fees)}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
