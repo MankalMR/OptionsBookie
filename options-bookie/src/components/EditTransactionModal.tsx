@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react';
 import { OptionsTransaction, Portfolio } from '@/types/options';
 import { calculateProfitLoss, calculateDaysHeld } from '@/utils/optionsCalculations';
-import { dateToLocalString } from '@/utils/dateUtils';
+import { dateToLocalString, dateToInputString } from '@/utils/dateUtils';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -32,8 +32,8 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
   const [formData, setFormData] = useState({
     portfolioId: transaction.portfolioId || '',
     stockSymbol: transaction.stockSymbol,
-    tradeOpenDate: dateToLocalString(tradeOpenDate),
-    expiryDate: dateToLocalString(expiryDate),
+    tradeOpenDate: dateToInputString(tradeOpenDate),
+    expiryDate: dateToInputString(expiryDate),
     callOrPut: transaction.callOrPut,
     buyOrSell: transaction.buyOrSell,
     strikePrice: transaction.strikePrice,
@@ -42,7 +42,7 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
     fees: transaction.fees || (transaction.numberOfContracts * 0.66), // Auto-calculate if no fees set
     status: transaction.status,
     exitPrice: transaction.exitPrice || 0,
-    closeDate: closeDate ? dateToLocalString(closeDate) : '',
+    closeDate: closeDate ? dateToInputString(closeDate) : '',
     // Roll fields
     newExpiryDate: '',
     newStrikePrice: transaction.strikePrice,

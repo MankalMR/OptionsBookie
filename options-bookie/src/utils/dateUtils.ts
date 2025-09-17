@@ -7,24 +7,25 @@
  */
 export function dateToLocalString(date: Date | string): string {
   if (!date) return '';
-
+  
   const dateObj = parseLocalDate(date);
-
+  
   // Use local timezone to avoid shifts
   const year = dateObj.getFullYear();
   const month = String(dateObj.getMonth() + 1).padStart(2, '0');
   const day = String(dateObj.getDate()).padStart(2, '0');
-
+  
   return `${year}-${month}-${day}`;
 }
 
 /**
- * Gets current date in YYYY-MM-DD format for form inputs
- * This ensures consistent date initialization across the app
+ * Converts a Date object to YYYY-MM-DD format for HTML date inputs
+ * This is equivalent to toISOString().split('T')[0] but centralized for consistency
  */
-export function getCurrentDateString(): string {
-  return dateToLocalString(new Date());
+export function dateToInputString(date: Date): string {
+  return date.toISOString().split('T')[0];
 }
+
 
 /**
  * Parses a date string (YYYY-MM-DD) as a local date without timezone shifts
