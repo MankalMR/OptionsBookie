@@ -1,7 +1,8 @@
 'use client';
 
 import { OptionsTransaction, TradeChain } from '@/types/options';
-import { calculateUnrealizedPnL, calculateDaysHeld, getRealizedTransactions, calculateTotalRealizedPnL, formatPnLNumber } from '@/utils/optionsCalculations';
+import { calculateUnrealizedPnL, calculateDaysHeld, getRealizedTransactions, calculateTotalRealizedPnL } from '@/utils/optionsCalculations';
+import PnLDisplay from '@/components/PnLDisplay';
 import { useMemo } from 'react';
 
 interface PortfolioSummaryProps {
@@ -55,15 +56,23 @@ export default function PortfolioSummary({ transactions, chains = [] }: Portfoli
         </div>
         <div>
           <p className="text-sm text-muted-foreground">Realized P&L</p>
-          <p className={`text-2xl font-bold ${summary.totalProfitLoss >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-            {formatPnLNumber(summary.totalProfitLoss)}
-          </p>
+          <PnLDisplay
+            amount={summary.totalProfitLoss}
+            textSize="2xl"
+            iconSize="lg"
+            className="font-bold"
+            showZero
+          />
         </div>
         <div>
           <p className="text-sm text-muted-foreground">Unrealized P&L</p>
-          <p className={`text-2xl font-bold ${summary.unrealizedPnL >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-            {formatPnLNumber(summary.unrealizedPnL)}
-          </p>
+          <PnLDisplay
+            amount={summary.unrealizedPnL}
+            textSize="2xl"
+            iconSize="lg"
+            className="font-bold"
+            showZero
+          />
         </div>
         <div>
           <p className="text-sm text-muted-foreground">Win Rate</p>

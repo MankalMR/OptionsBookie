@@ -122,6 +122,16 @@ export const formatPnLNumber = (amount: number): string => {
   return `$${Math.round(amount)}`;
 };
 
+// Centralized utility to format P&L with arrow for consistent display
+export const formatPnLWithArrow = (amount: number): { text: string; isPositive: boolean } => {
+  const roundedAmount = Math.round(amount);
+  const isPositive = roundedAmount >= 0;
+  return {
+    text: `$${Math.abs(roundedAmount)}`,
+    isPositive
+  };
+};
+
 // Centralized utility to calculate Chain P&L
 export const calculateChainPnL = (chainId: string, transactions: OptionsTransaction[]): number => {
   return transactions

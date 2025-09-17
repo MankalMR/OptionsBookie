@@ -5,10 +5,11 @@ import { useState, useEffect } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Edit, Trash2, TrendingUp, TrendingDown, ChevronDown, ChevronRight, Link, Circle, FileText, Minus, User, Diamond } from 'lucide-react';
+import { Edit, Trash2, ChevronDown, ChevronRight, Link, Circle, FileText, Minus, User, Diamond } from 'lucide-react';
 import { useStockPrices } from '@/hooks/useStockPrices';
 import StockPriceDisplay, { ITMIndicator } from '@/components/StockPriceDisplay';
 import { calculateDTE, calculateDH, formatPnLNumber, calculateChainPnL } from '@/utils/optionsCalculations';
+import PnLDisplay from '@/components/PnLDisplay';
 
 interface TransactionTableProps {
   transactions: OptionsTransaction[];
@@ -370,8 +371,8 @@ export default function TransactionTable({ transactions, onDelete, onDeleteChain
                       {chainInfo?.chainStatus || 'Active'}
                     </Badge>
                   </TableCell>
-                  <TableCell className={`font-bold ${chainPnL >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                    {formatPnLNumber(chainPnL)}
+                  <TableCell>
+                    <PnLDisplay amount={chainPnL} className="font-bold" showZero />
                     <div className="text-xs text-muted-foreground font-normal">Chain P&L</div>
                   </TableCell>
                   <TableCell>
@@ -514,19 +515,8 @@ export default function TransactionTable({ transactions, onDelete, onDeleteChain
                           {transaction.status}
                         </Badge>
                       </TableCell>
-                      <TableCell className={transaction.profitLoss && transaction.profitLoss >= 0 ? 'text-green-600' : 'text-red-600'}>
-                        <div className="flex items-center">
-                          {transaction.profitLoss !== undefined && transaction.profitLoss !== 0 && (
-                            <>
-                              {transaction.profitLoss > 0 ? (
-                                <TrendingUp className="h-4 w-4 mr-1" />
-                              ) : (
-                                <TrendingDown className="h-4 w-4 mr-1" />
-                              )}
-                            </>
-                          )}
-                          {formatPnLNumber(transaction.profitLoss || 0)}
-                        </div>
+                      <TableCell>
+                        <PnLDisplay amount={transaction.profitLoss || 0} />
                       </TableCell>
                       <TableCell>
                         <div className="flex space-x-1">
@@ -706,16 +696,7 @@ export default function TransactionTable({ transactions, onDelete, onDeleteChain
                 </Badge>
               </TableCell>
               <TableCell>
-                <div className="flex items-center space-x-1">
-                  {(transaction.profitLoss ?? 0) >= 0 ? (
-                    <TrendingUp className="h-4 w-4 text-green-600" />
-                  ) : (
-                    <TrendingDown className="h-4 w-4 text-red-600" />
-                  )}
-                  <span className={`font-medium ${(transaction.profitLoss ?? 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                    {(transaction.profitLoss ?? 0) >= 0 ? '+' : ''}{formatPnLNumber(transaction.profitLoss || 0).substring(1)}
-                </span>
-                </div>
+                <PnLDisplay amount={transaction.profitLoss || 0} />
               </TableCell>
               <TableCell>
                 <div className="flex space-x-1">

@@ -453,9 +453,16 @@ export default function Home() {
         <header className="bg-card shadow-sm border-b">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex justify-between items-center py-6">
-              <div>
-                <h1 className="text-3xl font-bold text-foreground">OptionsBookie</h1>
-                <p className="text-muted-foreground">Track your options trades with precision</p>
+              <div className="flex items-center space-x-4">
+                <img
+                  src="/images/OptionBookie1.png"
+                  alt="OptionsBookie Logo"
+                  className="h-20 w-20 object-contain"
+                />
+                <div>
+                  <h1 className="text-3xl font-bold text-foreground">OptionsBookie</h1>
+                  <p className="text-muted-foreground">Track your options trades with precision</p>
+                </div>
               </div>
               <div className="flex items-center space-x-3">
                 <Button
