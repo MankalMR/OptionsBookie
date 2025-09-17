@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
+import Modal from '@/components/ui/Modal';
 
 interface EditTransactionModalProps {
   transaction: OptionsTransaction;
@@ -434,24 +435,13 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 dark:bg-black/70 overflow-y-auto h-full w-full z-50">
-      <div className="relative top-10 mx-auto p-6 border border-border w-full max-w-2xl shadow-2xl rounded-lg bg-white dark:bg-gray-900">
-        <div className="mt-3">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-medium text-foreground">Edit Trade</h3>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onClose}
-              className="text-muted-foreground hover:text-foreground"
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </Button>
-          </div>
-
-          <form onSubmit={handleSubmit} className="space-y-4">
+    <Modal
+      isOpen={true}
+      onClose={onClose}
+      title="Edit Trade"
+      size="lg"
+    >
+      <form onSubmit={handleSubmit} className="space-y-4">
             {/* Portfolio - Full Width */}
             {portfolios.length > 0 && (
               <div className="space-y-2">
@@ -800,9 +790,6 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
               </Button>
             </div>
           </form>
-        </div>
-      </div>
-
-    </div>
+    </Modal>
   );
 }

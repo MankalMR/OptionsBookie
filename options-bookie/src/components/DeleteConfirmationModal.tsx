@@ -24,17 +24,10 @@ export default function DeleteConfirmationModal({
     onClose();
   };
 
-  const handleOverlayClick = (e: React.MouseEvent) => {
-    if (e.target === e.currentTarget) {
-      onClose();
-    }
-  };
-
   return (
-    <div className="fixed inset-0 bg-black/50 dark:bg-black/70 overflow-y-auto h-full w-full z-50" onClick={handleOverlayClick}>
+    <div className="fixed inset-0 bg-black/50 dark:bg-black/70 overflow-y-auto h-full w-full z-50">
       <div className="relative top-20 mx-auto p-6 border border-border w-96 shadow-2xl rounded-lg bg-white dark:bg-gray-900">
         <div className="mt-3">
-          {/* Header */}
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center space-x-2 text-red-600">
               <AlertTriangle className="h-5 w-5" />
@@ -47,11 +40,13 @@ export default function DeleteConfirmationModal({
               <X className="h-5 w-5" />
             </button>
           </div>
-
-          {/* Content */}
           <div className="space-y-4">
+            <div className="flex items-center space-x-2 text-red-600 mb-4">
+              <AlertTriangle className="h-5 w-5" />
+              <span className="font-medium">Warning: This action cannot be undone</span>
+            </div>
             <p className="text-muted-foreground">
-              Are you sure you want to delete this transaction? This action cannot be undone.
+              Are you sure you want to delete this transaction?
             </p>
 
             <div className="bg-muted p-4 rounded-lg space-y-2">

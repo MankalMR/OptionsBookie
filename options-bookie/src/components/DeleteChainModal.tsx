@@ -28,19 +28,12 @@ export default function DeleteChainModal({
     onClose();
   };
 
-  const handleOverlayClick = (e: React.MouseEvent) => {
-    if (e.target === e.currentTarget) {
-      onClose();
-    }
-  };
-
   const stockSymbol = chainTransactions[0]?.stockSymbol || 'Unknown';
 
   return (
-    <div className="fixed inset-0 bg-black/50 dark:bg-black/70 overflow-y-auto h-full w-full z-50" onClick={handleOverlayClick}>
+    <div className="fixed inset-0 bg-black/50 dark:bg-black/70 overflow-y-auto h-full w-full z-50">
       <div className="relative top-20 mx-auto p-6 border border-border max-w-md shadow-2xl rounded-lg bg-white dark:bg-gray-900">
         <div className="mt-3">
-          {/* Header */}
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center space-x-2 text-red-600">
               <AlertTriangle className="h-5 w-5" />
@@ -54,9 +47,8 @@ export default function DeleteChainModal({
             </button>
           </div>
 
-          {/* Content */}
           <div className="space-y-4">
-            <div className="flex items-center space-x-2 text-muted-foreground700">
+            <div className="flex items-center space-x-2 text-muted-foreground">
               <Link className="h-4 w-4" />
               <span className="font-medium">{stockSymbol} Chain</span>
               <span className="text-xs bg-muted text-muted-foreground600 px-2 py-1 rounded">
