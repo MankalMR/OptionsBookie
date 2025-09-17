@@ -1,8 +1,9 @@
 'use client';
 
 import { OptionsTransaction } from '@/types/options';
-import { calculateDaysHeld, getRealizedTransactions, calculateTotalRealizedPnL, formatPnLCurrency } from '@/utils/optionsCalculations';
+import { calculateDaysHeld, getRealizedTransactions, calculateTotalRealizedPnL, formatPnLCurrency, calculateStrategyPerformance, calculateMonthlyChartData } from '@/utils/optionsCalculations';
 import { useMemo, useState } from 'react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar, ComposedChart } from 'recharts';
 
 interface SummaryViewProps {
   transactions: OptionsTransaction[];
@@ -191,6 +192,22 @@ export default function SummaryView({ transactions }: SummaryViewProps) {
   // Use centralized formatting utility
   const formatCurrency = formatPnLCurrency;
 
+  // Calculate strategy performance analytics
+  const strategyPerformance = useMemo(() => calculateStrategyPerformance(transactions), [transactions]);
+
+  // Calculate monthly chart data
+  const monthlyChartData = useMemo(() => calculateMonthlyChartData(transactions), [transactions]);
+
+  // Filter monthly chart data for a specific year
+  const getYearlyChartData = (year: number) => {
+    return monthlyChartData.filter(data => {
+      // Parse year from month string like "Sep 2025"
+      const yearMatch = data.month.match(/(\d{4})/);
+      const monthYear = yearMatch ? parseInt(yearMatch[1]) : 0;
+      return monthYear === year;
+    });
+  };
+
   const selectedYearData = selectedYear ? yearlySummaries.find(y => y.year === selectedYear) : null;
 
   if (transactions.length === 0) {
@@ -212,7 +229,7 @@ export default function SummaryView({ transactions }: SummaryViewProps) {
       {/* Quick Stats */}
       <div className="bg-card rounded-lg shadow border p-6">
         <h2 className="text-2xl font-bold text-card-foreground mb-6">Quick Stats</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-6">
           <div className="text-center">
             <p className="text-sm text-muted-foreground">Total P&L</p>
             <p className={`text-3xl font-bold ${overallStats.totalPnL >= 0 ? 'text-green-600' : 'text-red-600'}`}>
@@ -228,10 +245,113 @@ export default function SummaryView({ transactions }: SummaryViewProps) {
             <p className="text-3xl font-bold text-card-foreground">{Math.round(overallStats.winRate)}%</p>
           </div>
           <div className="text-center">
+            <p className="text-sm text-muted-foreground">Avg RoR</p>
+            <p className={`text-3xl font-bold ${
+              strategyPerformance.length > 0 && strategyPerformance.reduce((sum, s) => sum + s.avgRoR, 0) / strategyPerformance.length >= 0
+                ? 'text-green-600' : 'text-red-600'
+            }`}>
+              {strategyPerformance.length > 0
+                ? (strategyPerformance.reduce((sum, s) => sum + s.avgRoR, 0) / strategyPerformance.length).toFixed(1)
+                : '0.0'
+              }%
+            </p>
+          </div>
+          <div className="text-center">
+            <p className="text-sm text-muted-foreground">Best Strategy</p>
+            <p className="text-lg font-bold text-blue-600">
+              {strategyPerformance.length > 0 ? strategyPerformance[0].strategy : 'N/A'}
+            </p>
+            {strategyPerformance.length > 0 && (
+              <p className="text-xs text-muted-foreground">
+                {strategyPerformance[0].avgRoR.toFixed(1)}% RoR
+              </p>
+            )}
+          </div>
+          <div className="text-center">
             <p className="text-sm text-muted-foreground">Total Fees</p>
             <p className="text-3xl font-bold text-card-foreground">{formatCurrency(overallStats.totalFees)}</p>
           </div>
         </div>
+      </div>
+
+      {/* Strategy Performance Comparison */}
+      <div className="bg-card rounded-lg shadow border p-6">
+        <h2 className="text-2xl font-bold text-card-foreground mb-6">Strategy Performance</h2>
+        {strategyPerformance.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-border">
+              <thead className="bg-muted">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                    Strategy
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                    Trades
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                    Avg RoR
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                    Total P&L
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                    Win Rate
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                    Avg Days
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                    Avg Capital
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-card divide-y divide-border">
+                {strategyPerformance.map((strategy, index) => (
+                  <tr key={strategy.strategy} className={index % 2 === 0 ? 'bg-muted/20' : 'bg-card'}>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-card-foreground">
+                      {strategy.strategy}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-card-foreground">
+                      <div className="flex items-center space-x-2">
+                        <span className="font-medium">{strategy.tradeCount}</span>
+                        <span className="text-xs text-muted-foreground">
+                          ({strategy.openCount} open, {strategy.realizedCount} realized)
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      <span className={`font-semibold ${
+                        strategy.avgRoR >= 0 ? 'text-green-600' : 'text-red-600'
+                      }`}>
+                        {strategy.avgRoR.toFixed(1)}%
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      <span className={`font-medium ${
+                        strategy.totalPnL >= 0 ? 'text-green-600' : 'text-red-600'
+                      }`}>
+                        {formatCurrency(strategy.totalPnL)}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-card-foreground">
+                      {strategy.winRate.toFixed(0)}%
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-card-foreground">
+                      {Math.round(strategy.avgDaysHeld)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
+                      {formatCurrency(strategy.avgCollateral)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="text-center py-8">
+            <p className="text-muted-foreground">No completed trades available for strategy analysis.</p>
+          </div>
+        )}
       </div>
 
       {/* Yearly Performance */}
@@ -274,6 +394,69 @@ export default function SummaryView({ transactions }: SummaryViewProps) {
               {selectedYear === yearData.year && (
                 <div className="mt-6 border-t pt-4">
                   <h4 className="text-lg font-medium text-card-foreground mb-4">Monthly Breakdown</h4>
+
+                  {/* Monthly Performance Chart for Selected Year */}
+                  {(() => {
+                    const yearChartData = getYearlyChartData(yearData.year);
+                    return yearChartData.length > 0 ? (
+                      <div className="mb-6">
+                        <ResponsiveContainer width="100%" height={350}>
+                          <ComposedChart data={yearChartData}>
+                            <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
+                            <XAxis
+                              dataKey="month"
+                              tick={{ fontSize: 12, fill: 'currentColor' }}
+                              className="text-muted-foreground"
+                            />
+                            <YAxis
+                              yAxisId="pnl"
+                              tick={{ fontSize: 12, fill: 'currentColor' }}
+                              className="text-muted-foreground"
+                              tickFormatter={(value) => `$${value}`}
+                            />
+                            <YAxis
+                              yAxisId="ror"
+                              orientation="right"
+                              tick={{ fontSize: 12, fill: 'currentColor' }}
+                              className="text-muted-foreground"
+                              tickFormatter={(value) => `${value}%`}
+                            />
+                            <Tooltip
+                              formatter={(value: number, name: string) => [
+                                name === 'pnl' ? `$${value}` : `${value}%`,
+                                name === 'pnl' ? 'P&L' : 'RoR'
+                              ]}
+                              contentStyle={{
+                                backgroundColor: 'hsl(var(--popover))',
+                                border: '1px solid hsl(var(--border))',
+                                borderRadius: '8px',
+                                color: 'hsl(var(--popover-foreground))'
+                              }}
+                            />
+                            <Legend
+                              wrapperStyle={{ color: 'hsl(var(--card-foreground))' }}
+                            />
+                            <Bar
+                              yAxisId="pnl"
+                              dataKey="pnl"
+                              fill="hsl(142 76% 36%)"
+                              fillOpacity={0.8}
+                              radius={[4, 4, 0, 0]}
+                              name="P&L ($)"
+                            />
+                            <Bar
+                              yAxisId="ror"
+                              dataKey="ror"
+                              fill="hsl(221 83% 53%)"
+                              fillOpacity={0.8}
+                              radius={[4, 4, 0, 0]}
+                              name="RoR (%)"
+                            />
+                          </ComposedChart>
+                        </ResponsiveContainer>
+                      </div>
+                    ) : null;
+                  })()}
                   <div className="overflow-x-auto">
                     <table className="min-w-full divide-y divide-border">
                       <thead className="bg-muted">
@@ -320,6 +503,7 @@ export default function SummaryView({ transactions }: SummaryViewProps) {
             </div>
           ))}
         </div>
+
       </div>
 
       {/* Performance Insights */}

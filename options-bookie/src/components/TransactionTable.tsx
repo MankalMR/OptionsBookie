@@ -5,10 +5,10 @@ import { useState, useEffect } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Edit, Trash2, ChevronDown, ChevronRight, Link, Circle, FileText, Minus, User, Diamond } from 'lucide-react';
+import { Edit, Trash2, ChevronDown, ChevronRight, Link, Circle } from 'lucide-react';
 import { useStockPrices } from '@/hooks/useStockPrices';
 import StockPriceDisplay, { ITMIndicator } from '@/components/StockPriceDisplay';
-import { calculateDTE, calculateDH, formatPnLNumber, calculateChainPnL } from '@/utils/optionsCalculations';
+import { calculateDTE, calculateDH, formatPnLNumber, calculateChainPnL, calculateCollateral, calculateRoR, calculateChainCollateral, calculateChainRoR } from '@/utils/optionsCalculations';
 import PnLDisplay from '@/components/PnLDisplay';
 
 interface TransactionTableProps {
@@ -117,7 +117,7 @@ export default function TransactionTable({ transactions, onDelete, onDeleteChain
 
   // Get unique stock symbols for price fetching
   const stockSymbols = [...new Set(transactions.map(t => t.stockSymbol))];
-  const { stockPrices, loading: pricesLoading, isAvailable: pricesAvailable, error: pricesError, refreshPrices } = useStockPrices(stockSymbols);
+  const { stockPrices, isAvailable: pricesAvailable } = useStockPrices(stockSymbols);
 
   // Note: Sorting is now handled within the organize function for chains
 
@@ -254,18 +254,20 @@ export default function TransactionTable({ transactions, onDelete, onDeleteChain
               Opened
             </TableHead>
             <TableHead
-              className="cursor-pointer hover:bg-muted/50"
+              className="cursor-pointer hover:bg-muted/50 hidden lg:table-cell"
               onClick={() => handleSort('expiryDate')}
             >
               Expires
             </TableHead>
             <TableHead
               title="Days to Expiry for open trades, Close date for finished trades"
+              className="hidden md:table-cell"
             >
               DTE/Closed
             </TableHead>
             <TableHead
               title="Days Held"
+              className="hidden lg:table-cell"
             >
               DH
             </TableHead>
@@ -276,15 +278,23 @@ export default function TransactionTable({ transactions, onDelete, onDeleteChain
               Strike
             </TableHead>
             {pricesAvailable && (
-              <TableHead>
+              <TableHead className="hidden xl:table-cell">
                 Current Price
               </TableHead>
             )}
             <TableHead
               className="cursor-pointer hover:bg-muted/50"
               onClick={() => handleSort('premium')}
+              title="Collateral required for this trade"
             >
-              Premium
+              Collateral
+            </TableHead>
+            <TableHead
+              className="cursor-pointer hover:bg-muted/50 hidden lg:table-cell"
+              onClick={() => handleSort('profitLoss')}
+              title="Return on Risk percentage"
+            >
+              RoR%
             </TableHead>
             <TableHead
               className="cursor-pointer hover:bg-muted/50"
@@ -353,12 +363,25 @@ export default function TransactionTable({ transactions, onDelete, onDeleteChain
                   </TableCell>
                   {showPortfolioColumn && <TableCell></TableCell>}
                   <TableCell></TableCell>
+                  <TableCell className="hidden lg:table-cell"></TableCell>
+                  <TableCell className="hidden md:table-cell"></TableCell>
+                  <TableCell className="hidden lg:table-cell"></TableCell>
                   <TableCell></TableCell>
-                  <TableCell></TableCell>
-                  <TableCell></TableCell>
-                  <TableCell></TableCell>
-                  {pricesAvailable && <TableCell></TableCell>}
-                  <TableCell></TableCell>
+                  {pricesAvailable && <TableCell className="hidden xl:table-cell"></TableCell>}
+                  <TableCell>
+                    <span className="font-medium text-muted-foreground">
+                      ${formatPnLNumber(calculateChainCollateral(chainId, transactions)).slice(1)}
+                    </span>
+                    <div className="text-xs text-muted-foreground font-normal">Total Collateral</div>
+                  </TableCell>
+                  <TableCell className="hidden lg:table-cell">
+                    <span className={`font-medium text-sm ${
+                      calculateChainRoR(chainId, transactions) >= 0 ? 'text-green-600' : 'text-red-600'
+                    }`}>
+                      {calculateChainRoR(chainId, transactions).toFixed(1)}%
+                    </span>
+                    <div className="text-xs text-muted-foreground font-normal">Chain RoR</div>
+                  </TableCell>
                   <TableCell>
                     <Badge
                       variant={chainInfo?.chainStatus === 'Active' ? 'default' : 'secondary'}
@@ -448,10 +471,10 @@ export default function TransactionTable({ transactions, onDelete, onDeleteChain
                       <TableCell>
                         {formatDate(transaction.tradeOpenDate)}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="hidden lg:table-cell">
                         {formatDate(transaction.expiryDate)}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="hidden md:table-cell">
                         {transaction.status === 'Open' ? (
                           <span className={`font-medium ${
                             calculateDTE(transaction.expiryDate) <= 7
@@ -473,7 +496,7 @@ export default function TransactionTable({ transactions, onDelete, onDeleteChain
                           </div>
                         )}
                       </TableCell>
-                      <TableCell>{calculateDH(transaction.tradeOpenDate, transaction.closeDate)}</TableCell>
+                      <TableCell className="hidden lg:table-cell">{calculateDH(transaction.tradeOpenDate, transaction.closeDate)}</TableCell>
                       <TableCell>
                         <div className="flex items-center space-x-2">
                           <span>${transaction.strikePrice.toFixed(2)}</span>
@@ -488,7 +511,7 @@ export default function TransactionTable({ transactions, onDelete, onDeleteChain
                         </div>
                       </TableCell>
                       {pricesAvailable && (
-                        <TableCell>
+                        <TableCell className="hidden xl:table-cell">
                           {stockPrices[transaction.stockSymbol] ? (
                             <StockPriceDisplay
                               symbol={transaction.stockSymbol}
@@ -501,7 +524,15 @@ export default function TransactionTable({ transactions, onDelete, onDeleteChain
                           )}
                         </TableCell>
                       )}
-                      <TableCell>${transaction.premium.toFixed(2)}</TableCell>
+                      <TableCell>
+                        <span className="text-muted-foreground text-sm">
+                          ${transaction.premium.toFixed(2)}
+                        </span>
+                        <div className="text-xs text-muted-foreground font-normal">Premium</div>
+                      </TableCell>
+                      <TableCell className="hidden lg:table-cell">
+                        <span className="text-muted-foreground text-sm">-</span>
+                      </TableCell>
                       <TableCell>
                         <Badge
                           variant={
@@ -629,10 +660,10 @@ export default function TransactionTable({ transactions, onDelete, onDeleteChain
               <TableCell>
                 {formatDate(transaction.tradeOpenDate)}
               </TableCell>
-              <TableCell>
+              <TableCell className="hidden lg:table-cell">
                 {formatDate(transaction.expiryDate)}
               </TableCell>
-              <TableCell>
+              <TableCell className="hidden md:table-cell">
                 {transaction.status === 'Open' ? (
                   <span className={`font-medium ${
                     calculateDTE(transaction.expiryDate) <= 7
@@ -654,7 +685,7 @@ export default function TransactionTable({ transactions, onDelete, onDeleteChain
                   </div>
                 )}
               </TableCell>
-              <TableCell>
+              <TableCell className="hidden lg:table-cell">
                 {calculateDH(transaction.tradeOpenDate, transaction.closeDate)}
               </TableCell>
               <TableCell>
@@ -671,7 +702,7 @@ export default function TransactionTable({ transactions, onDelete, onDeleteChain
                 </div>
               </TableCell>
               {pricesAvailable && (
-                <TableCell>
+                <TableCell className="hidden xl:table-cell">
                   {stockPrices[transaction.stockSymbol] ? (
                     <StockPriceDisplay
                       symbol={transaction.stockSymbol}
@@ -685,7 +716,16 @@ export default function TransactionTable({ transactions, onDelete, onDeleteChain
                 </TableCell>
               )}
               <TableCell>
-                ${transaction.premium.toFixed(2)}
+                <span className="font-medium text-muted-foreground">
+                  ${formatPnLNumber(calculateCollateral(transaction)).slice(1)}
+                </span>
+              </TableCell>
+              <TableCell className="hidden lg:table-cell">
+                <span className={`font-medium text-sm ${
+                  calculateRoR(transaction) >= 0 ? 'text-green-600' : 'text-red-600'
+                }`}>
+                  {calculateRoR(transaction).toFixed(1)}%
+                </span>
               </TableCell>
               <TableCell>
                 <Badge

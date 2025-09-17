@@ -139,6 +139,222 @@ export const calculateChainPnL = (chainId: string, transactions: OptionsTransact
     .reduce((total, t) => total + (t.profitLoss || 0), 0);
 };
 
+// Calculate collateral requirement for an options trade
+export const calculateCollateral = (transaction: OptionsTransaction): number => {
+  // For now, use a basic calculation - this can be enhanced based on strategy type
+  // Cash-secured put: strike * 100 * contracts
+  // Covered call: current stock value (approximated by strike for now)
+  // This will be replaced with more sophisticated logic based on strategy
+
+  if (transaction.callOrPut === 'Put' && transaction.buyOrSell === 'Sell') {
+    // Cash-secured put
+    return transaction.strikePrice * 100 * transaction.numberOfContracts;
+  } else if (transaction.callOrPut === 'Call' && transaction.buyOrSell === 'Sell') {
+    // Covered call (assuming stock is owned - approximate with strike value)
+    return transaction.strikePrice * 100 * transaction.numberOfContracts;
+  } else {
+    // Long options - premium paid is the max risk
+    return transaction.premium * 100 * transaction.numberOfContracts;
+  }
+};
+
+// Calculate Return on Risk percentage
+export const calculateRoR = (transaction: OptionsTransaction): number => {
+  const collateral = calculateCollateral(transaction);
+  const profitLoss = transaction.profitLoss || 0;
+
+  if (collateral === 0) return 0;
+
+  return (profitLoss / collateral) * 100;
+};
+
+// Calculate total collateral for a chain
+// Only count collateral for currently OPEN positions (closed/rolled positions don't tie up capital)
+export const calculateChainCollateral = (chainId: string, transactions: OptionsTransaction[]): number => {
+  return transactions
+    .filter(t => t.chainId === chainId && t.status === 'Open')
+    .reduce((total, t) => total + calculateCollateral(t), 0);
+};
+
+// Calculate chain-level Return on Risk percentage
+export const calculateChainRoR = (chainId: string, transactions: OptionsTransaction[]): number => {
+  const chainTransactions = transactions.filter(t => t.chainId === chainId);
+  const totalPnL = calculateChainPnL(chainId, transactions);
+
+  // For RoR calculation, use current collateral for active chains,
+  // or maximum historical collateral for closed chains
+  const openPositions = chainTransactions.filter(t => t.status === 'Open');
+  let collateralForRoR: number;
+
+  if (openPositions.length > 0) {
+    // Active chain: use current collateral requirement
+    collateralForRoR = calculateChainCollateral(chainId, transactions);
+  } else {
+    // Closed chain: use the maximum collateral that was ever deployed
+    // This gives a meaningful RoR for completed strategies
+    collateralForRoR = Math.max(...chainTransactions.map(t => calculateCollateral(t)));
+  }
+
+  if (collateralForRoR === 0) return 0;
+
+  return (totalPnL / collateralForRoR) * 100;
+};
+
+// Calculate total capital deployed across all open positions
+export const calculateTotalDeployedCapital = (transactions: OptionsTransaction[]): number => {
+  return transactions
+    .filter(t => t.status === 'Open')
+    .reduce((total, t) => total + calculateCollateral(t), 0);
+};
+
+// Calculate average RoR across all positions (both open and closed)
+export const calculateAverageRoR = (transactions: OptionsTransaction[]): number => {
+  const transactionsWithRoR = transactions
+    .map(t => calculateRoR(t))
+    .filter(ror => !isNaN(ror) && isFinite(ror));
+
+  if (transactionsWithRoR.length === 0) return 0;
+
+  return transactionsWithRoR.reduce((sum, ror) => sum + ror, 0) / transactionsWithRoR.length;
+};
+
+// Determine strategy type based on transaction characteristics
+export const getStrategyType = (transaction: OptionsTransaction): string => {
+  const { callOrPut, buyOrSell } = transaction;
+
+  if (callOrPut === 'Put' && buyOrSell === 'Sell') {
+    return 'Cash-Secured Put';
+  } else if (callOrPut === 'Call' && buyOrSell === 'Sell') {
+    return 'Covered Call';
+  } else if (callOrPut === 'Put' && buyOrSell === 'Buy') {
+    return 'Long Put';
+  } else if (callOrPut === 'Call' && buyOrSell === 'Buy') {
+    return 'Long Call';
+  }
+
+  return 'Other';
+};
+
+// Calculate strategy performance analytics
+export const calculateStrategyPerformance = (transactions: OptionsTransaction[]) => {
+  const strategies = new Map<string, {
+    trades: OptionsTransaction[];
+    totalPnL: number;
+    totalCollateral: number;
+    avgRoR: number;
+    winRate: number;
+    avgDaysHeld: number;
+  }>();
+
+  // Group transactions by strategy type
+  transactions.forEach(transaction => {
+    const strategyType = getStrategyType(transaction);
+
+    if (!strategies.has(strategyType)) {
+      strategies.set(strategyType, {
+        trades: [],
+        totalPnL: 0,
+        totalCollateral: 0,
+        avgRoR: 0,
+        winRate: 0,
+        avgDaysHeld: 0
+      });
+    }
+
+    strategies.get(strategyType)!.trades.push(transaction);
+  });
+
+  // Calculate metrics for each strategy
+  strategies.forEach((strategy, strategyType) => {
+    const { trades } = strategy;
+
+    // Only include realized trades for most metrics
+    const realizedTrades = getRealizedTransactions(trades);
+
+    strategy.totalPnL = realizedTrades.reduce((sum, t) => sum + (t.profitLoss || 0), 0);
+
+    // Calculate average collateral (use max historical for realized trades)
+    strategy.totalCollateral = trades
+      .filter(t => t.status === 'Open')
+      .reduce((sum, t) => sum + calculateCollateral(t), 0);
+
+    // If no open trades, use average historical collateral
+    if (strategy.totalCollateral === 0 && realizedTrades.length > 0) {
+      strategy.totalCollateral = realizedTrades.reduce((sum, t) => sum + calculateCollateral(t), 0) / realizedTrades.length;
+    }
+
+    // Calculate average RoR
+    const rorValues = trades.map(t => calculateRoR(t)).filter(ror => !isNaN(ror) && isFinite(ror));
+    strategy.avgRoR = rorValues.length > 0 ? rorValues.reduce((sum, ror) => sum + ror, 0) / rorValues.length : 0;
+
+    // Calculate win rate
+    const winningTrades = realizedTrades.filter(t => (t.profitLoss || 0) > 0);
+    strategy.winRate = realizedTrades.length > 0 ? (winningTrades.length / realizedTrades.length) * 100 : 0;
+
+    // Calculate average days held
+    strategy.avgDaysHeld = realizedTrades.length > 0
+      ? realizedTrades.reduce((sum, t) => sum + calculateDaysHeld(t.tradeOpenDate, t.closeDate), 0) / realizedTrades.length
+      : 0;
+  });
+
+  return Array.from(strategies.entries()).map(([strategyType, metrics]) => ({
+    strategy: strategyType,
+    tradeCount: metrics.trades.length,
+    realizedCount: getRealizedTransactions(metrics.trades).length,
+    openCount: metrics.trades.filter(t => t.status === 'Open').length,
+    totalPnL: metrics.totalPnL,
+    avgCollateral: metrics.totalCollateral,
+    avgRoR: metrics.avgRoR,
+    winRate: metrics.winRate,
+    avgDaysHeld: metrics.avgDaysHeld
+  })).sort((a, b) => b.avgRoR - a.avgRoR); // Sort by RoR descending
+};
+
+// Calculate monthly P&L and RoR data for charts
+export const calculateMonthlyChartData = (transactions: OptionsTransaction[]) => {
+  const realizedTransactions = getRealizedTransactions(transactions);
+
+  // Group by month and calculate metrics
+  const monthlyData = new Map<string, {
+    month: string;
+    pnl: number;
+    trades: OptionsTransaction[];
+    totalCollateral: number;
+  }>();
+
+  realizedTransactions.forEach(transaction => {
+    if (!transaction.closeDate) return;
+
+    const closeDate = new Date(transaction.closeDate);
+    const monthKey = `${closeDate.getFullYear()}-${String(closeDate.getMonth() + 1).padStart(2, '0')}`;
+    const monthLabel = closeDate.toLocaleDateString('en-US', { year: 'numeric', month: 'short' });
+
+    if (!monthlyData.has(monthKey)) {
+      monthlyData.set(monthKey, {
+        month: monthLabel,
+        pnl: 0,
+        trades: [],
+        totalCollateral: 0
+      });
+    }
+
+    const monthData = monthlyData.get(monthKey)!;
+    monthData.pnl += transaction.profitLoss || 0;
+    monthData.trades.push(transaction);
+    monthData.totalCollateral += calculateCollateral(transaction);
+  });
+
+  // Convert to array and calculate RoR
+  return Array.from(monthlyData.values())
+    .map(data => ({
+      month: data.month,
+      pnl: Math.round(data.pnl),
+      ror: data.totalCollateral > 0 ? Number((data.pnl / data.totalCollateral * 100).toFixed(1)) : 0,
+      trades: data.trades.length
+    }))
+    .sort((a, b) => new Date(a.month).getTime() - new Date(b.month).getTime());
+};
+
 export const calculateUnrealizedPnL = (transactions: any[], chains: any[] = []): number => {
   // Group transactions by chain
   const chainMap = new Map();

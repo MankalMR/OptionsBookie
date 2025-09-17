@@ -1,7 +1,7 @@
 'use client';
 
 import { OptionsTransaction, TradeChain } from '@/types/options';
-import { calculateUnrealizedPnL, calculateDaysHeld, getRealizedTransactions, calculateTotalRealizedPnL } from '@/utils/optionsCalculations';
+import { calculateUnrealizedPnL, calculateDaysHeld, getRealizedTransactions, calculateTotalRealizedPnL, calculateTotalDeployedCapital, calculateAverageRoR } from '@/utils/optionsCalculations';
 import PnLDisplay from '@/components/PnLDisplay';
 import { useMemo } from 'react';
 
@@ -31,6 +31,10 @@ export default function PortfolioSummary({ transactions, chains = [] }: Portfoli
       ? realizedPositions.reduce((sum, t) => sum + calculateDaysHeld(t.tradeOpenDate, t.closeDate), 0) / realizedPositions.length
       : 0;
 
+    // Calculate new capital deployment metrics
+    const totalDeployedCapital = calculateTotalDeployedCapital(transactions);
+    const averageRoR = calculateAverageRoR(transactions);
+
     return {
       totalOpenPositions: openPositions.length + rolledPositions.length,
       totalClosedPositions: realizedPositions.length,
@@ -38,45 +42,66 @@ export default function PortfolioSummary({ transactions, chains = [] }: Portfoli
       unrealizedPnL,
       totalFees,
       winRate,
-      averageDaysHeld
+      averageDaysHeld,
+      totalDeployedCapital,
+      averageRoR
     };
   }, [transactions, chains]);
 
   return (
     <div className="bg-card rounded-lg shadow border p-6">
       <h3 className="text-lg font-semibold text-card-foreground mb-4">Portfolio Overview</h3>
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        <div>
-          <p className="text-sm text-muted-foreground">Open Positions</p>
-          <p className="text-2xl font-bold text-blue-600">{summary.totalOpenPositions}</p>
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+        <div className="text-center">
+          <p className="text-sm text-muted-foreground">Positions</p>
+          <div className="flex space-x-4 justify-center">
+            <div className="text-center">
+              <p className="text-2xl font-bold text-blue-600">{summary.totalOpenPositions}</p>
+              <p className="text-xs text-muted-foreground">Open</p>
+            </div>
+            <div className="text-center">
+              <p className="text-2xl font-bold text-card-foreground">{summary.totalClosedPositions}</p>
+              <p className="text-xs text-muted-foreground">Realized</p>
+            </div>
+          </div>
         </div>
-        <div>
-          <p className="text-sm text-muted-foreground">Realized Positions</p>
-          <p className="text-2xl font-bold text-card-foreground">{summary.totalClosedPositions}</p>
-        </div>
-        <div>
+        <div className="text-center">
           <p className="text-sm text-muted-foreground">Realized P&L</p>
           <PnLDisplay
             amount={summary.totalProfitLoss}
             textSize="2xl"
             iconSize="lg"
-            className="font-bold"
+            className="font-bold justify-center"
             showZero
           />
         </div>
-        <div>
+        <div className="text-center">
           <p className="text-sm text-muted-foreground">Unrealized P&L</p>
           <PnLDisplay
             amount={summary.unrealizedPnL}
             textSize="2xl"
             iconSize="lg"
-            className="font-bold"
+            className="font-bold justify-center"
             showZero
           />
         </div>
-        <div>
+        <div className="text-center">
           <p className="text-sm text-muted-foreground">Win Rate</p>
           <p className="text-2xl font-bold text-card-foreground">{Math.round(summary.winRate)}%</p>
+        </div>
+        <div className="text-center">
+          <p className="text-sm text-muted-foreground">Deployed Capital</p>
+          <p className="text-2xl font-bold text-orange-600">
+            ${Math.round(summary.totalDeployedCapital).toLocaleString()}
+          </p>
+        </div>
+        <div className="text-center">
+          <p className="text-sm text-muted-foreground">Avg RoR</p>
+          <p className={`text-2xl font-bold ${
+            summary.averageRoR >= 0 ? 'text-green-600' : 'text-red-600'
+          }`}>
+            {summary.averageRoR.toFixed(1)}%
+          </p>
         </div>
       </div>
     </div>
