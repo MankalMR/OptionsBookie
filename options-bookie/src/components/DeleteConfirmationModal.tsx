@@ -32,7 +32,7 @@ export default function DeleteConfirmationModal({
 
   return (
     <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50" onClick={handleOverlayClick}>
-      <div className="relative top-20 mx-auto p-6 border w-96 shadow-lg rounded-md bg-white">
+      <div className="relative top-20 mx-auto p-6 border w-96 shadow-lg rounded-md bg-card">
         <div className="mt-3">
           {/* Header */}
           <div className="flex items-center justify-between mb-4">
@@ -42,7 +42,7 @@ export default function DeleteConfirmationModal({
             </div>
             <button
               onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 transition-colors"
+              className="text-muted-foreground hover:text-foreground transition-colors"
             >
               <X className="h-5 w-5" />
             </button>
@@ -50,31 +50,31 @@ export default function DeleteConfirmationModal({
 
           {/* Content */}
           <div className="space-y-4">
-            <p className="text-gray-600">
+            <p className="text-muted-foreground">
               Are you sure you want to delete this transaction? This action cannot be undone.
             </p>
 
-            <div className="bg-gray-50 p-4 rounded-lg space-y-2">
-              <div className="grid grid-cols-2 gap-2 text-sm">
-                <div className="font-medium text-gray-700">Symbol:</div>
+            <div className="bg-muted p-4 rounded-lg space-y-2">
+              <div className="grid grid-cols-2 gap-2 text-sm text-card-foreground">
+                <div className="font-medium">Symbol:</div>
                 <div>{transaction.stockSymbol}</div>
 
-                <div className="font-medium text-gray-700">Type:</div>
+                <div className="font-medium">Type:</div>
                 <div>{transaction.callOrPut} {transaction.buyOrSell}</div>
 
-                <div className="font-medium text-gray-700">Strike:</div>
+                <div className="font-medium">Strike:</div>
                 <div>${transaction.strikePrice.toFixed(2)}</div>
 
-                <div className="font-medium text-gray-700">Contracts:</div>
+                <div className="font-medium">Contracts:</div>
                 <div>{transaction.numberOfContracts}</div>
 
-                <div className="font-medium text-gray-700">Status:</div>
+                <div className="font-medium">Status:</div>
                 <div>
                   <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                    transaction.status === 'Open' ? 'bg-blue-100 text-blue-800' :
-                    transaction.status === 'Closed' ? 'bg-green-100 text-green-800' :
-                    transaction.status === 'Rolled' ? 'bg-amber-100 text-amber-800' :
-                    'bg-gray-100 text-gray-800'
+                    transaction.status === 'Open' ? 'bg-blue-100 dark:bg-blue-950/30 text-blue-800 dark:text-blue-200' :
+                    transaction.status === 'Closed' ? 'bg-green-100 dark:bg-green-950/30 text-green-800 dark:text-green-200' :
+                    transaction.status === 'Rolled' ? 'bg-amber-100 dark:bg-amber-950/30 text-amber-800 dark:text-amber-200' :
+                    'bg-muted text-muted-foreground'
                   }`}>
                     {transaction.status}
                   </span>

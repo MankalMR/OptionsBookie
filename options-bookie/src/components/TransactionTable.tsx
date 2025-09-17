@@ -75,16 +75,16 @@ export default function TransactionTable({ transactions, onDelete, onDeleteChain
 
     // If chain is closed, apply same styling as closed individual transactions
     if (isClosedChain) {
-      return "bg-gray-200/80 hover:bg-gray-300/80 border-l-4 border-l-gray-500";
+      return "bg-muted/80 hover:bg-muted border-l-4 border-l-muted-foreground";
     }
 
     // If chain is active and has open transactions, apply light blue background
     if (isActiveChain && hasOpenTransactions) {
-      return "bg-blue-100/50 hover:bg-blue-200/50 border-l-4 border-l-blue-500"; // Light blue background for active chains
+      return "bg-blue-50/50 dark:bg-blue-950/20 hover:bg-blue-100/50 dark:hover:bg-blue-950/30 border-l-4 border-l-blue-500";
     }
 
     // Otherwise use the default blue chain styling
-    return "bg-blue-50 hover:bg-blue-100 border-l-4 border-l-blue-500";
+    return "bg-blue-50 dark:bg-blue-950/20 hover:bg-blue-100 dark:hover:bg-blue-950/30 border-l-4 border-l-blue-500";
   };
 
   // Organize transactions into chains and standalone transactions
@@ -162,7 +162,7 @@ export default function TransactionTable({ transactions, onDelete, onDeleteChain
       return (
         <div className="flex flex-col">
           <span>{monthDay}</span>
-          <span className="text-xs text-gray-500">{year}</span>
+          <span className="text-xs text-muted-foreground">{year}</span>
         </div>
       );
     } catch (error) {
@@ -180,17 +180,17 @@ export default function TransactionTable({ transactions, onDelete, onDeleteChain
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'Open':
-        return 'bg-blue-100 text-blue-800 hover:bg-blue-200';
+        return 'bg-blue-100 dark:bg-blue-950/30 text-blue-800 dark:text-blue-200 hover:bg-blue-200 dark:hover:bg-blue-950/50';
       case 'Closed':
-        return 'bg-gray-100 text-gray-800 hover:bg-gray-200';
+        return 'bg-muted text-muted-foreground hover:bg-muted/80';
       case 'Rolled':
-        return 'bg-orange-100 text-orange-800 hover:bg-orange-200';
+        return 'bg-orange-100 dark:bg-orange-950/30 text-orange-800 dark:text-orange-200 hover:bg-orange-200 dark:hover:bg-orange-950/50';
       case 'Expired':
-        return 'bg-red-100 text-red-800 hover:bg-red-200';
+        return 'bg-red-100 dark:bg-red-950/30 text-red-800 dark:text-red-200 hover:bg-red-200 dark:hover:bg-red-950/50';
       case 'Assigned':
-        return 'bg-purple-100 text-purple-800 hover:bg-purple-200';
+        return 'bg-purple-100 dark:bg-purple-950/30 text-purple-800 dark:text-purple-200 hover:bg-purple-200 dark:hover:bg-purple-950/50';
       default:
-        return 'bg-gray-100 text-gray-800 hover:bg-gray-200';
+        return 'bg-muted text-muted-foreground hover:bg-muted/80';
     }
   };
 
@@ -330,7 +330,7 @@ export default function TransactionTable({ transactions, onDelete, onDeleteChain
                           <Link className="h-4 w-4 text-blue-600 flex-shrink-0" />
                           <span className="font-semibold text-sm">{activeTransaction.stockSymbol} Chain</span>
                           <span
-                            className="text-xs bg-gray-100 text-gray-700 px-1.5 py-0.5 rounded flex-shrink-0"
+                            className="text-xs bg-muted text-muted-foreground px-1.5 py-0.5 rounded flex-shrink-0"
                             title="Number of Trades"
                           >
                             {chainTransactions.length} trades
@@ -340,8 +340,8 @@ export default function TransactionTable({ transactions, onDelete, onDeleteChain
                           <Badge
                             variant={activeTransaction.buyOrSell === 'Buy' ? 'outline' : 'default'}
                             className={`text-xs ${activeTransaction.buyOrSell === 'Buy'
-                              ? 'bg-blue-100 text-blue-800 hover:bg-blue-200'
-                              : 'bg-orange-100 text-orange-800 hover:bg-orange-200'
+                              ? 'bg-blue-100 dark:bg-blue-950/30 text-blue-800 dark:text-blue-200 hover:bg-blue-200 dark:hover:bg-blue-950/50'
+                              : 'bg-orange-100 dark:bg-orange-950/30 text-orange-800 dark:text-orange-200 hover:bg-orange-200 dark:hover:bg-orange-950/50'
                             }`}
                           >
                             {activeTransaction.buyOrSell}
@@ -363,8 +363,8 @@ export default function TransactionTable({ transactions, onDelete, onDeleteChain
                       variant={chainInfo?.chainStatus === 'Active' ? 'default' : 'secondary'}
                       className={`text-xs px-1.5 py-0.5 ${
                         chainInfo?.chainStatus === 'Active'
-                          ? 'bg-blue-100 text-blue-800 hover:bg-blue-200'
-                          : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
+                          ? 'bg-blue-100 dark:bg-blue-950/30 text-blue-800 dark:text-blue-200 hover:bg-blue-200 dark:hover:bg-blue-950/50'
+                          : 'bg-muted text-muted-foreground hover:bg-muted/80'
                       }`}
                     >
                       {chainInfo?.chainStatus || 'Active'}
@@ -372,13 +372,13 @@ export default function TransactionTable({ transactions, onDelete, onDeleteChain
                   </TableCell>
                   <TableCell className={`font-bold ${chainPnL >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                     {formatPnLNumber(chainPnL)}
-                    <div className="text-xs text-gray-500 font-normal">Chain P&L</div>
+                    <div className="text-xs text-muted-foreground font-normal">Chain P&L</div>
                   </TableCell>
                   <TableCell>
                     {onDeleteChain && (
                       <div className="flex space-x-1">
                         <div
-                          className="h-8 w-8 flex items-center justify-center text-gray-400"
+                          className="h-8 w-8 flex items-center justify-center text-muted-foreground"
                           title="Chain deletion"
                         >
                           <Link className="h-4 w-4" />
@@ -405,22 +405,22 @@ export default function TransactionTable({ transactions, onDelete, onDeleteChain
                   renderElements.push(
                     <TableRow
                       key={transaction.id}
-                      className={`hover:bg-muted/50 bg-blue-25 border-l-4 border-l-blue-200 ${
+                      className={`hover:bg-muted/50 border-l-4 border-l-blue-200 dark:border-l-blue-700 ${
                         ['Closed', 'Expired', 'Assigned'].includes(transaction.status)
-                          ? 'bg-gray-200/80'
+                          ? 'bg-muted/80'
                           : transaction.status === 'Rolled'
-                          ? 'bg-amber-50/70'
+                          ? 'bg-amber-50/70 dark:bg-amber-950/20'
                           : transaction.status === 'Open'
-                          ? 'bg-blue-100/50'
+                          ? 'bg-blue-50/50 dark:bg-blue-950/20'
                           : ''
                       }`}
                     >
                       <TableCell className="font-medium pl-8">
                         <div className="flex items-center space-x-2">
-                          <span className="text-gray-400">└─</span>
+                          <span className="text-muted-foreground">└─</span>
                           <span>{transaction.stockSymbol}</span>
                           <span
-                            className="text-xs bg-gray-100 text-gray-700 px-1.5 py-0.5 rounded"
+                            className="text-xs bg-muted text-muted-foreground px-1.5 py-0.5 rounded"
                             title="Number of Contracts"
                           >
                             {transaction.numberOfContracts}
@@ -457,17 +457,17 @@ export default function TransactionTable({ transactions, onDelete, onDeleteChain
                               ? 'text-red-600 bg-red-50 px-2 py-1 rounded'
                               : calculateDTE(transaction.expiryDate) <= 30
                               ? 'text-orange-600 bg-orange-50 px-2 py-1 rounded'
-                              : 'text-gray-600'
+                              : 'text-muted-foreground'
                           }`}>
                             {calculateDTE(transaction.expiryDate)}
                           </span>
                         ) : (
-                          <div className="text-gray-600 text-sm">
+                          <div className="text-muted-foreground text-sm">
                             {transaction.status === 'Expired'
                               ? formatDate(transaction.expiryDate)
                               : transaction.closeDate
                                 ? formatDate(transaction.closeDate)
-                                : <span className="text-gray-400">-</span>
+                                : <span className="text-muted-foreground">-</span>
                             }
                           </div>
                         )}
@@ -496,7 +496,7 @@ export default function TransactionTable({ transactions, onDelete, onDeleteChain
                               showComparison={false}
                             />
                           ) : (
-                            <span className="text-gray-400">Loading...</span>
+                            <span className="text-muted-foreground">Loading...</span>
                           )}
                         </TableCell>
                       )}
@@ -542,7 +542,7 @@ export default function TransactionTable({ transactions, onDelete, onDeleteChain
                             </Button>
                           ) : (
                             <div
-                              className="h-8 w-8 flex items-center justify-center text-gray-400 cursor-not-allowed"
+                              className="h-8 w-8 flex items-center justify-center text-muted-foreground cursor-not-allowed"
                               title="Cannot edit rolled transactions. Delete entire chain to make changes."
                             >
                               <Edit className="h-4 w-4" />
@@ -571,11 +571,11 @@ export default function TransactionTable({ transactions, onDelete, onDeleteChain
                   key={transaction.id}
                   className={`hover:bg-muted/50 ${
                     ['Closed', 'Expired', 'Assigned'].includes(transaction.status)
-                      ? 'bg-gray-200/80'
+                      ? 'bg-muted/80'
                       : transaction.status === 'Rolled'
-                      ? 'bg-amber-50/70'
+                      ? 'bg-amber-50/70 dark:bg-amber-950/20'
                       : transaction.status === 'Open'
-                      ? 'bg-blue-100/50'
+                      ? 'bg-blue-50/50 dark:bg-blue-950/20'
                       : ''
                   }`}
             >
@@ -588,17 +588,17 @@ export default function TransactionTable({ transactions, onDelete, onDeleteChain
                 <div className="flex items-center space-x-2">
                         {/* Icon for standalone transactions (replaces chain link icon) */}
                         <Circle className={`h-4 w-4 flex-shrink-0 fill-current ${
-                          transaction.status === 'Open' ? 'text-blue-500' : 'text-gray-400'
+                          transaction.status === 'Open' ? 'text-blue-500' : 'text-muted-foreground'
                         }`} />
                         {/* Alternative options:
-                            <FileText className="h-4 w-4 text-gray-400 flex-shrink-0" />
-                            <Minus className="h-4 w-4 text-gray-400 flex-shrink-0" />
-                            <User className="h-4 w-4 text-gray-400 flex-shrink-0" />
-                            <Diamond className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                            <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                            <Minus className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                            <User className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                            <Diamond className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                         */}
                         <span className="font-semibold text-sm">{transaction.stockSymbol}</span>
                         <span
-                          className="text-xs bg-gray-100 text-gray-700 px-1.5 py-0.5 rounded"
+                          className="text-xs bg-muted text-muted-foreground px-1.5 py-0.5 rounded"
                           title="Number of Contracts"
                         >
                           {transaction.numberOfContracts}
@@ -615,14 +615,14 @@ export default function TransactionTable({ transactions, onDelete, onDeleteChain
                         <Badge
                           variant={transaction.buyOrSell === 'Buy' ? 'outline' : 'default'}
                           className={`text-xs ${transaction.buyOrSell === 'Buy'
-                            ? 'bg-blue-100 text-blue-800 hover:bg-blue-200'
-                            : 'bg-orange-100 text-orange-800 hover:bg-orange-200'
+                            ? 'bg-blue-100 dark:bg-blue-950/30 text-blue-800 dark:text-blue-200 hover:bg-blue-200 dark:hover:bg-blue-950/50'
+                            : 'bg-orange-100 dark:bg-orange-950/30 text-orange-800 dark:text-orange-200 hover:bg-orange-200 dark:hover:bg-orange-950/50'
                           }`}
                         >
                           {transaction.buyOrSell}
                         </Badge>
                         {transaction.chainId && (
-                          <Badge variant="outline" className="text-xs px-1.5 py-0.5 bg-blue-50 text-blue-700">
+                          <Badge variant="outline" className="text-xs px-1.5 py-0.5 bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300">
                             🔗
                           </Badge>
                         )}
@@ -649,17 +649,17 @@ export default function TransactionTable({ transactions, onDelete, onDeleteChain
                       ? 'text-red-600 bg-red-50 px-2 py-1 rounded'
                       : calculateDTE(transaction.expiryDate) <= 30
                       ? 'text-orange-600 bg-orange-50 px-2 py-1 rounded'
-                      : 'text-gray-600'
+                      : 'text-muted-foreground'
                   }`}>
                     {calculateDTE(transaction.expiryDate)}
                   </span>
                 ) : (
-                  <div className="text-gray-600 text-sm">
+                  <div className="text-muted-foreground text-sm">
                     {transaction.status === 'Expired'
                       ? formatDate(transaction.expiryDate)
                       : transaction.closeDate
                         ? formatDate(transaction.closeDate)
-                        : <span className="text-gray-400">-</span>
+                        : <span className="text-muted-foreground">-</span>
                     }
                   </div>
                 )}
@@ -690,7 +690,7 @@ export default function TransactionTable({ transactions, onDelete, onDeleteChain
                       showComparison={false}
                     />
                   ) : (
-                    <span className="text-gray-400">Loading...</span>
+                    <span className="text-muted-foreground">Loading...</span>
                   )}
                 </TableCell>
               )}
@@ -714,7 +714,7 @@ export default function TransactionTable({ transactions, onDelete, onDeleteChain
                   )}
                   <span className={`font-medium ${(transaction.profitLoss ?? 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                     {(transaction.profitLoss ?? 0) >= 0 ? '+' : ''}{formatPnLNumber(transaction.profitLoss || 0).substring(1)}
-                  </span>
+                </span>
                 </div>
               </TableCell>
               <TableCell>
@@ -731,7 +731,7 @@ export default function TransactionTable({ transactions, onDelete, onDeleteChain
                     </Button>
                   ) : (
                     <div
-                      className="h-8 w-8 flex items-center justify-center text-gray-400 cursor-not-allowed"
+                      className="h-8 w-8 flex items-center justify-center text-muted-foreground cursor-not-allowed"
                       title="Cannot edit rolled transactions. Delete entire chain to make changes."
                     >
                       <Edit className="h-4 w-4" />

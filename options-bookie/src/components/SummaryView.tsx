@@ -200,8 +200,8 @@ export default function SummaryView({ transactions }: SummaryViewProps) {
           <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
           </svg>
-          <h3 className="mt-2 text-sm font-medium text-gray-900">No trading data available</h3>
-          <p className="mt-1 text-sm text-gray-500">Add some trades to see your performance analytics.</p>
+          <h3 className="mt-2 text-sm font-medium text-card-foreground">No trading data available</h3>
+          <p className="mt-1 text-sm text-muted-foreground">Add some trades to see your performance analytics.</p>
         </div>
       </div>
     );
@@ -210,38 +210,38 @@ export default function SummaryView({ transactions }: SummaryViewProps) {
   return (
     <div className="space-y-8">
       {/* Quick Stats */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-2xl font-bold text-gray-900 mb-6">Quick Stats</h2>
+      <div className="bg-card rounded-lg shadow border p-6">
+        <h2 className="text-2xl font-bold text-card-foreground mb-6">Quick Stats</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <div className="text-center">
-            <p className="text-sm text-gray-600">Total P&L</p>
+            <p className="text-sm text-muted-foreground">Total P&L</p>
             <p className={`text-3xl font-bold ${overallStats.totalPnL >= 0 ? 'text-green-600' : 'text-red-600'}`}>
               {formatCurrency(overallStats.totalPnL)}
             </p>
           </div>
           <div className="text-center">
-            <p className="text-sm text-gray-600">Total Trades</p>
-            <p className="text-3xl font-bold text-gray-900">{overallStats.totalTrades}</p>
+            <p className="text-sm text-muted-foreground">Total Trades</p>
+            <p className="text-3xl font-bold text-card-foreground">{overallStats.totalTrades}</p>
           </div>
           <div className="text-center">
-            <p className="text-sm text-gray-600">Win Rate</p>
-            <p className="text-3xl font-bold text-gray-900">{Math.round(overallStats.winRate)}%</p>
+            <p className="text-sm text-muted-foreground">Win Rate</p>
+            <p className="text-3xl font-bold text-card-foreground">{Math.round(overallStats.winRate)}%</p>
           </div>
           <div className="text-center">
-            <p className="text-sm text-gray-600">Total Fees</p>
-            <p className="text-3xl font-bold text-gray-900">{formatCurrency(overallStats.totalFees)}</p>
+            <p className="text-sm text-muted-foreground">Total Fees</p>
+            <p className="text-3xl font-bold text-card-foreground">{formatCurrency(overallStats.totalFees)}</p>
           </div>
         </div>
       </div>
 
       {/* Yearly Performance */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-2xl font-bold text-gray-900 mb-6">Yearly Performance</h2>
+      <div className="bg-card rounded-lg shadow border p-6">
+        <h2 className="text-2xl font-bold text-card-foreground mb-6">Yearly Performance</h2>
         <div className="space-y-4">
           {yearlySummaries.map((yearData) => (
-            <div key={yearData.year} className="border border-gray-200 rounded-lg p-4">
+            <div key={yearData.year} className="border rounded-lg p-4">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-xl font-semibold text-gray-900">{yearData.year}</h3>
+                <h3 className="text-xl font-semibold text-card-foreground">{yearData.year}</h3>
                 <button
                   onClick={() => setSelectedYear(selectedYear === yearData.year ? null : yearData.year)}
                   className="text-blue-600 hover:text-blue-800 text-sm font-medium"
@@ -252,49 +252,49 @@ export default function SummaryView({ transactions }: SummaryViewProps) {
 
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div>
-                  <p className="text-sm text-gray-600">Total P&L</p>
+                  <p className="text-sm text-muted-foreground">Total P&L</p>
                   <p className={`text-lg font-semibold ${yearData.totalPnL >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                     {formatCurrency(yearData.totalPnL)}
                   </p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600">Trades</p>
-                  <p className="text-lg font-semibold text-gray-900">{yearData.totalTrades}</p>
+                  <p className="text-sm text-muted-foreground">Trades</p>
+                  <p className="text-lg font-semibold text-card-foreground">{yearData.totalTrades}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600">Win Rate</p>
-                  <p className="text-lg font-semibold text-gray-900">{Math.round(yearData.winRate)}%</p>
+                  <p className="text-sm text-muted-foreground">Win Rate</p>
+                  <p className="text-lg font-semibold text-card-foreground">{Math.round(yearData.winRate)}%</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600">Avg Days Held</p>
-                  <p className="text-lg font-semibold text-gray-900">{Math.round(yearData.averageDaysHeld)}</p>
+                  <p className="text-sm text-muted-foreground">Avg Days Held</p>
+                  <p className="text-lg font-semibold text-card-foreground">{Math.round(yearData.averageDaysHeld)}</p>
                 </div>
               </div>
 
               {selectedYear === yearData.year && (
                 <div className="mt-6 border-t pt-4">
-                  <h4 className="text-lg font-medium text-gray-900 mb-4">Monthly Breakdown</h4>
+                  <h4 className="text-lg font-medium text-card-foreground mb-4">Monthly Breakdown</h4>
                   <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50">
+                    <table className="min-w-full divide-y divide-border">
+                      <thead className="bg-muted">
                         <tr>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Month</th>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">P&L</th>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Trades</th>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Win Rate</th>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Fees</th>
+                          <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Month</th>
+                          <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">P&L</th>
+                          <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Trades</th>
+                          <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Win Rate</th>
+                          <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Fees</th>
                         </tr>
                       </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
+                      <tbody className="bg-card divide-y divide-border">
                         {yearData.monthlyBreakdown.map((month) => (
                           <tr key={month.month}>
-                            <td className="px-4 py-2 text-sm font-medium text-gray-900">{month.monthName}</td>
+                            <td className="px-4 py-2 text-sm font-medium text-card-foreground">{month.monthName}</td>
                             <td className={`px-4 py-2 text-sm ${month.totalPnL >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                               {formatCurrency(month.totalPnL)}
                             </td>
-                            <td className="px-4 py-2 text-sm text-gray-900">{month.totalTrades}</td>
-                            <td className="px-4 py-2 text-sm text-gray-900">{Math.round(month.winRate)}%</td>
-                            <td className="px-4 py-2 text-sm text-gray-900">{formatCurrency(month.totalFees)}</td>
+                            <td className="px-4 py-2 text-sm text-card-foreground">{month.totalTrades}</td>
+                            <td className="px-4 py-2 text-sm text-card-foreground">{Math.round(month.winRate)}%</td>
+                            <td className="px-4 py-2 text-sm text-card-foreground">{formatCurrency(month.totalFees)}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -323,30 +323,30 @@ export default function SummaryView({ transactions }: SummaryViewProps) {
       </div>
 
       {/* Performance Insights */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-2xl font-bold text-gray-900 mb-6">Performance Insights</h2>
+      <div className="bg-card rounded-lg shadow border p-6">
+        <h2 className="text-2xl font-bold text-card-foreground mb-6">Performance Insights</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <div className="text-center p-4 bg-blue-50 rounded-lg">
-            <p className="text-sm text-blue-800 font-medium">Best Performing Year</p>
-            <p className="text-xl font-bold text-blue-900">
+          <div className="text-center p-4 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
+            <p className="text-sm text-blue-800 dark:text-blue-200 font-medium">Best Performing Year</p>
+            <p className="text-xl font-bold text-blue-900 dark:text-blue-100">
               {yearlySummaries.length > 0
                 ? yearlySummaries.reduce((best, year) => year.totalPnL > best.totalPnL ? year : best).year
                 : 'N/A'
               }
             </p>
           </div>
-          <div className="text-center p-4 bg-green-50 rounded-lg">
-            <p className="text-sm text-green-800 font-medium">Highest Win Rate Year</p>
-            <p className="text-xl font-bold text-green-900">
+          <div className="text-center p-4 bg-green-50 dark:bg-green-950/30 rounded-lg">
+            <p className="text-sm text-green-800 dark:text-green-200 font-medium">Highest Win Rate Year</p>
+            <p className="text-xl font-bold text-green-900 dark:text-green-100">
               {yearlySummaries.length > 0
                 ? yearlySummaries.reduce((best, year) => year.winRate > best.winRate ? year : best).year
                 : 'N/A'
               }
             </p>
           </div>
-          <div className="text-center p-4 bg-purple-50 rounded-lg">
-            <p className="text-sm text-purple-800 font-medium">Most Active Year</p>
-            <p className="text-xl font-bold text-purple-900">
+          <div className="text-center p-4 bg-purple-50 dark:bg-purple-950/30 rounded-lg">
+            <p className="text-sm text-purple-800 dark:text-purple-200 font-medium">Most Active Year</p>
+            <p className="text-xl font-bold text-purple-900 dark:text-purple-100">
               {yearlySummaries.length > 0
                 ? yearlySummaries.reduce((most, year) => year.totalTrades > most.totalTrades ? year : most).year
                 : 'N/A'

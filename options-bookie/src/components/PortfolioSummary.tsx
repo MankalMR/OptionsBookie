@@ -42,32 +42,32 @@ export default function PortfolioSummary({ transactions, chains = [] }: Portfoli
   }, [transactions, chains]);
 
   return (
-    <div className="bg-white rounded-lg shadow p-6">
-      <h3 className="text-lg font-semibold text-gray-900 mb-4">Portfolio Overview</h3>
+    <div className="bg-card rounded-lg shadow border p-6">
+      <h3 className="text-lg font-semibold text-card-foreground mb-4">Portfolio Overview</h3>
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <div>
-          <p className="text-sm text-gray-600">Open Positions</p>
+          <p className="text-sm text-muted-foreground">Open Positions</p>
           <p className="text-2xl font-bold text-blue-600">{summary.totalOpenPositions}</p>
         </div>
         <div>
-          <p className="text-sm text-gray-600">Realized Positions</p>
-          <p className="text-2xl font-bold text-gray-900">{summary.totalClosedPositions}</p>
+          <p className="text-sm text-muted-foreground">Realized Positions</p>
+          <p className="text-2xl font-bold text-card-foreground">{summary.totalClosedPositions}</p>
         </div>
         <div>
-          <p className="text-sm text-gray-600">Realized P&L</p>
+          <p className="text-sm text-muted-foreground">Realized P&L</p>
           <p className={`text-2xl font-bold ${summary.totalProfitLoss >= 0 ? 'text-green-600' : 'text-red-600'}`}>
             {formatPnLNumber(summary.totalProfitLoss)}
           </p>
         </div>
         <div>
-          <p className="text-sm text-gray-600">Unrealized P&L</p>
+          <p className="text-sm text-muted-foreground">Unrealized P&L</p>
           <p className={`text-2xl font-bold ${summary.unrealizedPnL >= 0 ? 'text-green-600' : 'text-red-600'}`}>
             {formatPnLNumber(summary.unrealizedPnL)}
           </p>
         </div>
         <div>
-          <p className="text-sm text-gray-600">Win Rate</p>
-          <p className="text-2xl font-bold text-gray-900">{Math.round(summary.winRate)}%</p>
+          <p className="text-sm text-muted-foreground">Win Rate</p>
+          <p className="text-2xl font-bold text-card-foreground">{Math.round(summary.winRate)}%</p>
         </div>
       </div>
     </div>

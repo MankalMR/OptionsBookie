@@ -435,15 +435,15 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
 
   return (
     <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-      <div className="relative top-10 mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-md bg-white">
+      <div className="relative top-10 mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-md bg-card">
         <div className="mt-3">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-medium text-gray-900">Edit Trade</h3>
+            <h3 className="text-lg font-medium text-card-foreground">Edit Trade</h3>
             <Button
               variant="ghost"
               size="sm"
               onClick={onClose}
-              className="text-gray-400 hover:text-gray-600"
+              className="text-muted-foreground hover:text-foreground"
             >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -745,29 +745,29 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
             )}
 
             {/* Calculated Fields */}
-            <div className="bg-gray-50 p-3 rounded-md">
-              <h4 className="text-sm font-medium text-gray-700 mb-2">Calculated Fields</h4>
-              <div className="grid grid-cols-2 gap-4 text-sm">
+            <div className="bg-muted p-3 rounded-md">
+              <h4 className="text-sm font-medium text-card-foreground mb-2">Calculated Fields</h4>
+              <div className="grid grid-cols-2 gap-4 text-sm text-card-foreground">
                 <div>
-                  <span className="text-gray-600">Days to Expiry:</span>
+                  <span className="text-muted-foreground">Days to Expiry:</span>
                   <span className="ml-2 font-medium">
                     {formData.expiryDate ? calculateDaysToExpiry(formData.expiryDate) : '-'}
                   </span>
                 </div>
                 <div>
-                  <span className="text-gray-600">Break Even:</span>
+                  <span className="text-muted-foreground">Break Even:</span>
                   <span className="ml-2 font-medium">
                     ${calculateBreakEvenPrice().toFixed(2)}
                   </span>
                 </div>
                 <div>
-                  <span className="text-gray-600">Days Held:</span>
+                  <span className="text-muted-foreground">Days Held:</span>
                   <span className="ml-2 font-medium">
                     {calculateDaysHeldValue()}
                   </span>
                 </div>
                 <div>
-                  <span className="text-gray-600">
+                  <span className="text-muted-foreground">
                     {formData.status === 'Closed' ? 'Final P&L:' : 'Current P&L:'}
                   </span>
                   <span className={`ml-2 font-medium ${
