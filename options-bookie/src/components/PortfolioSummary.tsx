@@ -77,7 +77,7 @@ export default function PortfolioSummary({ transactions, chains = [] }: Portfoli
                 <PnLDisplay
                   amount={summary.totalProfitLoss}
                   textSize="xl"
-                  iconSize="md"
+                  iconSize="base"
                   className="font-bold justify-center"
                   showZero
                 />
@@ -87,7 +87,7 @@ export default function PortfolioSummary({ transactions, chains = [] }: Portfoli
                 <PnLDisplay
                   amount={summary.unrealizedPnL}
                   textSize="xl"
-                  iconSize="md"
+                  iconSize="base"
                   className="font-bold justify-center"
                   showZero
                 />
