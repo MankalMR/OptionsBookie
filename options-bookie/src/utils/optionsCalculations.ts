@@ -20,14 +20,14 @@ export const calculateProfitLoss = (transaction: OptionsTransaction, exitPrice?:
       profitLoss = (premium - exitPrice) * contracts * 100;
     }
   } else {
-    // For open trades, show premium received/paid as P&L
-    if (transaction.buyOrSell === 'Buy') {
-      // If you bought the option, you paid the premium (negative P&L until closed)
-      profitLoss = -premium * contracts * 100;
-    } else {
-      // If you sold the option, you received the premium (positive P&L until closed)
-      profitLoss = premium * contracts * 100;
-    }
+  // For open trades, show premium received/paid as P&L
+  if (transaction.buyOrSell === 'Buy') {
+    // If you bought the option, you paid the premium (negative P&L until closed)
+    profitLoss = -premium * contracts * 100;
+  } else {
+    // If you sold the option, you received the premium (positive P&L until closed)
+    profitLoss = premium * contracts * 100;
+  }
   }
 
   // Universal rule: always deduct fees from P&L
@@ -468,7 +468,7 @@ export const calculateTop5TickersYearlyPerformance = (transactions: OptionsTrans
       }
 
       const yearData = yearlyData.get(year)!;
-      
+
       // Initialize ticker data if not exists
       if (!yearData[`${ticker}_pnl`]) {
         yearData[`${ticker}_pnl`] = 0;
@@ -485,7 +485,7 @@ export const calculateTop5TickersYearlyPerformance = (transactions: OptionsTrans
   const chartData = Array.from(yearlyData.values())
     .map(data => {
       const result = { ...data };
-      
+
       // Calculate RoR for each ticker
       top5Tickers.forEach(ticker => {
         if (result[`${ticker}_collateral`] > 0) {
@@ -495,7 +495,7 @@ export const calculateTop5TickersYearlyPerformance = (transactions: OptionsTrans
         } else {
           result[`${ticker}_ror`] = 0;
         }
-        
+
         // Round P&L values
         result[`${ticker}_pnl`] = Math.round(result[`${ticker}_pnl`] || 0);
       });
@@ -579,22 +579,105 @@ export const calculateDaysHeld = (openDate: string | Date, closeDate?: string | 
 
 /**
  * Calculate days to expiry from current date to expiry date
+ * Uses timezone-safe date utilities for accurate calculations
  * @param expiryDate - The expiry date of the option
- * @returns Number of days to expiry (can be negative for expired options)
+ * @returns Number of days to expiry (0 for today, 1 for tomorrow, etc.)
  */
 export const calculateDaysToExpiry = (expiryDate: string | Date): number => {
   try {
-    const expiry = new Date(expiryDate);
+    // Handle edge cases that can cause NaN
+    if (!expiryDate || expiryDate === '' || expiryDate === null || expiryDate === undefined) {
+      return 0;
+    }
+
+    // Use timezone-safe parsing for the expiry date
+    let expiry: Date;
+    if (typeof expiryDate === 'string') {
+      // Check for basic YYYY-MM-DD format or ISO string
+      if (expiryDate.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        // Simple YYYY-MM-DD format
+        const [year, month, day] = expiryDate.split('-').map(Number);
+
+        // Validate parsed components
+        if (isNaN(year) || isNaN(month) || isNaN(day)) {
+          return 0;
+        }
+
+        // Validate ranges to catch malformed dates like 2025-13-45
+        if (month < 1 || month > 12 || day < 1 || day > 31) {
+          return 0;
+        }
+
+        expiry = new Date(year, month - 1, day); // month is 0-indexed
+
+        // Verify the created date matches input (catches rollovers like month 13)
+        if (expiry.getFullYear() !== year || expiry.getMonth() !== (month - 1) || expiry.getDate() !== day) {
+          return 0;
+        }
+      } else if (expiryDate.match(/^\d{4}-\d{2}-\d{2}T/)) {
+        // ISO string with time component - extract date part
+        const datePart = expiryDate.split('T')[0];
+        const [year, month, day] = datePart.split('-').map(Number);
+
+        // Validate parsed components
+        if (isNaN(year) || isNaN(month) || isNaN(day)) {
+          return 0;
+        }
+
+        // Validate ranges to catch malformed dates
+        if (month < 1 || month > 12 || day < 1 || day > 31) {
+          return 0;
+        }
+
+        expiry = new Date(year, month - 1, day); // month is 0-indexed
+
+        // Verify the created date matches input (catches rollovers)
+        if (expiry.getFullYear() !== year || expiry.getMonth() !== (month - 1) || expiry.getDate() !== day) {
+          return 0;
+        }
+      } else {
+        return 0;
+      }
+    } else {
+      expiry = new Date(expiryDate);
+    }
+
+    // Check if the created date is valid
+    if (isNaN(expiry.getTime())) {
+      return 0;
+    }
+
     const today = new Date();
 
-    // Set time to start of day for accurate day calculation
-    expiry.setHours(0, 0, 0, 0);
-    today.setHours(0, 0, 0, 0);
+    // Set both dates to start of day for accurate day calculation
+    // Use local timezone to avoid UTC shifts
+    const todayYear = today.getFullYear();
+    const todayMonth = today.getMonth();
+    const todayDate = today.getDate();
 
-    const diffTime = expiry.getTime() - today.getTime();
-    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    const expiryYear = expiry.getFullYear();
+    const expiryMonth = expiry.getMonth();
+    const expiryDay = expiry.getDate();
 
-    return diffDays; // Can be negative for expired options
+    // Create new date objects at midnight local time
+    const todayMidnight = new Date(todayYear, todayMonth, todayDate);
+    const expiryMidnight = new Date(expiryYear, expiryMonth, expiryDay);
+
+    // Calculate difference in days
+    const diffTime = expiryMidnight.getTime() - todayMidnight.getTime();
+    const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+
+    // Ensure we don't return NaN
+    if (isNaN(diffDays)) {
+      return 0;
+    }
+
+    // Options trading standard:
+    // - Same day (expiry today) = 0 DTE
+    // - Tomorrow (expiry tomorrow) = 1 DTE
+    // - Since we set both dates to midnight, difference should be exact
+    // - Don't show negative DTE for expired options
+    return Math.max(0, diffDays);
   } catch (error) {
     console.error('Error calculating days to expiry:', error);
     return 0;

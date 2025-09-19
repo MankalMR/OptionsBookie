@@ -294,10 +294,10 @@ export default function SummaryView({ transactions }: SummaryViewProps) {
       trades: data.trades
     }));
 
-    const bestByPnL = stockPerformance.reduce((best, stock) => 
+    const bestByPnL = stockPerformance.reduce((best, stock) =>
       stock.pnl > best.pnl ? stock : best, { ticker: '', pnl: -Infinity, ror: 0, trades: 0 });
-    
-    const bestByRoR = stockPerformance.reduce((best, stock) => 
+
+    const bestByRoR = stockPerformance.reduce((best, stock) =>
       stock.ror > best.ror ? stock : best, { ticker: '', pnl: 0, ror: -Infinity, trades: 0 });
 
     return {
@@ -311,10 +311,10 @@ export default function SummaryView({ transactions }: SummaryViewProps) {
     totalPnL: overallStats.totalPnL,
     totalTrades: overallStats.totalTrades,
     winRate: overallStats.winRate,
-    avgRoR: strategyPerformance.length > 0 
-      ? strategyPerformance.reduce((sum, s) => sum + s.avgRoR, 0) / strategyPerformance.length 
+    avgRoR: strategyPerformance.length > 0
+      ? strategyPerformance.reduce((sum, s) => sum + s.avgRoR, 0) / strategyPerformance.length
       : 0,
-    bestStrategy: strategyPerformance.length > 0 
+    bestStrategy: strategyPerformance.length > 0
       ? { name: strategyPerformance[0].strategy, ror: strategyPerformance[0].avgRoR }
       : null,
     bestStockByPnL: bestStocks.bestByPnL,

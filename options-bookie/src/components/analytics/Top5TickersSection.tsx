@@ -163,3 +163,4 @@ export default function Top5TickersSection({ yearTop5Tickers }: Top5TickersSecti
     </div>
   );
 }
+

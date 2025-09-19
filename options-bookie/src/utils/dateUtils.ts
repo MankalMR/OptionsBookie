@@ -7,14 +7,14 @@
  */
 export function dateToLocalString(date: Date | string): string {
   if (!date) return '';
-  
+
   const dateObj = parseLocalDate(date);
-  
+
   // Use local timezone to avoid shifts
   const year = dateObj.getFullYear();
   const month = String(dateObj.getMonth() + 1).padStart(2, '0');
   const day = String(dateObj.getDate()).padStart(2, '0');
-  
+
   return `${year}-${month}-${day}`;
 }
 
