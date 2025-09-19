@@ -15,7 +15,11 @@ import {
   calculateDaysHeld,
   formatPnLCurrency,
   formatPnLWithArrow,
-  getStrategyType
+  getStrategyType,
+  isTradeExpired,
+  shouldUpdateTradeStatus,
+  getRealizedTransactions,
+  calculateTotalRealizedPnL
 } from './optionsCalculations';
 import { OptionsTransaction } from '@/types/options';
 
@@ -727,6 +731,254 @@ describe('optionsCalculations', () => {
       const results = dates.map(date => calculateDaysToExpiry(date));
 
       expect(results).toEqual([1, 7, 30, 92]);
+    });
+  });
+
+  describe('isTradeExpired', () => {
+    // Mock current date to September 19, 2025 for consistent testing
+    const mockCurrentDate = new Date('2025-09-19T12:00:00Z'); // 12 PM UTC = 8 AM ET
+
+    beforeEach(() => {
+      jest.useFakeTimers();
+      jest.setSystemTime(mockCurrentDate);
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    it('should NOT expire options before market close on expiry date', () => {
+      const expiryDate = new Date('2025-09-19'); // Same day as current date
+      expect(isTradeExpired(expiryDate)).toBe(false);
+    });
+
+    it('should expire options after market close on expiry date', () => {
+      // Set time to 9 PM UTC (5 PM ET) - after market close
+      jest.setSystemTime(new Date('2025-09-19T21:00:00Z'));
+      const expiryDate = new Date('2025-09-19');
+      expect(isTradeExpired(expiryDate)).toBe(true);
+    });
+
+    it('should expire options on day after expiry date', () => {
+      jest.setSystemTime(new Date('2025-09-20T12:00:00Z')); // Next day
+      const expiryDate = new Date('2025-09-19');
+      expect(isTradeExpired(expiryDate)).toBe(true);
+    });
+
+    it('should NOT expire options before expiry date', () => {
+      const expiryDate = new Date('2025-09-20'); // Tomorrow
+      expect(isTradeExpired(expiryDate)).toBe(false);
+    });
+
+    it('should handle different timezones correctly', () => {
+      // Test with different times on expiry date
+      const expiryDate = new Date('2025-09-19');
+
+      // 6 AM UTC (2 AM ET) - before market close
+      jest.setSystemTime(new Date('2025-09-19T06:00:00Z'));
+      expect(isTradeExpired(expiryDate)).toBe(false);
+
+      // 7 PM UTC (3 PM ET) - before market close
+      jest.setSystemTime(new Date('2025-09-19T19:00:00Z'));
+      expect(isTradeExpired(expiryDate)).toBe(false);
+
+      // 8 PM UTC (4 PM ET) - exactly market close
+      jest.setSystemTime(new Date('2025-09-19T20:00:00Z'));
+      expect(isTradeExpired(expiryDate)).toBe(false);
+
+      // 9 PM UTC (5 PM ET) - after market close
+      jest.setSystemTime(new Date('2025-09-19T21:00:00Z'));
+      expect(isTradeExpired(expiryDate)).toBe(true);
+    });
+
+    it('should handle string dates', () => {
+      const expiryDate = '2025-09-19';
+      expect(isTradeExpired(expiryDate)).toBe(false);
+    });
+
+    it('should handle Date objects with time components', () => {
+      const expiryDate = new Date('2025-09-19T15:30:00Z'); // 3:30 PM UTC
+      expect(isTradeExpired(expiryDate)).toBe(false);
+    });
+  });
+
+  describe('shouldUpdateTradeStatus', () => {
+    it('should return true for open trades that have expired', () => {
+      const transaction = createMockTransaction({
+        status: 'Open',
+        expiryDate: new Date('2025-09-18') // Yesterday
+      });
+
+      // Mock current time to after market close
+      jest.useFakeTimers();
+      jest.setSystemTime(new Date('2025-09-19T21:00:00Z'));
+
+      expect(shouldUpdateTradeStatus(transaction)).toBe(true);
+
+      jest.useRealTimers();
+    });
+
+    it('should return false for closed trades even if expired', () => {
+      const transaction = createMockTransaction({
+        status: 'Closed',
+        expiryDate: new Date('2025-09-18') // Yesterday
+      });
+
+      jest.useFakeTimers();
+      jest.setSystemTime(new Date('2025-09-19T21:00:00Z'));
+
+      expect(shouldUpdateTradeStatus(transaction)).toBe(false);
+
+      jest.useRealTimers();
+    });
+
+    it('should return false for open trades that have not expired', () => {
+      const transaction = createMockTransaction({
+        status: 'Open',
+        expiryDate: new Date('2025-09-20') // Tomorrow
+      });
+
+      expect(shouldUpdateTradeStatus(transaction)).toBe(false);
+    });
+
+    it('should return false for open trades on expiry date before market close', () => {
+      const transaction = createMockTransaction({
+        status: 'Open',
+        expiryDate: new Date('2025-09-19') // Today
+      });
+
+      jest.useFakeTimers();
+      jest.setSystemTime(new Date('2025-09-19T12:00:00Z')); // Before market close
+
+      expect(shouldUpdateTradeStatus(transaction)).toBe(false);
+
+      jest.useRealTimers();
+    });
+  });
+
+  describe('getRealizedTransactions', () => {
+    it('should include expired trades in realized transactions', () => {
+      const transactions = [
+        createMockTransaction({ status: 'Open' }),
+        createMockTransaction({ status: 'Closed' }),
+        createMockTransaction({ status: 'Expired' }),
+        createMockTransaction({ status: 'Assigned' }),
+        createMockTransaction({ status: 'Rolled' })
+      ];
+
+      const realized = getRealizedTransactions(transactions);
+
+      expect(realized).toHaveLength(3);
+      expect(realized.map(t => t.status)).toEqual(['Closed', 'Expired', 'Assigned']);
+    });
+
+    it('should exclude open and rolled trades from realized', () => {
+      const transactions = [
+        createMockTransaction({ status: 'Open' }),
+        createMockTransaction({ status: 'Rolled' })
+      ];
+
+      const realized = getRealizedTransactions(transactions);
+
+      expect(realized).toHaveLength(0);
+    });
+  });
+
+  describe('calculateTotalRealizedPnL', () => {
+    it('should include P&L from expired trades', () => {
+      const transactions = [
+        createMockTransaction({
+          status: 'Closed',
+          profitLoss: 100
+        }),
+        createMockTransaction({
+          status: 'Expired',
+          profitLoss: 250
+        }),
+        createMockTransaction({
+          status: 'Assigned',
+          profitLoss: -50
+        })
+      ];
+
+      const totalPnL = calculateTotalRealizedPnL(transactions);
+
+      expect(totalPnL).toBe(300); // 100 + 250 - 50
+    });
+
+    it('should handle transactions with undefined profitLoss', () => {
+      const transactions = [
+        createMockTransaction({
+          status: 'Expired',
+          profitLoss: undefined
+        }),
+        createMockTransaction({
+          status: 'Closed',
+          profitLoss: 100
+        })
+      ];
+
+      const totalPnL = calculateTotalRealizedPnL(transactions);
+
+      expect(totalPnL).toBe(100); // 0 + 100
+    });
+
+    it('should return 0 for empty transactions array', () => {
+      const totalPnL = calculateTotalRealizedPnL([]);
+      expect(totalPnL).toBe(0);
+    });
+  });
+
+  describe('Expired Trade P&L Edge Cases', () => {
+    it('should calculate correct P&L for expired sold options', () => {
+      // Sold option that expired worthless - should keep premium received
+      const transaction = createMockTransaction({
+        buyOrSell: 'Sell',
+        premium: 4.50,
+        numberOfContracts: 1,
+        fees: 0.50,
+        status: 'Open'
+      });
+
+      // Calculate P&L as if it expired (no exit price)
+      const profitLoss = calculateProfitLoss(transaction);
+
+      // Should be: (premium * contracts * 100) - fees
+      // (4.50 * 1 * 100) - 0.50 = 450 - 0.50 = 449.50
+      expect(profitLoss).toBe(449.50);
+    });
+
+    it('should calculate correct P&L for expired bought options', () => {
+      // Bought option that expired worthless - should lose premium paid
+      const transaction = createMockTransaction({
+        buyOrSell: 'Buy',
+        premium: 2.25,
+        numberOfContracts: 2,
+        fees: 1.00,
+        status: 'Open'
+      });
+
+      const profitLoss = calculateProfitLoss(transaction);
+
+      // Should be: (-premium * contracts * 100) - fees
+      // (-2.25 * 2 * 100) - 1.00 = -450 - 1.00 = -451.00
+      expect(profitLoss).toBe(-451.00);
+    });
+
+    it('should handle multiple contracts correctly for expired trades', () => {
+      const transaction = createMockTransaction({
+        buyOrSell: 'Sell',
+        premium: 1.50,
+        numberOfContracts: 10,
+        fees: 2.00,
+        status: 'Open'
+      });
+
+      const profitLoss = calculateProfitLoss(transaction);
+
+      // Should be: (premium * contracts * 100) - fees
+      // (1.50 * 10 * 100) - 2.00 = 1500 - 2.00 = 1498.00
+      expect(profitLoss).toBe(1498.00);
     });
   });
 });

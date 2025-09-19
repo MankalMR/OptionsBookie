@@ -203,7 +203,12 @@ export default function Home() {
       const expiredTrades = openTrades.filter(t => {
         const today = new Date();
         const expiryDate = new Date(t.expiryDate);
-        return today > expiryDate;
+
+        // Options expire at market close (4:00 PM ET = 8:00 PM UTC)
+        const expiryWithMarketClose = new Date(expiryDate);
+        expiryWithMarketClose.setUTCHours(20, 0, 0, 0); // 8:00 PM UTC = 4:00 PM ET
+
+        return today > expiryWithMarketClose;
       });
 
       if (expiredTrades.length > 0) {
@@ -211,11 +216,15 @@ export default function Home() {
 
         for (const trade of expiredTrades) {
           try {
-            // For expired trades, keep the existing profitLoss value
-            // The P&L should already be calculated when the trade was opened
+            // For expired trades, calculate the final P&L (premium received/paid minus fees)
+            // This ensures the P&L reflects the actual outcome of the expired option
+            const { calculateProfitLoss } = await import('@/utils/optionsCalculations');
+            const finalProfitLoss = calculateProfitLoss(trade); // No exit price = premium received/paid
+
             await updateTransaction(trade.id, {
               status: 'Expired',
-              closeDate: new Date()
+              closeDate: new Date(),
+              profitLoss: finalProfitLoss
             });
 
             // If this trade is part of a chain, update the chain status to 'Closed'
@@ -248,6 +257,7 @@ export default function Home() {
     // Check for expired trades only when the app loads
     checkAndUpdateExpiredTrades();
   }, [transactions, updateTransaction, refreshTransactions]);
+
 
   const handlePortfolioChange = (portfolioId: string | null) => {
     setSelectedPortfolioId(portfolioId);

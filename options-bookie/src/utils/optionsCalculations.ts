@@ -79,10 +79,16 @@ export const calculateBreakEven = (transaction: OptionsTransaction): number => {
 };
 
 
-export const isTradeExpired = (expiryDate: Date): boolean => {
+export const isTradeExpired = (expiryDate: Date | string): boolean => {
   const today = new Date();
   const expiry = new Date(expiryDate);
-  return today > expiry;
+
+  // Options expire at market close (4:00 PM ET = 8:00 PM UTC)
+  // Set expiry time to 8:00 PM UTC (4:00 PM ET) on the expiry date
+  const expiryWithMarketClose = new Date(expiry);
+  expiryWithMarketClose.setUTCHours(20, 0, 0, 0); // 8:00 PM UTC = 4:00 PM ET
+
+  return today > expiryWithMarketClose;
 };
 
 export const shouldUpdateTradeStatus = (transaction: any): boolean => {
