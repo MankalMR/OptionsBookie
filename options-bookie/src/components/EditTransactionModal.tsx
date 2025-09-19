@@ -608,8 +608,8 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
 
             {/* Exit Information - Only show when closing trade */}
             {formData.status === 'Closed' && (
-              <div className="bg-red-50 p-4 rounded-lg border border-red-200">
-                <h4 className="text-sm font-medium text-red-800 mb-3">Exit Information (Required for Closed Trades)</h4>
+              <div className="bg-orange-50 dark:bg-orange-950/20 p-4 rounded-lg border border-orange-200 dark:border-orange-800">
+                <h4 className="text-sm font-medium text-orange-800 dark:text-orange-200 mb-3">Exit Information (Required for Closed Trades)</h4>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="exitPrice">Exit Price</Label>
