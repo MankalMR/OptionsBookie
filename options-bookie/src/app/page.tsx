@@ -18,9 +18,9 @@ import ProtectedRoute from '@/components/ProtectedRoute';
 import AuthButton from '@/components/AuthButton';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus, TrendingUp } from 'lucide-react';
 import { useStockPrices } from '@/hooks/useStockPrices';
+import StatusMultiSelect from '@/components/StatusMultiSelect';
 
 export default function Home() {
   const isMobile = useIsMobile();
@@ -52,7 +52,7 @@ export default function Home() {
     }
   }, [isMobile, activeTab]);
   const [selectedPortfolioId, setSelectedPortfolioId] = useState<string | null>(null);
-  const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
+  const [selectedStatuses, setSelectedStatuses] = useState<string[]>(['Open', 'Rolled']);
   const [portfolios, setPortfolios] = useState<Portfolio[]>([]);
   const [portfoliosLoading, setPortfoliosLoading] = useState(true);
   const [chains, setChains] = useState<TradeChain[]>([]);
@@ -62,7 +62,7 @@ export default function Home() {
   const uniqueSymbols = [...new Set(transactions.map(t => t.stockSymbol))];
   const { refreshPrices, loading: pricesLoading } = useStockPrices(uniqueSymbols);
 
-  // Filter transactions based on selected portfolio and status
+  // Filter transactions based on selected portfolio and statuses
   useEffect(() => {
     let filtered = transactions;
 
@@ -71,13 +71,13 @@ export default function Home() {
       filtered = filtered.filter(t => t.portfolioId === selectedPortfolioId);
     }
 
-    // Filter by status
-    if (selectedStatus) {
-      filtered = filtered.filter(t => t.status === selectedStatus);
+    // Filter by statuses (multiple selection)
+    if (selectedStatuses.length > 0) {
+      filtered = filtered.filter(t => selectedStatuses.includes(t.status));
     }
 
     setFilteredTransactions(filtered);
-  }, [transactions, selectedPortfolioId, selectedStatus]);
+  }, [transactions, selectedPortfolioId, selectedStatuses]);
 
   const fetchPortfolios = useCallback(async () => {
     try {
@@ -263,8 +263,8 @@ export default function Home() {
     setSelectedPortfolioId(portfolioId);
   };
 
-  const handleStatusChange = (status: string) => {
-    setSelectedStatus(status === 'all' ? null : status);
+  const handleStatusChange = (statuses: string[]) => {
+    setSelectedStatuses(statuses);
   };
 
   const handleAddPortfolio = () => {
@@ -480,7 +480,9 @@ export default function Home() {
                   className={`object-contain ${isMobile ? 'h-10 w-10' : 'h-20 w-20'}`}
                 />
                 <div>
-                  <h1 className={`font-bold text-foreground ${isMobile ? 'text-lg' : 'text-3xl'}`}>OptionsBookie</h1>
+                  <h1 className={`font-bold ${isMobile ? 'text-lg' : 'text-3xl'}`}>
+                    <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">OptionsBookie</span>
+                  </h1>
                   {!isMobile && <p className="text-muted-foreground">Track your options trades with precision</p>}
                 </div>
               </div>
@@ -597,19 +599,11 @@ export default function Home() {
 
                     {/* Status Filter */}
                     {!isMobile && (
-                      <Select value={selectedStatus || 'all'} onValueChange={handleStatusChange}>
-                        <SelectTrigger className="w-32">
-                          <SelectValue placeholder="All Status" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">All Status</SelectItem>
-                          <SelectItem value="Open">Open</SelectItem>
-                          <SelectItem value="Closed">Closed</SelectItem>
-                          <SelectItem value="Rolled">Rolled</SelectItem>
-                          <SelectItem value="Expired">Expired</SelectItem>
-                          <SelectItem value="Assigned">Assigned</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <StatusMultiSelect
+                        selectedStatuses={selectedStatuses}
+                        onStatusChange={handleStatusChange}
+                        className="w-48"
+                      />
                     )}
                   </div>
 
@@ -634,9 +628,9 @@ export default function Home() {
                       in {portfolios.find(p => p.id === selectedPortfolioId)?.name || 'selected portfolio'}
                     </span>
                   )}
-                  {selectedStatus && (
+                  {selectedStatuses.length > 0 && (
                     <span className="ml-1">
-                      with status &quot;{selectedStatus}&quot;
+                      with status{selectedStatuses.length > 1 ? 'es' : ''}: {selectedStatuses.join(', ')}
                     </span>
                   )}
                 </CardDescription>
@@ -655,7 +649,7 @@ export default function Home() {
             </Card>
           </div>
         ) : (
-          <SummaryView transactions={filteredTransactions} />
+          <SummaryView transactions={transactions} />
         )}
         </main>
       )}
