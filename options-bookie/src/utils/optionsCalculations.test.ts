@@ -838,7 +838,12 @@ describe('optionsCalculations', () => {
         expiryDate: new Date('2025-09-20') // Tomorrow
       });
 
+      jest.useFakeTimers();
+      jest.setSystemTime(new Date('2025-09-19T12:00:00Z')); // Before expiry date
+
       expect(shouldUpdateTradeStatus(transaction)).toBe(false);
+
+      jest.useRealTimers();
     });
 
     it('should return false for open trades on expiry date before market close', () => {
