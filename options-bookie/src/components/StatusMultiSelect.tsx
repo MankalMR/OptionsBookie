@@ -68,10 +68,10 @@ export default function StatusMultiSelect({
       </Button>
 
       {isOpen && (
-        <Card className="absolute top-full left-0 right-0 mt-1 z-50 shadow-lg">
-          <CardContent className="p-2">
+        <Card className="absolute top-full left-0 right-0 mt-1 z-50 shadow-lg bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700">
+          <CardContent className="p-2 bg-white dark:bg-gray-900">
             {/* Header with Select All / Clear All */}
-            <div className="flex justify-between items-center mb-2 pb-2 border-b">
+            <div className="flex justify-between items-center mb-2 pb-2 border-b border-gray-200 dark:border-gray-700">
               <Button
                 variant="ghost"
                 size="sm"
@@ -97,7 +97,7 @@ export default function StatusMultiSelect({
                 return (
                   <label
                     key={option.value}
-                    className="flex items-center space-x-2 p-2 rounded hover:bg-muted cursor-pointer"
+                    className="flex items-center space-x-2 p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer transition-colors"
                   >
                     <input
                       type="checkbox"
@@ -116,7 +116,7 @@ export default function StatusMultiSelect({
 
             {/* Selected Statuses Display */}
             {selectedStatuses.length > 0 && (
-              <div className="mt-3 pt-2 border-t">
+              <div className="mt-3 pt-2 border-t border-gray-200 dark:border-gray-700">
                 <div className="text-xs text-muted-foreground mb-2">Selected:</div>
                 <div className="flex flex-wrap gap-1">
                   {getSelectedLabels().map((label, index) => (

@@ -289,8 +289,8 @@ export const calculateStrategyPerformance = (transactions: OptionsTransaction[])
       strategy.totalCollateral = realizedTrades.reduce((sum, t) => sum + calculateCollateral(t), 0) / realizedTrades.length;
     }
 
-    // Calculate average RoR
-    const rorValues = trades.map(t => calculateRoR(t)).filter(ror => !isNaN(ror) && isFinite(ror));
+    // Calculate average RoR (only for realized trades)
+    const rorValues = realizedTrades.map(t => calculateRoR(t)).filter(ror => !isNaN(ror) && isFinite(ror));
     strategy.avgRoR = rorValues.length > 0 ? rorValues.reduce((sum, ror) => sum + ror, 0) / rorValues.length : 0;
 
     // Calculate win rate

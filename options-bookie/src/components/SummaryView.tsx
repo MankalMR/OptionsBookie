@@ -311,11 +311,11 @@ export default function SummaryView({ transactions }: SummaryViewProps) {
     totalPnL: overallStats.totalPnL,
     totalTrades: overallStats.totalTrades,
     winRate: overallStats.winRate,
-    avgRoR: strategyPerformance.length > 0
-      ? strategyPerformance.reduce((sum, s) => sum + s.avgRoR, 0) / strategyPerformance.length
+    avgRoR: strategyPerformance.filter(s => s.realizedCount > 0).length > 0
+      ? strategyPerformance.filter(s => s.realizedCount > 0).reduce((sum, s) => sum + s.avgRoR, 0) / strategyPerformance.filter(s => s.realizedCount > 0).length
       : 0,
-    bestStrategy: strategyPerformance.length > 0
-      ? { name: strategyPerformance[0].strategy, ror: strategyPerformance[0].avgRoR }
+    bestStrategy: strategyPerformance.filter(s => s.realizedCount > 0).length > 0
+      ? { name: strategyPerformance.filter(s => s.realizedCount > 0)[0].strategy, ror: strategyPerformance.filter(s => s.realizedCount > 0)[0].avgRoR }
       : null,
     bestStockByPnL: bestStocks.bestByPnL,
     bestStockByRoR: bestStocks.bestByRoR
