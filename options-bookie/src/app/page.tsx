@@ -21,6 +21,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Plus, TrendingUp } from 'lucide-react';
 import { useStockPrices } from '@/hooks/useStockPrices';
 import StatusMultiSelect from '@/components/StatusMultiSelect';
+import StructuredData, { webApplicationSchema, organizationSchema } from '@/components/StructuredData';
 
 export default function Home() {
   const isMobile = useIsMobile();
@@ -469,6 +470,8 @@ export default function Home() {
 
   return (
     <ProtectedRoute>
+      <StructuredData data={webApplicationSchema} />
+      <StructuredData data={organizationSchema} />
       <div className="min-h-screen bg-background">
         <header className="bg-card shadow-sm border-b">
           <div className={`${isMobile ? 'px-2' : 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'}`}>

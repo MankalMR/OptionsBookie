@@ -172,13 +172,19 @@ options-bookie/
 
 This project is licensed under the MIT License.
 
+## 📚 Documentation
+
+- [Setup Guide](SETUP.md) - Complete setup including database, environment, and local development
+- [Deployment Guide](DEPLOYMENT.md) - Deploy to Vercel with troubleshooting
+- [Security Guide](SECURITY.md) - Comprehensive security implementation and best practices
+
 ## Support
 
 For issues and questions:
-1. Check the [DATABASE_SETUP.md](./DATABASE_SETUP.md) guide
-2. Review the debug scripts in `scripts/debug/`
-3. Check Supabase logs for database issues
-4. Verify environment variables are correctly set
+1. Check the [Setup Guide](SETUP.md) for configuration help
+2. Review the [Deployment Guide](DEPLOYMENT.md) for deployment issues
+3. Check the [Security Guide](SECURITY.md) for security-related questions
+4. Review the debug scripts in `scripts/debug/`
 
 ## Changelog
 
