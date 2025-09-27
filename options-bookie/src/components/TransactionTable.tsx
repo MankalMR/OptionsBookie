@@ -12,6 +12,7 @@ import { calculateDTE, calculateDH, formatPnLNumber, calculateChainPnL, calculat
 import { formatDisplayDateShort } from '@/utils/dateUtils';
 import PnLDisplay from '@/components/PnLDisplay';
 import { useIsMobile } from '@/hooks/useMediaQuery';
+import Tooltip from '@/components/ui/tooltip';
 
 interface TransactionTableProps {
   transactions: OptionsTransaction[];
@@ -21,9 +22,21 @@ interface TransactionTableProps {
   portfolios?: Portfolio[];
   showPortfolioColumn?: boolean;
   chains?: TradeChain[];
+  showHeader?: boolean;
+  compact?: boolean;
 }
 
-export default function TransactionTable({ transactions, onDelete, onDeleteChain, onEdit, portfolios = [], showPortfolioColumn = false, chains = [] }: TransactionTableProps) {
+export default function TransactionTable({
+  transactions,
+  onDelete,
+  onDeleteChain,
+  onEdit,
+  portfolios = [],
+  showPortfolioColumn = false,
+  chains = [],
+  showHeader = true,
+  compact = false,
+}: TransactionTableProps) {
   const isMobile = useIsMobile();
   const [sortBy, setSortBy] = useState<keyof OptionsTransaction>('tradeOpenDate');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
@@ -185,105 +198,124 @@ export default function TransactionTable({ transactions, onDelete, onDeleteChain
 
   return (
     <div className="rounded-md border">
-
       <Table>
-        <TableHeader>
-          <TableRow>
+        {showHeader && (
+          <TableHeader className={compact ? "text-xs" : ""}>
+            <TableRow className={compact ? "h-8" : ""}>
             <TableHead
-              className="cursor-pointer hover:bg-muted/50"
+              className={`cursor-pointer hover:bg-muted/50 ${compact ? "px-2 py-1" : ""} group`}
               onClick={() => handleSort('stockSymbol')}
             >
-              <div className="flex items-center space-x-1">
-                <div className="h-5 w-5 flex-shrink-0"></div>
-                <div className="flex items-center space-x-2">
-                  <div className="h-4 w-4 flex-shrink-0"></div>
-                  <span>Symbol</span>
+              <Tooltip content="Stock symbol for the options contract">
+                <div className="flex items-center space-x-1 w-full h-full">
+                  <div className={`${compact ? "h-3 w-3" : "h-5 w-5"} flex-shrink-0`}></div>
+                  <div className="flex items-center space-x-2">
+                    <div className={`${compact ? "h-2 w-2" : "h-4 w-4"} flex-shrink-0`}></div>
+                    <span className={compact ? "text-xs" : ""}>Symbol</span>
+                  </div>
                 </div>
-              </div>
+              </Tooltip>
             </TableHead>
             {!isMobile && showPortfolioColumn && (
-              <TableHead>Portfolio</TableHead>
-            )}
-            {!isMobile && (
-              <TableHead
-                className="cursor-pointer hover:bg-muted/50"
-              onClick={() => handleSort('tradeOpenDate')}
-            >
-                Opened
+              <TableHead className={`${compact ? "px-2 py-1 text-xs" : ""} group`}>
+                <Tooltip content="Portfolio this trade belongs to">
+                  <span className={compact ? "text-xs" : ""}>Portfolio</span>
+                </Tooltip>
               </TableHead>
             )}
             {!isMobile && (
               <TableHead
-                className="cursor-pointer hover:bg-muted/50 hidden lg:table-cell"
+                className={`cursor-pointer hover:bg-muted/50 ${compact ? "px-2 py-1" : ""} group`}
+                onClick={() => handleSort('tradeOpenDate')}
+              >
+                <Tooltip content="Date when the trade was opened">
+                  <span className={compact ? "text-xs" : ""}>Opened</span>
+                </Tooltip>
+              </TableHead>
+            )}
+            {!isMobile && (
+              <TableHead
+                className={`cursor-pointer hover:bg-muted/50 hidden lg:table-cell ${compact ? "px-2 py-1" : ""}`}
                 onClick={() => handleSort('expiryDate')}
               >
-                Expires
+                <span className={compact ? "text-xs" : ""}>Expires</span>
+              </TableHead>
+            )}
+            {!isMobile && (
+              <TableHead className={`hidden md:table-cell ${compact ? "px-2 py-1" : ""}`}>
+                <Tooltip content="Days to Expiry for open trades, Close date for finished trades">
+                  <span className={compact ? "text-xs" : ""}>DTE</span>
+                </Tooltip>
+              </TableHead>
+            )}
+            {!isMobile && (
+              <TableHead className={`hidden lg:table-cell ${compact ? "px-2 py-1" : ""}`}>
+                <Tooltip content="Days Held">
+                  <span className={compact ? "text-xs" : ""}>DH</span>
+                </Tooltip>
               </TableHead>
             )}
             {!isMobile && (
               <TableHead
-                title="Days to Expiry for open trades, Close date for finished trades"
-                className="hidden md:table-cell"
+                className={`cursor-pointer hover:bg-muted/50 ${compact ? "px-2 py-1" : ""}`}
+                onClick={() => handleSort('strikePrice')}
               >
-                DTE/Closed
-              </TableHead>
-            )}
-            {!isMobile && (
-              <TableHead
-                title="Days Held"
-                className="hidden lg:table-cell"
-              >
-                DH
-              </TableHead>
-            )}
-            {!isMobile && (
-              <TableHead
-                className="cursor-pointer hover:bg-muted/50"
-              onClick={() => handleSort('strikePrice')}
-            >
-              Strike
+                <Tooltip content="Strike price of the options contract">
+                  <span className={compact ? "text-xs" : ""}>Strike</span>
+                </Tooltip>
               </TableHead>
             )}
             {!isMobile && pricesAvailable && (
-              <TableHead className="hidden xl:table-cell">
-                Current Price
+              <TableHead className={`hidden xl:table-cell ${compact ? "px-2 py-1" : ""}`}>
+                <Tooltip content="Current stock price with daily change">
+                  <span className={compact ? "text-xs" : ""}>Current Price</span>
+                </Tooltip>
               </TableHead>
             )}
             {!isMobile && (
               <TableHead
-                className="cursor-pointer hover:bg-muted/50"
-              onClick={() => handleSort('premium')}
-                title="Collateral required for this trade"
+                className={`cursor-pointer hover:bg-muted/50 ${compact ? "px-2 py-1" : ""}`}
+                onClick={() => handleSort('premium')}
               >
-                Collateral
+                <Tooltip content="Collateral required for this trade">
+                  <span className={compact ? "text-xs" : ""}>Collateral</span>
+                </Tooltip>
               </TableHead>
             )}
             {!isMobile && (
               <TableHead
-                className="cursor-pointer hover:bg-muted/50 hidden lg:table-cell"
+                className={`cursor-pointer hover:bg-muted/50 hidden lg:table-cell ${compact ? "px-2 py-1" : ""}`}
                 onClick={() => handleSort('profitLoss')}
-                title="Return on Risk percentage"
               >
-                RoR%
+                <Tooltip content="Return on Risk percentage">
+                  <span className={compact ? "text-xs" : ""}>RoR%</span>
+                </Tooltip>
               </TableHead>
             )}
             {!isMobile && (
               <TableHead
-                className="cursor-pointer hover:bg-muted/50"
+                className={`cursor-pointer hover:bg-muted/50 ${compact ? "px-2 py-1" : ""}`}
                 onClick={() => handleSort('status')}
               >
-                Status
+                <Tooltip content="Current status: Open, Closed, Rolled, Expired, or Assigned">
+                  <span className={compact ? "text-xs" : ""}>Status</span>
+                </Tooltip>
               </TableHead>
             )}
             <TableHead
-              className="cursor-pointer hover:bg-muted/50"
+              className={`cursor-pointer hover:bg-muted/50 ${compact ? "px-2 py-1" : ""}`}
               onClick={() => handleSort('profitLoss')}
             >
-              P&L
+              <Tooltip content="Profit or Loss for this trade (realized or unrealized)">
+                <span className={compact ? "text-xs" : ""}>P&L</span>
+              </Tooltip>
             </TableHead>
-            <TableHead>{isMobile ? 'Edit' : 'Actions'}</TableHead>
+            <TableHead className={compact ? "px-2 py-1" : ""}>
+              <span className={compact ? "text-xs" : ""}>{isMobile ? 'Edit' : 'Actions'}</span>
+            </TableHead>
           </TableRow>
-        </TableHeader>
+          </TableHeader>
+        )}
         <TableBody>
           {(() => {
             const { chainMap, standaloneTransactions } = organizeTransactions();
@@ -432,13 +464,15 @@ export default function TransactionTable({ transactions, onDelete, onDeleteChain
                               >
                                 {transaction.numberOfContracts}
                               </span>
-                              {!isMobile && stockPrices[transaction.stockSymbol] && transaction.status === 'Open' && (
-                                <ITMIndicator
-                                  currentPrice={stockPrices[transaction.stockSymbol]!.price}
-                                  strikePrice={transaction.strikePrice}
-                                  optionType={transaction.callOrPut}
-                                />
-                              )}
+                              <div className="w-12 h-5 flex items-center justify-center">
+                                {!isMobile && stockPrices[transaction.stockSymbol] && transaction.status === 'Open' && (
+                                  <ITMIndicator
+                                    currentPrice={stockPrices[transaction.stockSymbol]!.price}
+                                    strikePrice={transaction.strikePrice}
+                                    optionType={transaction.callOrPut}
+                                  />
+                                )}
+                              </div>
                               {!isMobile && isLast && transaction.status === 'Open' && (
                                 <Badge variant="outline" className="text-xs px-1.5 py-0.5 bg-green-50 text-green-700 border-green-200">
                                   Current
@@ -636,13 +670,15 @@ export default function TransactionTable({ transactions, onDelete, onDeleteChain
                             >
                               {transaction.numberOfContracts}
                             </span>
-                            {!isMobile && stockPrices[transaction.stockSymbol] && transaction.status === 'Open' && (
-                              <ITMIndicator
-                                currentPrice={stockPrices[transaction.stockSymbol]!.price}
-                                strikePrice={transaction.strikePrice}
-                                optionType={transaction.callOrPut}
-                              />
-                            )}
+                            <div className="w-12 h-5 flex items-center justify-center">
+                              {!isMobile && stockPrices[transaction.stockSymbol] && transaction.status === 'Open' && (
+                                <ITMIndicator
+                                  currentPrice={stockPrices[transaction.stockSymbol]!.price}
+                                  strikePrice={transaction.strikePrice}
+                                  optionType={transaction.callOrPut}
+                                />
+                              )}
+                            </div>
                           </div>
                           <div className="flex items-center space-x-1 mt-1 ml-0">
                             {isMobile && (

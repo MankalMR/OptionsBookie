@@ -21,6 +21,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Plus, TrendingUp } from 'lucide-react';
 import { useStockPrices } from '@/hooks/useStockPrices';
 import StatusMultiSelect from '@/components/StatusMultiSelect';
+import ViewToggle from '@/components/ViewToggle';
+import SymbolGroupedView from '@/components/SymbolGroupedView';
 import StructuredData, { webApplicationSchema, organizationSchema } from '@/components/StructuredData';
 
 export default function Home() {
@@ -45,6 +47,7 @@ export default function Home() {
   const [deletingTransaction, setDeletingTransaction] = useState<OptionsTransaction | null>(null);
   const [deletingChainId, setDeletingChainId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'trades' | 'summary'>('trades');
+  const [viewMode, setViewMode] = useState<'grouped' | 'flat'>('grouped');
 
   // Force mobile users to trades tab
   useEffect(() => {
@@ -135,10 +138,6 @@ export default function Home() {
     const updateChainStatuses = async () => {
       if (chains.length === 0 || transactions.length === 0) return;
 
-      console.log('🔍 Checking chain statuses...', {
-        chains: chains.length,
-        transactions: transactions.length
-      });
 
       const chainsToUpdate = [];
 
@@ -147,24 +146,16 @@ export default function Home() {
         const chainTransactions = transactions.filter(t => t.chainId === chain.id);
         const hasOpenTransactions = chainTransactions.some(t => t.status === 'Open');
 
-        console.log(`🔗 Chain ${chain.id} (${chain.symbol}): ${chainTransactions.length} transactions, hasOpen: ${hasOpenTransactions}, currentStatus: ${chain.chainStatus}`,
-          chainTransactions.map(t => `${t.stockSymbol}-${t.status}`));
 
         if (chain.chainStatus === 'Active') {
           // If no open transactions, this chain should be closed
           if (!hasOpenTransactions && chainTransactions.length > 0) {
-            console.log(`❌ Chain ${chain.id} (${chain.symbol}) should be closed - no open transactions found`);
             chainsToUpdate.push({ id: chain.id, status: 'Closed' });
-          } else if (hasOpenTransactions) {
-            console.log(`✅ Chain ${chain.id} (${chain.symbol}) staying active - has open transactions`);
           }
         } else if (chain.chainStatus === 'Closed') {
           // If there are open transactions, this chain should be active
           if (hasOpenTransactions) {
-            console.log(`🔄 Chain ${chain.id} (${chain.symbol}) should be active - has open transactions`);
             chainsToUpdate.push({ id: chain.id, status: 'Active' });
-          } else {
-            console.log(`✅ Chain ${chain.id} (${chain.symbol}) staying closed - no open transactions`);
           }
         }
       }
@@ -179,7 +170,6 @@ export default function Home() {
           });
 
           if (chainResponse.ok) {
-            console.log(`Successfully updated chain ${chainUpdate.id} to ${chainUpdate.status} status`);
           } else {
             console.error(`Failed to update chain ${chainUpdate.id}:`, await chainResponse.text());
           }
@@ -213,7 +203,6 @@ export default function Home() {
       });
 
       if (expiredTrades.length > 0) {
-        console.log(`Found ${expiredTrades.length} expired trades, updating to Expired status`);
 
         for (const trade of expiredTrades) {
           try {
@@ -364,7 +353,6 @@ export default function Home() {
 
         if (wasOpenTrade) {
           // Update the chain status to 'Closed' since the open trade is now closed
-          console.log(`Updating chain ${originalTransaction.chainId} status to 'Closed' for transaction ${id}`);
           try {
             const chainResponse = await fetch(`/api/trade-chains/${originalTransaction.chainId}`, {
               method: 'PUT',
@@ -374,8 +362,6 @@ export default function Home() {
 
             if (!chainResponse.ok) {
               console.error('Failed to update chain status:', await chainResponse.text());
-            } else {
-              console.log('Chain status updated successfully');
             }
           } catch (error) {
             console.error('Error updating chain status:', error);
@@ -445,7 +431,6 @@ export default function Home() {
     try {
       // Delete all transactions in the chain
       await Promise.all(chainTransactions.map(t => deleteTransaction(t.id)));
-      console.log(`Deleted chain ${deletingChainId} with ${chainTransactions.length} transactions`);
       setDeletingChainId(null);
     } catch (error) {
       console.error('Failed to delete chain:', error);
@@ -608,6 +593,14 @@ export default function Home() {
                         className="w-48"
                       />
                     )}
+
+                    {/* View Toggle - Only show for trades tab and desktop */}
+                    {!isMobile && (
+                      <ViewToggle
+                        viewMode={viewMode}
+                        onViewChange={setViewMode}
+                      />
+                    )}
                   </div>
 
                   <div className="flex items-center space-x-4">
@@ -639,15 +632,27 @@ export default function Home() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <TransactionTable
-                  transactions={filteredTransactions}
-                  onDelete={handleDeleteTransaction}
-                  onDeleteChain={handleDeleteChain}
-                  onEdit={handleEditTransaction}
-                  chains={chains}
-                  portfolios={portfolios}
-                  showPortfolioColumn={!selectedPortfolioId}
-                />
+                {viewMode === 'grouped' ? (
+                  <SymbolGroupedView
+                    transactions={filteredTransactions}
+                    onDelete={handleDeleteTransaction}
+                    onDeleteChain={handleDeleteChain}
+                    onEdit={handleEditTransaction}
+                    chains={chains}
+                    portfolios={portfolios}
+                    showPortfolioColumn={!selectedPortfolioId}
+                  />
+                ) : (
+                  <TransactionTable
+                    transactions={filteredTransactions}
+                    onDelete={handleDeleteTransaction}
+                    onDeleteChain={handleDeleteChain}
+                    onEdit={handleEditTransaction}
+                    chains={chains}
+                    portfolios={portfolios}
+                    showPortfolioColumn={!selectedPortfolioId}
+                  />
+                )}
               </CardContent>
             </Card>
           </div>

@@ -153,20 +153,42 @@ textarea:focus {
   border-color: hsl(var(--border)) !important;
 }
 
+
 [data-slot="table"] {
   border-color: hsl(var(--border)) !important;
 }
+
+/* Ensure tooltips work properly in table contexts */
+.group:hover .group-hover\:opacity-100 {
+  opacity: 1 !important;
+}
+
+/* Make table headers have better hover areas for tooltips */
+th.group {
+  cursor: pointer;
+  position: relative;
+}
+
+th.group:hover {
+  background-color: hsl(var(--muted) / 0.5);
+}
+
+/* Tooltips now use portals, so no overflow issues */
+
 
 [data-slot="table"] th {
   border-color: hsl(var(--border)) !important;
 }
 
+
 [data-slot="table"] td {
   border-color: hsl(var(--border)) !important;
 }
+
 
 /* Ensure all data-slot components use consistent border colors */
 [data-slot] {
   border-color: hsl(var(--border)) !important;
 }
+
 
