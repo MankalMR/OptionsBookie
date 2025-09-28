@@ -10,6 +10,7 @@ import { useStockPrices } from '@/hooks/useStockPrices';
 import StockPriceDisplay, { ITMIndicator } from '@/components/StockPriceDisplay';
 import { calculateDTE, calculateDH, formatPnLNumber, calculateChainPnL, calculateCollateral, calculateRoR, calculateChainCollateral, calculateChainRoR } from '@/utils/optionsCalculations';
 import { formatDisplayDateShort } from '@/utils/dateUtils';
+import { getTransactionRowClass, formatStrikePrice, isLEAP } from '@/utils/formatUtils';
 import PnLDisplay from '@/components/PnLDisplay';
 import { useIsMobile } from '@/hooks/useMediaQuery';
 import Tooltip from '@/components/ui/tooltip';
@@ -442,15 +443,7 @@ export default function TransactionTable({
                   renderElements.push(
                     <TableRow
                       key={transaction.id}
-                      className={`hover:bg-accent/50 border-l-4 border-l-blue-200 dark:border-l-blue-700 ${
-                        transaction.status === 'Open'
-                          ? 'bg-blue-50/80 dark:bg-blue-950/40 border-l-blue-500'
-                          : transaction.status === 'Rolled'
-                          ? 'bg-amber-50/80 dark:bg-amber-950/40 border-l-amber-500'
-                          : ['Closed', 'Expired', 'Assigned'].includes(transaction.status)
-                          ? 'bg-muted/60 dark:bg-muted/60 border-l-muted-foreground'
-                          : ''
-                      }`}
+                      className={getTransactionRowClass(transaction.status, true)}
                     >
                       <TableCell className="font-medium pl-8">
                         <div className="flex items-center space-x-2">
@@ -481,7 +474,7 @@ export default function TransactionTable({
                             </div>
                             {isMobile && (
                               <div className="flex items-center space-x-2 text-xs text-muted-foreground mt-1">
-                                <span>${transaction.strikePrice.toFixed(2)}</span>
+                                <span>${formatStrikePrice(transaction.strikePrice)}</span>
                                 <span
                                   className={`px-1.5 py-0.5 rounded font-medium ${transaction.callOrPut === 'Call'
                                     ? 'bg-green-100 text-green-800'
@@ -512,26 +505,33 @@ export default function TransactionTable({
                       )}
                       {!isMobile && (
                         <TableCell className="hidden md:table-cell">
-                          {transaction.status === 'Open' ? (
-                            <span className={`font-medium ${
-                              calculateDTE(transaction.expiryDate) <= 7
-                                ? 'text-red-600 bg-red-50 px-2 py-1 rounded'
-                                : calculateDTE(transaction.expiryDate) <= 30
-                                ? 'text-orange-600 bg-orange-50 px-2 py-1 rounded'
-                                : 'text-muted-foreground'
-                            }`}>
-                              {calculateDTE(transaction.expiryDate)}
-                            </span>
-                          ) : (
-                            <div className="text-muted-foreground text-sm">
-                              {transaction.status === 'Expired'
-                                ? formatDate(transaction.expiryDate)
-                                : transaction.closeDate
-                                  ? formatDate(transaction.closeDate)
-                                  : <span className="text-muted-foreground">-</span>
-                              }
-                            </div>
-                          )}
+                          <div className="flex flex-col items-start">
+                            {transaction.status === 'Open' ? (
+                              <span className={`font-medium ${
+                                calculateDTE(transaction.expiryDate) <= 7
+                                  ? 'text-red-600 bg-red-50 px-2 py-1 rounded'
+                                  : calculateDTE(transaction.expiryDate) <= 30
+                                  ? 'text-orange-600 bg-orange-50 px-2 py-1 rounded'
+                                  : 'text-muted-foreground'
+                              }`}>
+                                {calculateDTE(transaction.expiryDate)}
+                              </span>
+                            ) : (
+                              <div className="text-muted-foreground text-sm">
+                                {transaction.status === 'Expired'
+                                  ? formatDate(transaction.expiryDate)
+                                  : transaction.closeDate
+                                    ? formatDate(transaction.closeDate)
+                                    : <span className="text-muted-foreground">-</span>
+                                }
+                              </div>
+                            )}
+                            {isLEAP(transaction) && (
+                              <Badge variant="secondary" className="text-[10px] bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 mt-1">
+                                LEAP
+                              </Badge>
+                            )}
+                          </div>
                         </TableCell>
                       )}
                       {!isMobile && (
@@ -540,7 +540,7 @@ export default function TransactionTable({
                       {!isMobile && (
                         <TableCell>
                           <div className="flex items-center space-x-2">
-                            <span>${transaction.strikePrice.toFixed(2)}</span>
+                            <span>${formatStrikePrice(transaction.strikePrice)}</span>
                             <span
                               className={`text-xs px-1.5 py-0.5 rounded font-medium ${transaction.callOrPut === 'Call'
                                 ? 'bg-green-100 text-green-800'
@@ -640,15 +640,7 @@ export default function TransactionTable({
               renderElements.push(
                 <TableRow
                   key={transaction.id}
-                  className={`hover:bg-accent/50 ${
-                    transaction.status === 'Open'
-                      ? 'bg-blue-50/80 dark:bg-blue-950/40'
-                      : transaction.status === 'Rolled'
-                      ? 'bg-amber-50/80 dark:bg-amber-950/40'
-                      : ['Closed', 'Expired', 'Assigned'].includes(transaction.status)
-                      ? 'bg-muted/60 dark:bg-muted/60'
-                      : ''
-                  }`}
+                  className={getTransactionRowClass(transaction.status, false)}
             >
               <TableCell className="font-medium">
                 <div className="flex items-start space-x-1">
@@ -683,7 +675,7 @@ export default function TransactionTable({
                           <div className="flex items-center space-x-1 mt-1 ml-0">
                             {isMobile && (
                               <span className="text-xs text-muted-foreground">
-                                ${transaction.strikePrice.toFixed(2)}
+                                ${formatStrikePrice(transaction.strikePrice)}
                               </span>
                             )}
                             {isMobile && (
@@ -734,26 +726,33 @@ export default function TransactionTable({
               )}
               {!isMobile && (
                 <TableCell className="hidden md:table-cell">
-                  {transaction.status === 'Open' ? (
-                    <span className={`font-medium ${
-                      calculateDTE(transaction.expiryDate) <= 7
-                        ? 'text-red-600 bg-red-50 px-2 py-1 rounded'
-                        : calculateDTE(transaction.expiryDate) <= 30
-                        ? 'text-orange-600 bg-orange-50 px-2 py-1 rounded'
-                        : 'text-muted-foreground'
-                    }`}>
-                      {calculateDTE(transaction.expiryDate)}
-                    </span>
-                  ) : (
-                    <div className="text-muted-foreground text-sm">
-                      {transaction.status === 'Expired'
-                        ? formatDate(transaction.expiryDate)
-                        : transaction.closeDate
-                          ? formatDate(transaction.closeDate)
-                          : <span className="text-muted-foreground">-</span>
-                      }
-                    </div>
-                  )}
+                  <div className="flex flex-col items-start">
+                    {transaction.status === 'Open' ? (
+                      <span className={`font-medium ${
+                        calculateDTE(transaction.expiryDate) <= 7
+                          ? 'text-red-600 bg-red-50 px-2 py-1 rounded'
+                          : calculateDTE(transaction.expiryDate) <= 30
+                          ? 'text-orange-600 bg-orange-50 px-2 py-1 rounded'
+                          : 'text-muted-foreground'
+                      }`}>
+                        {calculateDTE(transaction.expiryDate)}
+                      </span>
+                    ) : (
+                      <div className="text-muted-foreground text-sm">
+                        {transaction.status === 'Expired'
+                          ? formatDate(transaction.expiryDate)
+                          : transaction.closeDate
+                            ? formatDate(transaction.closeDate)
+                            : <span className="text-muted-foreground">-</span>
+                        }
+                      </div>
+                    )}
+                    {isLEAP(transaction) && (
+                      <Badge variant="secondary" className="text-[10px] bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 mt-1">
+                        LEAP
+                      </Badge>
+                    )}
+                  </div>
                 </TableCell>
               )}
               {!isMobile && (
@@ -764,7 +763,7 @@ export default function TransactionTable({
               {!isMobile && (
                 <TableCell>
                   <div className="flex items-center space-x-2">
-                    <span>${transaction.strikePrice.toFixed(2)}</span>
+                    <span>${formatStrikePrice(transaction.strikePrice)}</span>
                     <span
                       className={`text-xs px-1.5 py-0.5 rounded font-medium ${transaction.callOrPut === 'Call'
                         ? 'bg-green-100 text-green-800'
