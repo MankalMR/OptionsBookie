@@ -56,8 +56,8 @@ const insertTransaction = db.prepare(`
     stockPriceCurrent, daysToExpiry, breakEvenPrice, strikePrice, premium,
     numberOfContracts, fees, status, exitPrice, closeDate, profitLoss,
     daysHeld, annualizedROR, cashReserve, marginCashReserve, costBasisPerShare,
-    createdAt, updatedAt
-  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    collateralAmount, createdAt, updatedAt
+  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `);
 
 const updateTransaction = db.prepare(`
@@ -66,7 +66,7 @@ const updateTransaction = db.prepare(`
     stockPriceCurrent = ?, daysToExpiry = ?, breakEvenPrice = ?, strikePrice = ?, premium = ?,
     numberOfContracts = ?, fees = ?, status = ?, exitPrice = ?, closeDate = ?, profitLoss = ?,
     daysHeld = ?, annualizedROR = ?, cashReserve = ?, marginCashReserve = ?, costBasisPerShare = ?,
-    updatedAt = ?
+    collateralAmount = ?, updatedAt = ?
   WHERE id = ?
 `);
 
@@ -98,6 +98,7 @@ function rowToTransaction(row: any): OptionsTransaction {
     cashReserve: row.cashReserve,
     marginCashReserve: row.marginCashReserve,
     costBasisPerShare: row.costBasisPerShare,
+    collateralAmount: row.collateralAmount,
     createdAt: new Date(row.createdAt),
     updatedAt: new Date(row.updatedAt),
   };
@@ -152,6 +153,7 @@ export const dbOperations = {
       newTransaction.cashReserve,
       newTransaction.marginCashReserve,
       newTransaction.costBasisPerShare,
+      newTransaction.collateralAmount,
       newTransaction.createdAt.toISOString(),
       newTransaction.updatedAt.toISOString()
     );

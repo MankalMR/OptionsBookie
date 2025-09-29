@@ -53,6 +53,7 @@ function rowToTransaction(row: any): OptionsTransaction {
     cashReserve: row.cash_reserve ? parseFloat(row.cash_reserve) : undefined,
     marginCashReserve: row.margin_cash_reserve ? parseFloat(row.margin_cash_reserve) : undefined,
     costBasisPerShare: row.cost_basis_per_share ? parseFloat(row.cost_basis_per_share) : undefined,
+    collateralAmount: row.collateral_amount ? parseFloat(row.collateral_amount) : undefined,
     portfolioId: row.portfolio_id || '',
     chainId: row.chain_id || undefined, // Added missing chainId mapping
     createdAt: parseLocalDate(row.created_at),
@@ -90,6 +91,7 @@ function transactionToRow(transaction: Partial<OptionsTransaction>, userId: stri
     cash_reserve: transaction.cashReserve,
     margin_cash_reserve: transaction.marginCashReserve,
     cost_basis_per_share: transaction.costBasisPerShare,
+    collateral_amount: transaction.collateralAmount,
     chain_id: transaction.chainId, // Added missing chainId mapping
   };
 }

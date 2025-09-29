@@ -30,6 +30,7 @@ export default function AddTransactionModal({ onClose, onSave, portfolios = [], 
     fees: 0.66, // Default broker fee (0.66 per contract)
     status: 'Open' as 'Open' | 'Closed' | 'Expired' | 'Assigned',
     stockPriceCurrent: 0, // Default value since we removed from UI
+    collateralAmount: 0, // Manual collateral amount for covered calls
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -304,6 +305,29 @@ export default function AddTransactionModal({ onClose, onSave, portfolios = [], 
               </div>
             </div>
 
+            {/* Collateral Amount - Only show for covered calls */}
+            {formData.buyOrSell === 'Sell' && formData.callOrPut === 'Call' && (
+              <div className="space-y-2">
+                <Label htmlFor="collateralAmount">
+                  Collateral Amount ($)
+                  <span className="text-sm text-muted-foreground ml-2">
+                    (Optional - for accurate RoR calculation)
+                  </span>
+                </Label>
+                <Input
+                  id="collateralAmount"
+                  type="number"
+                  step="0.01"
+                  value={formData.collateralAmount || ''}
+                  onChange={(e) => handleChange('collateralAmount', parseFloat(e.target.value) || 0)}
+                  className="w-full"
+                  placeholder="Enter actual collateral deployed (e.g., LEAP cost for PMCC)"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Leave blank to use automatic calculation. For PMCC strategies, enter the cost of your LEAP option.
+                </p>
+              </div>
+            )}
 
             {/* Calculated Fields */}
             <div className="bg-muted p-3 rounded-md">

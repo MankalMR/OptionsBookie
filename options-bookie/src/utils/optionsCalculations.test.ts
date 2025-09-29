@@ -204,6 +204,36 @@ describe('optionsCalculations', () => {
       expect(result).toBe(350);
     });
 
+    it('should use manual collateral amount when specified', () => {
+      const transaction = createMockTransaction({
+        callOrPut: 'Call',
+        buyOrSell: 'Sell',
+        strikePrice: 150.00,
+        numberOfContracts: 2,
+        collateralAmount: 5000, // Manual override for PMCC
+      });
+
+      const result = calculateCollateral(transaction);
+
+      // Should use manual amount instead of calculated amount
+      expect(result).toBe(5000);
+    });
+
+    it('should fall back to calculated collateral when manual amount is zero', () => {
+      const transaction = createMockTransaction({
+        callOrPut: 'Call',
+        buyOrSell: 'Sell',
+        strikePrice: 150.00,
+        numberOfContracts: 2,
+        collateralAmount: 0, // Zero means use automatic calculation
+      });
+
+      const result = calculateCollateral(transaction);
+
+      // Should fall back to automatic calculation: 150 * 2 * 100 = 30,000
+      expect(result).toBe(30000);
+    });
+
     it('should use strike price for Covered Call collateral', () => {
       const transaction = createMockTransaction({
         callOrPut: 'Call',

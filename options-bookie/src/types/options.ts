@@ -32,6 +32,7 @@ export interface OptionsTransaction {
   annualizedROR?: number;
   status: 'Open' | 'Closed' | 'Expired' | 'Assigned' | 'Rolled';
   chainId?: string; // NEW: Link to trade chain
+  collateralAmount?: number; // Manual override for collateral amount (for accurate RoR in complex strategies)
   createdAt: Date;
   updatedAt: Date;
 }

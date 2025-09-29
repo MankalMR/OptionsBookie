@@ -147,13 +147,14 @@ export const calculateChainPnL = (chainId: string, transactions: OptionsTransact
 
 // Calculate collateral requirement for an options trade
 export const calculateCollateral = (transaction: OptionsTransaction): number => {
-  // For now, use a basic calculation - this can be enhanced based on strategy type
-  // Cash-secured put: strike * 100 * contracts
-  // Covered call: current stock value (approximated by strike for now)
-  // This will be replaced with more sophisticated logic based on strategy
+  // If manual collateral amount is specified, use it (for accurate RoR in complex strategies)
+  if (transaction.collateralAmount && transaction.collateralAmount > 0) {
+    return transaction.collateralAmount;
+  }
 
+  // Otherwise, use automatic calculation based on strategy type
   if (transaction.callOrPut === 'Put' && transaction.buyOrSell === 'Sell') {
-    // Cash-secured put
+    // Cash-secured put: strike * 100 * contracts
     return transaction.strikePrice * 100 * transaction.numberOfContracts;
   } else if (transaction.callOrPut === 'Call' && transaction.buyOrSell === 'Sell') {
     // Covered call (assuming stock is owned - approximate with strike value)

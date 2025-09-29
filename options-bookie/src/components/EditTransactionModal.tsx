@@ -43,6 +43,7 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
     status: transaction.status,
     exitPrice: transaction.exitPrice || 0,
     closeDate: closeDate ? dateToInputString(closeDate) : '',
+    collateralAmount: transaction.collateralAmount || 0, // Manual collateral amount
     // Roll fields
     newExpiryDate: '',
     newStrikePrice: transaction.strikePrice,
@@ -206,6 +207,7 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
       numberOfContracts: formData.numberOfContracts,
       fees: formData.fees,
       status: formData.status,
+      collateralAmount: formData.collateralAmount || undefined,
       breakEvenPrice,
       profitLoss,
       updatedAt: new Date(),
@@ -605,6 +607,30 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
                 />
               </div>
             </div>
+
+            {/* Collateral Amount - Only show for covered calls */}
+            {formData.buyOrSell === 'Sell' && formData.callOrPut === 'Call' && (
+              <div className="space-y-2">
+                <Label htmlFor="collateralAmount">
+                  Collateral Amount ($)
+                  <span className="text-sm text-muted-foreground ml-2">
+                    (Optional - for accurate RoR calculation)
+                  </span>
+                </Label>
+                <Input
+                  id="collateralAmount"
+                  type="number"
+                  step="0.01"
+                  value={formData.collateralAmount || ''}
+                  onChange={(e) => handleChange('collateralAmount', parseFloat(e.target.value) || 0)}
+                  className="w-full"
+                  placeholder="Enter actual collateral deployed (e.g., LEAP cost for PMCC)"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Leave blank to use automatic calculation. For PMCC strategies, enter the cost of your LEAP option.
+                </p>
+              </div>
+            )}
 
             {/* Exit Information - Only show when closing trade */}
             {formData.status === 'Closed' && (

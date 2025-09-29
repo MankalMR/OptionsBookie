@@ -35,6 +35,7 @@ function rowToTransaction(row: any): OptionsTransaction {
     cashReserve: row.cash_reserve ? parseFloat(row.cash_reserve) : undefined,
     marginCashReserve: row.margin_cash_reserve ? parseFloat(row.margin_cash_reserve) : undefined,
     costBasisPerShare: row.cost_basis_per_share ? parseFloat(row.cost_basis_per_share) : undefined,
+    collateralAmount: row.collateral_amount ? parseFloat(row.collateral_amount) : undefined,
     createdAt: new Date(row.created_at),
     updatedAt: new Date(row.updated_at),
   };
@@ -82,6 +83,7 @@ function transactionToRow(transaction: Partial<OptionsTransaction>, userId: stri
     cash_reserve: transaction.cashReserve,
     margin_cash_reserve: transaction.marginCashReserve,
     cost_basis_per_share: transaction.costBasisPerShare,
+    collateral_amount: transaction.collateralAmount,
   };
 }
 
