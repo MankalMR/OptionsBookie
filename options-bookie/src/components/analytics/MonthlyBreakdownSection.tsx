@@ -1,7 +1,11 @@
 'use client';
 
-import { formatPnLCurrency } from '@/utils/optionsCalculations';
+import React, { useState } from 'react';
+import { formatPnLCurrency, getRealizedTransactions } from '@/utils/optionsCalculations';
 import { ResponsiveContainer, ComposedChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend, Bar } from 'recharts';
+import { ChevronDown, ChevronRight, Plus, Minus } from 'lucide-react';
+import { OptionsTransaction } from '@/types/options';
+import MonthlyTradesTable from './MonthlyTradesTable';
 
 interface MonthlyData {
   month: number;
@@ -30,13 +34,36 @@ interface MonthlyBreakdownSectionProps {
   };
   chartData: ChartDataPoint[];
   getTopTickersForMonth: (year: number, month: number) => TopTickers | undefined;
+  transactions: OptionsTransaction[]; // Add transactions for drill-down
 }
 
 export default function MonthlyBreakdownSection({
   yearData,
   chartData,
-  getTopTickersForMonth
+  getTopTickersForMonth,
+  transactions
 }: MonthlyBreakdownSectionProps) {
+  const [expandedMonths, setExpandedMonths] = useState<Set<number>>(new Set());
+
+  const toggleMonth = (month: number) => {
+    const newExpanded = new Set(expandedMonths);
+    if (newExpanded.has(month)) {
+      newExpanded.delete(month);
+    } else {
+      newExpanded.add(month);
+    }
+    setExpandedMonths(newExpanded);
+  };
+
+  // Get transactions for a specific month
+  const getMonthTransactions = (month: number): OptionsTransaction[] => {
+    const realizedTransactions = getRealizedTransactions(transactions).filter(t => t.closeDate);
+
+    return realizedTransactions.filter(t => {
+      const closeDate = new Date(t.closeDate!);
+      return closeDate.getFullYear() === yearData.year && closeDate.getMonth() === month;
+    });
+  };
   const formatCurrency = formatPnLCurrency;
 
   return (
@@ -155,37 +182,72 @@ export default function MonthlyBreakdownSection({
               <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Fees</th>
             </tr>
           </thead>
-          <tbody className="bg-card divide-y divide-border">
+          <tbody className="bg-card">
             {yearData.monthlyBreakdown.map((month) => {
               const topTickers = getTopTickersForMonth(yearData.year, month.month);
+              const isExpanded = expandedMonths.has(month.month);
+              const monthTransactions = getMonthTransactions(month.month);
+              const hasTransactions = monthTransactions.length > 0;
+
               return (
-                <tr key={month.month}>
-                  <td className="px-4 py-2 text-sm font-medium text-card-foreground">{month.monthName}</td>
-                  <td className={`px-4 py-2 text-sm ${month.totalPnL >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
-                    {formatCurrency(month.totalPnL)}
-                  </td>
-                  <td className="px-4 py-2 text-sm text-card-foreground">{month.totalTrades}</td>
-                  <td className="px-4 py-2 text-sm text-card-foreground">{Math.round(month.winRate)}%</td>
-                  <td className="px-4 py-2 text-sm">
-                    {topTickers ? (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-emerald-100 dark:bg-emerald-950/30 text-emerald-800 dark:text-emerald-200">
-                        {topTickers.topByPnL.ticker} ({formatCurrency(topTickers.topByPnL.pnl)})
-                      </span>
-                    ) : (
-                      <span className="text-muted-foreground text-xs">-</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-2 text-sm">
-                    {topTickers ? (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-sky-100 dark:bg-sky-950/30 text-sky-800 dark:text-sky-200">
-                        {topTickers.topByRoR.ticker} ({topTickers.topByRoR.ror.toFixed(1)}%)
-                      </span>
-                    ) : (
-                      <span className="text-muted-foreground text-xs">-</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-2 text-sm text-card-foreground">{formatCurrency(month.fees)}</td>
-                </tr>
+                <React.Fragment key={month.month}>
+                  <tr className="divide-y divide-border hover:bg-muted/20 transition-colors">
+                    <td className="px-4 py-2 text-sm font-medium text-card-foreground">
+                      <div className="flex items-center gap-2">
+                        {hasTransactions && (
+                          <button
+                            onClick={() => toggleMonth(month.month)}
+                            className="p-0.5 hover:bg-muted rounded transition-colors"
+                            title={isExpanded ? 'Collapse trades' : 'Expand trades'}
+                          >
+                            {isExpanded ? (
+                              <Minus className="h-3 w-3 text-muted-foreground" />
+                            ) : (
+                              <Plus className="h-3 w-3 text-muted-foreground" />
+                            )}
+                          </button>
+                        )}
+                        <span>{month.monthName}</span>
+                      </div>
+                    </td>
+                    <td className={`px-4 py-2 text-sm ${month.totalPnL >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
+                      {formatCurrency(month.totalPnL)}
+                    </td>
+                    <td className="px-4 py-2 text-sm text-card-foreground">{month.totalTrades}</td>
+                    <td className="px-4 py-2 text-sm text-card-foreground">{Math.round(month.winRate)}%</td>
+                    <td className="px-4 py-2 text-sm">
+                      {topTickers ? (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-emerald-100 dark:bg-emerald-950/30 text-emerald-800 dark:text-emerald-200">
+                          {topTickers.topByPnL.ticker} ({formatCurrency(topTickers.topByPnL.pnl)})
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground text-xs">-</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-2 text-sm">
+                      {topTickers ? (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-sky-100 dark:bg-sky-950/30 text-sky-800 dark:text-sky-200">
+                          {topTickers.topByRoR.ticker} ({topTickers.topByRoR.ror.toFixed(1)}%)
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground text-xs">-</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-2 text-sm text-card-foreground">{formatCurrency(month.fees)}</td>
+                  </tr>
+
+                  {/* Expanded trades table */}
+                  {isExpanded && hasTransactions && (
+                    <tr>
+                      <td colSpan={7} className="p-0">
+                        <MonthlyTradesTable
+                          transactions={monthTransactions}
+                          monthName={month.monthName}
+                        />
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
               );
             })}
           </tbody>

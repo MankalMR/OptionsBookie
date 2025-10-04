@@ -1,4 +1,4 @@
-import { OptionsTransaction } from '@/types/options';
+import { OptionsTransaction, TradeChain } from '@/types/options';
 
 export const calculateProfitLoss = (transaction: OptionsTransaction, exitPrice?: number): number => {
   // Universal P&L calculation: always deduct fees for consistency
@@ -37,7 +37,7 @@ export const calculateProfitLoss = (transaction: OptionsTransaction, exitPrice?:
 };
 
 // Calculate P&L for a new trade (when opening)
-export const calculateNewTradeProfitLoss = (transaction: Omit<OptionsTransaction, 'id' | 'createdAt' | 'updatedAt'>): number => {
+export const calculateNewTradeProfitLoss = (_transaction: Omit<OptionsTransaction, 'id' | 'createdAt' | 'updatedAt'>): number => {
   // For new trades, P&L is initially 0 since no exit has occurred yet
   // The premium is the cost/revenue, but P&L is realized only when closed
   return 0;
@@ -58,7 +58,6 @@ export const calculateAnnualizedROR = (transaction: OptionsTransaction): number 
 
 export const updateTransactionPandL = (transaction: OptionsTransaction, currentStockPrice?: number): OptionsTransaction => {
   const profitLoss = calculateProfitLoss(transaction, currentStockPrice);
-  const daysHeld = calculateDaysHeld(transaction.tradeOpenDate, transaction.closeDate);
   const annualizedROR = calculateAnnualizedROR({ ...transaction, profitLoss });
 
   return {
@@ -91,7 +90,7 @@ export const isTradeExpired = (expiryDate: Date | string): boolean => {
   return today > expiryWithMarketClose;
 };
 
-export const shouldUpdateTradeStatus = (transaction: any): boolean => {
+export const shouldUpdateTradeStatus = (transaction: OptionsTransaction): boolean => {
   // Only update if trade is currently open and has expired
   return transaction.status === 'Open' && isTradeExpired(transaction.expiryDate);
 };
@@ -272,7 +271,7 @@ export const calculateStrategyPerformance = (transactions: OptionsTransaction[])
   });
 
   // Calculate metrics for each strategy
-  strategies.forEach((strategy, strategyType) => {
+  strategies.forEach((strategy, _strategyType) => {
     const { trades } = strategy;
 
     // Only include realized trades for most metrics
@@ -456,10 +455,12 @@ export const calculateTop5TickersYearlyPerformance = (transactions: OptionsTrans
     .map(([ticker]) => ticker);
 
   // Group by year for top 5 tickers
-  const yearlyData = new Map<string, {
+  interface YearlyTickerData {
     year: string;
-    [key: string]: any; // Will contain ticker_pnl and ticker_ror keys
-  }>();
+    [key: string]: string | number; // Will contain ticker_pnl and ticker_ror keys
+  }
+
+  const yearlyData = new Map<string, YearlyTickerData>();
 
   realizedTransactions
     .filter(transaction => top5Tickers.includes(transaction.stockSymbol))
@@ -483,9 +484,9 @@ export const calculateTop5TickersYearlyPerformance = (transactions: OptionsTrans
         yearData[`${ticker}_collateral`] = 0;
       }
 
-      yearData[`${ticker}_pnl`] += transaction.profitLoss || 0;
-      yearData[`${ticker}_trades`] += 1;
-      yearData[`${ticker}_collateral`] += calculateCollateral(transaction);
+      (yearData[`${ticker}_pnl`] as number) += transaction.profitLoss || 0;
+      (yearData[`${ticker}_trades`] as number) += 1;
+      (yearData[`${ticker}_collateral`] as number) += calculateCollateral(transaction);
     });
 
   // Calculate RoR and format data
@@ -495,16 +496,19 @@ export const calculateTop5TickersYearlyPerformance = (transactions: OptionsTrans
 
       // Calculate RoR for each ticker
       top5Tickers.forEach(ticker => {
-        if (result[`${ticker}_collateral`] > 0) {
+        const collateral = result[`${ticker}_collateral`] as number;
+        const pnl = result[`${ticker}_pnl`] as number;
+
+        if (collateral > 0) {
           result[`${ticker}_ror`] = Number(
-            ((result[`${ticker}_pnl`] || 0) / result[`${ticker}_collateral`] * 100).toFixed(1)
+            ((pnl || 0) / collateral * 100).toFixed(1)
           );
         } else {
           result[`${ticker}_ror`] = 0;
         }
 
         // Round P&L values
-        result[`${ticker}_pnl`] = Math.round(result[`${ticker}_pnl`] || 0);
+        result[`${ticker}_pnl`] = Math.round(pnl || 0);
       });
 
       return result;
@@ -520,7 +524,7 @@ export const calculateTop5TickersYearlyPerformance = (transactions: OptionsTrans
   };
 };
 
-export const calculateUnrealizedPnL = (transactions: any[], chains: any[] = []): number => {
+export const calculateUnrealizedPnL = (transactions: OptionsTransaction[], chains: TradeChain[] = []): number => {
   // Group transactions by chain
   const chainMap = new Map();
   chains.forEach(chain => {

@@ -345,6 +345,7 @@ export default function SummaryView({ transactions }: SummaryViewProps) {
         getChartDataForYear={getChartDataForYear}
         getTop5TickersForYear={getTop5TickersForYear}
         getTopTickersForMonth={getTopTickersForMonth}
+        transactions={transactions}
       />
     </div>
   );

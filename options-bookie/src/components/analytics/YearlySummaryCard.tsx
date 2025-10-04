@@ -1,6 +1,7 @@
 'use client';
 
 import { formatPnLCurrency } from '@/utils/optionsCalculations';
+import { OptionsTransaction } from '@/types/options';
 import MonthlyBreakdownSection from './MonthlyBreakdownSection';
 import Top5TickersSection from './Top5TickersSection';
 
@@ -47,6 +48,7 @@ interface YearlySummaryCardProps {
   chartData: ChartDataPoint[];
   yearTop5Tickers: TickerData[];
   getTopTickersForMonth: (year: number, month: number) => TopTickers | undefined;
+  transactions: OptionsTransaction[];
 }
 
 export default function YearlySummaryCard({
@@ -55,7 +57,8 @@ export default function YearlySummaryCard({
   onToggleYear,
   chartData,
   yearTop5Tickers,
-  getTopTickersForMonth
+  getTopTickersForMonth,
+  transactions
 }: YearlySummaryCardProps) {
   const formatCurrency = formatPnLCurrency;
 
@@ -113,6 +116,7 @@ export default function YearlySummaryCard({
             yearData={yearData}
             chartData={chartData}
             getTopTickersForMonth={getTopTickersForMonth}
+            transactions={transactions}
           />
 
           <Top5TickersSection yearTop5Tickers={yearTop5Tickers} />
