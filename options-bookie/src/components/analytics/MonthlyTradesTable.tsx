@@ -1,6 +1,7 @@
 import React from 'react';
 import { OptionsTransaction } from '@/types/options';
 import { calculateRoR, calculateDaysHeld, calculateCollateral, formatPnLCurrency } from '@/utils/optionsCalculations';
+import { parseLocalDate } from '@/utils/dateUtils';
 
 interface MonthlyTradesTableProps {
   transactions: OptionsTransaction[];
@@ -12,8 +13,8 @@ export default function MonthlyTradesTable({ transactions, monthName }: MonthlyT
 
   // Sort transactions by close date (most recent first)
   const sortedTransactions = [...transactions].sort((a, b) => {
-    const dateA = new Date(a.closeDate!).getTime();
-    const dateB = new Date(b.closeDate!).getTime();
+    const dateA = parseLocalDate(a.closeDate!).getTime();
+    const dateB = parseLocalDate(b.closeDate!).getTime();
     return dateB - dateA;
   });
 
@@ -57,13 +58,13 @@ export default function MonthlyTradesTable({ transactions, monthName }: MonthlyT
                     </span>
                   </td>
                   <td className="py-2 px-3 text-muted-foreground">
-                    {new Date(transaction.tradeOpenDate).toLocaleDateString('en-US', {
+                    {parseLocalDate(transaction.tradeOpenDate).toLocaleDateString('en-US', {
                       month: 'short',
                       day: 'numeric'
                     })}
                   </td>
                   <td className="py-2 px-3 text-muted-foreground">
-                    {new Date(transaction.closeDate!).toLocaleDateString('en-US', {
+                    {parseLocalDate(transaction.closeDate!).toLocaleDateString('en-US', {
                       month: 'short',
                       day: 'numeric'
                     })}

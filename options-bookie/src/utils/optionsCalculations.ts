@@ -1,4 +1,5 @@
 import { OptionsTransaction, TradeChain } from '@/types/options';
+import { parseLocalDate } from '@/utils/dateUtils';
 
 export const calculateProfitLoss = (transaction: OptionsTransaction, exitPrice?: number): number => {
   // Universal P&L calculation: always deduct fees for consistency
@@ -331,7 +332,7 @@ export const calculateMonthlyChartData = (transactions: OptionsTransaction[]) =>
   realizedTransactions.forEach(transaction => {
     if (!transaction.closeDate) return;
 
-    const closeDate = new Date(transaction.closeDate);
+    const closeDate = parseLocalDate(transaction.closeDate);
     const monthKey = `${closeDate.getFullYear()}-${String(closeDate.getMonth() + 1).padStart(2, '0')}`;
     const monthLabel = closeDate.toLocaleDateString('en-US', { year: 'numeric', month: 'short' });
 
@@ -378,7 +379,7 @@ export const calculateMonthlyTopTickers = (transactions: OptionsTransaction[]) =
   realizedTransactions.forEach(transaction => {
     if (!transaction.closeDate) return;
 
-    const closeDate = new Date(transaction.closeDate);
+    const closeDate = parseLocalDate(transaction.closeDate);
     const monthKey = `${closeDate.getFullYear()}-${String(closeDate.getMonth() + 1).padStart(2, '0')}`;
     const ticker = transaction.stockSymbol;
 
@@ -467,7 +468,7 @@ export const calculateTop5TickersYearlyPerformance = (transactions: OptionsTrans
     .forEach(transaction => {
       if (!transaction.closeDate) return;
 
-      const closeDate = new Date(transaction.closeDate);
+      const closeDate = parseLocalDate(transaction.closeDate);
       const year = closeDate.getFullYear().toString();
       const ticker = transaction.stockSymbol;
 
@@ -571,8 +572,8 @@ export const calculateUnrealizedPnL = (transactions: OptionsTransaction[], chain
  */
 export const calculateDaysHeld = (openDate: string | Date, closeDate?: string | Date): number => {
   try {
-    const opened = new Date(openDate);
-    const closed = closeDate ? new Date(closeDate) : new Date();
+    const opened = parseLocalDate(openDate);
+    const closed = closeDate ? parseLocalDate(closeDate) : new Date();
 
     // Set time to start of day for accurate day calculation
     opened.setHours(0, 0, 0, 0);

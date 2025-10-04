@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { OptionsTransaction } from '@/types/options';
+import { parseLocalDate } from '@/utils/dateUtils';
 
 // Environment variables validation
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -17,19 +18,6 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey);
 const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
 // Helper function to convert Supabase row to OptionsTransaction
-// Helper function to parse date strings correctly as local dates
-function parseLocalDate(dateString: string | Date): Date {
-  if (dateString instanceof Date) return dateString;
-  if (typeof dateString === 'string') {
-    // Handle ISO date strings (YYYY-MM-DDTHH:mm:ss.sssZ) - extract just the date part
-    const isoDateMatch = dateString.match(/^(\d{4}-\d{2}-\d{2})/);
-    if (isoDateMatch) {
-      const [year, month, day] = isoDateMatch[1].split('-').map(Number);
-      return new Date(year, month - 1, day); // month is 0-indexed
-    }
-  }
-  return new Date(dateString);
-}
 
 function rowToTransaction(row: any): OptionsTransaction {
   return {

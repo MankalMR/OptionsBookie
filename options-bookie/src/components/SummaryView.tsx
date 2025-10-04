@@ -10,6 +10,7 @@ import {
   calculateMonthlyTopTickers,
   calculateCollateral
 } from '@/utils/optionsCalculations';
+import { parseLocalDate } from '@/utils/dateUtils';
 
 // Import our new modular components
 import QuickStatsCard from './analytics/QuickStatsCard';
@@ -49,11 +50,12 @@ export default function SummaryView({ transactions }: SummaryViewProps) {
       t.closeDate
     );
 
+
     const yearlyData: Record<number, YearlySummary> = {};
 
     completedTransactions.forEach(transaction => {
       const closeDate = transaction.closeDate
-        ? new Date(transaction.closeDate)
+        ? parseLocalDate(transaction.closeDate)
         : new Date();
       const year = closeDate.getFullYear();
 
@@ -101,11 +103,11 @@ export default function SummaryView({ transactions }: SummaryViewProps) {
 
       completedTransactions
         .filter(t => {
-          const closeDate = new Date(t.closeDate!);
+          const closeDate = parseLocalDate(t.closeDate!);
           return closeDate.getFullYear() === yearData.year;
         })
         .forEach(transaction => {
-          const closeDate = new Date(transaction.closeDate!);
+          const closeDate = parseLocalDate(transaction.closeDate!);
           const month = closeDate.getMonth();
 
           if (!monthlyData[month]) {
@@ -130,7 +132,7 @@ export default function SummaryView({ transactions }: SummaryViewProps) {
       // Calculate win rates for each month
       yearData.monthlyBreakdown.forEach(monthData => {
         const monthTransactions = completedTransactions.filter(t => {
-          const closeDate = new Date(t.closeDate!);
+          const closeDate = parseLocalDate(t.closeDate!);
           return closeDate.getFullYear() === yearData.year && closeDate.getMonth() === monthData.month;
         });
         const winningTrades = monthTransactions.filter(t => (t.profitLoss || 0) > 0).length;
@@ -204,7 +206,7 @@ export default function SummaryView({ transactions }: SummaryViewProps) {
       // Calculate RoR for this month by getting all transactions for this month
       const monthTransactions = getRealizedTransactions(transactions).filter(t => {
         if (!t.closeDate) return false;
-        const closeDate = new Date(t.closeDate);
+        const closeDate = parseLocalDate(t.closeDate);
         return closeDate.getFullYear() === year && closeDate.getMonth() === month.month;
       });
 
@@ -222,7 +224,7 @@ export default function SummaryView({ transactions }: SummaryViewProps) {
   const getTop5TickersForYear = (year: number) => {
     const realizedTransactions = getRealizedTransactions(transactions).filter(t => {
       if (!t.closeDate) return false;
-      const closeDate = new Date(t.closeDate);
+      const closeDate = parseLocalDate(t.closeDate);
       return closeDate.getFullYear() === year;
     });
 

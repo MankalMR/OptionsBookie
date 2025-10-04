@@ -6,6 +6,7 @@ import { ResponsiveContainer, ComposedChart, CartesianGrid, XAxis, YAxis, Toolti
 import { ChevronDown, ChevronRight, Plus, Minus } from 'lucide-react';
 import { OptionsTransaction } from '@/types/options';
 import MonthlyTradesTable from './MonthlyTradesTable';
+import { parseLocalDate } from '@/utils/dateUtils';
 
 interface MonthlyData {
   month: number;
@@ -59,10 +60,13 @@ export default function MonthlyBreakdownSection({
   const getMonthTransactions = (month: number): OptionsTransaction[] => {
     const realizedTransactions = getRealizedTransactions(transactions).filter(t => t.closeDate);
 
-    return realizedTransactions.filter(t => {
-      const closeDate = new Date(t.closeDate!);
+    const monthTransactions = realizedTransactions.filter(t => {
+      const closeDate = parseLocalDate(t.closeDate!);
       return closeDate.getFullYear() === yearData.year && closeDate.getMonth() === month;
     });
+
+
+    return monthTransactions;
   };
   const formatCurrency = formatPnLCurrency;
 

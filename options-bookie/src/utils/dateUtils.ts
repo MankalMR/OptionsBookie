@@ -26,9 +26,9 @@ export function dateToInputString(date: Date): string {
   return date.toISOString().split('T')[0];
 }
 
-
 /**
  * Parses a date string (YYYY-MM-DD) as a local date without timezone shifts
+ * Enhanced to handle edge cases while preserving the original working logic
  */
 export function parseLocalDate(dateString: string | Date): Date {
   if (dateString instanceof Date) return dateString;
@@ -39,6 +39,12 @@ export function parseLocalDate(dateString: string | Date): Date {
     if (isoDateMatch) {
       const [year, month, day] = isoDateMatch[1].split('-').map(Number);
       return new Date(year, month - 1, day); // month is 0-indexed
+    }
+
+    // Handle simple date strings (YYYY-MM-DD) explicitly to avoid timezone issues
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+      const [year, month, day] = dateString.split('-').map(Number);
+      return new Date(year, month - 1, day);
     }
   }
 
@@ -96,4 +102,32 @@ export function formatDisplayDateShort(date: Date | string): { monthDay: string;
     console.error('Error formatting date:', error, 'Input:', date);
     return { monthDay: 'Invalid', year: 'Date' };
   }
+}
+
+/**
+ * Format a date as YYYY-MM-DD string for database storage
+ *
+ * @param date - Date to format
+ * @returns Date string in YYYY-MM-DD format
+ */
+export function formatDateForStorage(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+/**
+ * Check if two dates are the same day (ignoring time)
+ *
+ * @param date1 - First date
+ * @param date2 - Second date
+ * @returns True if dates are on the same day
+ */
+export function isSameDay(date1: Date, date2: Date): boolean {
+  return (
+    date1.getFullYear() === date2.getFullYear() &&
+    date1.getMonth() === date2.getMonth() &&
+    date1.getDate() === date2.getDate()
+  );
 }

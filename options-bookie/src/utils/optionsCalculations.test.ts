@@ -363,6 +363,39 @@ describe('optionsCalculations', () => {
 
       expect(result).toBe(0);
     });
+
+    it('should handle timezone edge cases consistently', () => {
+      // Test different date formats that should represent the same logical dates
+      const openDate = '2025-10-01';
+      const closeDateFormats = [
+        '2025-10-03',                    // Simple date string
+        '2025-10-03T00:00:00.000Z',     // UTC midnight
+        '2025-10-03T12:00:00.000Z',     // UTC noon
+        '2025-10-03T23:59:59.999Z',     // UTC almost midnight next day
+      ];
+
+      // All should calculate the same number of days (2 days: Oct 1 -> Oct 3)
+      closeDateFormats.forEach(closeDate => {
+        const result = calculateDaysHeld(openDate, closeDate);
+        expect(result).toBe(2);
+      });
+    });
+
+    it('should handle production vs local date format differences', () => {
+      // Simulate the ONDS trade scenario: Sep 25 -> Oct 3
+      const openDate = '2025-09-25';
+
+      // Different ways the close date might be stored/retrieved
+      const localFormat = '2025-10-03';           // SQLite might return this
+      const productionFormat = '2025-10-03T00:00:00.000Z'; // Supabase might return this
+
+      const localResult = calculateDaysHeld(openDate, localFormat);
+      const prodResult = calculateDaysHeld(openDate, productionFormat);
+
+      // Both should calculate the same number of days
+      expect(localResult).toBe(prodResult);
+      expect(localResult).toBe(8); // Sep 25 to Oct 3 = 8 days
+    });
   });
 
   describe('formatPnLCurrency', () => {
@@ -1266,6 +1299,50 @@ describe('optionsCalculations', () => {
       expect(result[0].pnl).toBe(300); // 100 + 200
       expect(result[1].month).toBe('Feb 2025');
       expect(result[1].pnl).toBe(150);
+    });
+
+    it('should handle timezone edge cases correctly', () => {
+      // Test dates that could be problematic in different timezones
+      const transactions = [
+        createMockTransaction({
+          stockSymbol: 'ONDS',
+          status: 'Expired',
+          closeDate: '2025-10-03',  // Simple date string
+          profitLoss: 16
+        }),
+        createMockTransaction({
+          stockSymbol: 'TEST1',
+          status: 'Closed',
+          closeDate: '2025-10-03T00:00:00.000Z',  // UTC midnight (could be Oct 2 in some timezones)
+          profitLoss: 25
+        }),
+        createMockTransaction({
+          stockSymbol: 'TEST2',
+          status: 'Closed',
+          closeDate: '2025-10-03T23:59:59.999Z',  // UTC almost midnight next day
+          profitLoss: 30
+        }),
+        createMockTransaction({
+          stockSymbol: 'TEST3',
+          status: 'Closed',
+          closeDate: '2025-11-01T00:00:00.000Z',  // Different month boundary
+          profitLoss: 40
+        })
+      ];
+
+      const result = calculateMonthlyChartData(transactions);
+
+      // All October trades should be grouped together regardless of timezone
+      const octoberData = result.find(month => month.month.includes('Oct'));
+      const novemberData = result.find(month => month.month.includes('Nov'));
+
+      expect(octoberData).toBeDefined();
+      expect(octoberData!.trades).toBe(3); // ONDS, TEST1, TEST2 should all be in October
+      expect(octoberData!.pnl).toBe(71); // 16 + 25 + 30
+
+      expect(novemberData).toBeDefined();
+      expect(novemberData!.trades).toBe(1); // Only TEST3 should be in November
+      expect(novemberData!.pnl).toBe(40);
     });
   });
 

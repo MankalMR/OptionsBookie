@@ -143,6 +143,69 @@ describe('dateUtils', () => {
 
       expect(backToString).toBe(originalDate);
     });
+
+    it('should handle timezone boundary edge cases correctly', () => {
+      // Test dates that could be problematic in different timezones
+      const edgeCaseDates = [
+        '2025-10-01',                    // Simple date string
+        '2025-10-01T00:00:00.000Z',     // UTC midnight (could be Sep 30 in some timezones)
+        '2025-10-01T04:00:00.000Z',     // UTC 4 AM (could be Sep 30 in US timezones)
+        '2025-10-01T12:00:00.000Z',     // UTC noon
+        '2025-10-01T23:59:59.999Z',     // UTC almost midnight next day
+      ];
+
+      edgeCaseDates.forEach(dateStr => {
+        const parsed = parseLocalDate(dateStr);
+
+        // All should parse to October 1st regardless of timezone
+        expect(parsed.getFullYear()).toBe(2025);
+        expect(parsed.getMonth()).toBe(9); // October (0-indexed)
+        expect(parsed.getDate()).toBe(1);
+
+        // Should not be affected by timezone shifts that native Date() has
+        const nativeDate = new Date(dateStr);
+        if (nativeDate.getDate() !== parsed.getDate()) {
+          // This confirms our parseLocalDate is fixing timezone issues
+          console.log(`Fixed timezone issue for ${dateStr}: native=${nativeDate.getDate()}, parsed=${parsed.getDate()}`);
+        }
+      });
+    });
+
+    it('should consistently parse dates across different formats', () => {
+      // All these should represent the same logical date
+      const sameDateFormats = [
+        '2025-12-25',
+        '2025-12-25T00:00:00.000Z',
+        '2025-12-25T12:00:00.000Z',
+        '2025-12-25T23:59:59.999Z',
+      ];
+
+      const parsedDates = sameDateFormats.map(parseLocalDate);
+
+      // All should have the same year, month, and date
+      parsedDates.forEach(date => {
+        expect(date.getFullYear()).toBe(2025);
+        expect(date.getMonth()).toBe(11); // December (0-indexed)
+        expect(date.getDate()).toBe(25);
+      });
+    });
+
+    it('should handle production vs local database date formats', () => {
+      // Simulate different formats that might come from SQLite vs Supabase
+      const productionFormat = '2025-10-01T00:00:00.000Z'; // Supabase might return this
+      const localFormat = '2025-10-01'; // SQLite might return this
+
+      const prodParsed = parseLocalDate(productionFormat);
+      const localParsed = parseLocalDate(localFormat);
+
+      // Both should result in the same logical date
+      expect(prodParsed.getFullYear()).toBe(localParsed.getFullYear());
+      expect(prodParsed.getMonth()).toBe(localParsed.getMonth());
+      expect(prodParsed.getDate()).toBe(localParsed.getDate());
+
+      // Both should format to the same string
+      expect(dateToLocalString(prodParsed)).toBe(dateToLocalString(localParsed));
+    });
   });
 
   describe('Options trading specific scenarios', () => {

@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react';
 import { OptionsTransaction, Portfolio } from '@/types/options';
 import { calculateProfitLoss, calculateDaysHeld } from '@/utils/optionsCalculations';
-import { dateToLocalString, dateToInputString } from '@/utils/dateUtils';
+import { dateToLocalString, dateToInputString, parseLocalDate } from '@/utils/dateUtils';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -21,12 +21,12 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
   // Ensure dates are Date objects
   const tradeOpenDate = transaction.tradeOpenDate instanceof Date
     ? transaction.tradeOpenDate
-    : new Date(transaction.tradeOpenDate);
+    : parseLocalDate(transaction.tradeOpenDate);
   const expiryDate = transaction.expiryDate instanceof Date
     ? transaction.expiryDate
-    : new Date(transaction.expiryDate);
+    : parseLocalDate(transaction.expiryDate);
   const closeDate = transaction.closeDate
-    ? (transaction.closeDate instanceof Date ? transaction.closeDate : new Date(transaction.closeDate))
+    ? (transaction.closeDate instanceof Date ? transaction.closeDate : parseLocalDate(transaction.closeDate))
     : undefined;
 
   const [formData, setFormData] = useState({
@@ -198,8 +198,8 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
     const updates: Partial<OptionsTransaction> = {
       portfolioId: formData.portfolioId,
       stockSymbol: formData.stockSymbol,
-      tradeOpenDate: new Date(formData.tradeOpenDate),
-      expiryDate: new Date(formData.expiryDate),
+      tradeOpenDate: parseLocalDate(formData.tradeOpenDate),
+      expiryDate: parseLocalDate(formData.expiryDate),
       callOrPut: formData.callOrPut,
       buyOrSell: formData.buyOrSell,
       strikePrice: formData.strikePrice,
@@ -215,7 +215,7 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
 
     if (formData.status === 'Closed') {
       updates.exitPrice = formData.exitPrice;
-      updates.closeDate = new Date(formData.closeDate);
+      updates.closeDate = parseLocalDate(formData.closeDate);
       // Calculate days held dynamically for annualized ROR
       const daysHeld = Math.max(1, Math.floor((new Date().getTime() - new Date(formData.tradeOpenDate).getTime()) / (1000 * 60 * 60 * 24)));
       updates.annualizedROR = daysHeld > 0 && profitLoss !== 0 ?

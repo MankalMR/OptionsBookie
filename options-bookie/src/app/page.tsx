@@ -14,6 +14,7 @@ import { useIsMobile } from '@/hooks/useMediaQuery';
 import PortfolioSelector from '@/components/PortfolioSelector';
 import PortfolioModal from '@/components/PortfolioModal';
 import { useTransactions } from '@/hooks/useTransactions';
+import { parseLocalDate } from '@/utils/dateUtils';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import AuthButton from '@/components/AuthButton';
 import { Button } from '@/components/ui/button';
@@ -213,7 +214,7 @@ export default function Home() {
 
             await updateTransaction(trade.id, {
               status: 'Expired',
-              closeDate: new Date(),
+              closeDate: parseLocalDate(trade.expiryDate), // Use expiry date as close date with proper timezone handling
               profitLoss: finalProfitLoss
             });
 
