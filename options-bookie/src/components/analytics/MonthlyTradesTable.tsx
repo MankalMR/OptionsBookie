@@ -125,17 +125,26 @@ export default function MonthlyTradesTable({ transactions, monthName }: MonthlyT
             </span>
           </span>
           <span className="text-muted-foreground">
+            Capital Deployed: <span className="font-medium text-card-foreground">
+              {formatCurrency(transactions.reduce((sum, t) => sum + calculateCollateral(t), 0))}
+            </span>
+          </span>
+          <span className="text-muted-foreground">
             Avg RoR: <span className={`font-medium ${
               (() => {
-                const rorValues = transactions.map(t => calculateRoR(t)).filter(ror => isFinite(ror));
-                const avgRoR = rorValues.length > 0 ? rorValues.reduce((sum, ror) => sum + ror, 0) / rorValues.length : 0;
-                return avgRoR >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400';
+                // Use Portfolio RoR calculation (same as chart) for consistency
+                const totalPnL = transactions.reduce((sum, t) => sum + (t.profitLoss || 0), 0);
+                const totalCollateral = transactions.reduce((sum, t) => sum + calculateCollateral(t), 0);
+                const portfolioRoR = totalCollateral > 0 ? (totalPnL / totalCollateral * 100) : 0;
+                return portfolioRoR >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400';
               })()
             }`}>
               {(() => {
-                const rorValues = transactions.map(t => calculateRoR(t)).filter(ror => isFinite(ror));
-                const avgRoR = rorValues.length > 0 ? rorValues.reduce((sum, ror) => sum + ror, 0) / rorValues.length : 0;
-                return isFinite(avgRoR) ? `${avgRoR.toFixed(1)}%` : '-';
+                // Use Portfolio RoR calculation (same as chart) for consistency
+                const totalPnL = transactions.reduce((sum, t) => sum + (t.profitLoss || 0), 0);
+                const totalCollateral = transactions.reduce((sum, t) => sum + calculateCollateral(t), 0);
+                const portfolioRoR = totalCollateral > 0 ? (totalPnL / totalCollateral * 100) : 0;
+                return isFinite(portfolioRoR) ? `${portfolioRoR.toFixed(1)}%` : '-';
               })()}
             </span>
           </span>

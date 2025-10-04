@@ -357,7 +357,8 @@ export const calculateMonthlyChartData = (transactions: OptionsTransaction[]) =>
       month: data.month,
       pnl: Math.round(data.pnl),
       ror: data.totalCollateral > 0 ? Number((data.pnl / data.totalCollateral * 100).toFixed(1)) : 0,
-      trades: data.trades.length
+      trades: data.trades.length,
+      totalCollateral: Math.round(data.totalCollateral)
     }))
     .sort((a, b) => new Date(a.month).getTime() - new Date(b.month).getTime());
 
