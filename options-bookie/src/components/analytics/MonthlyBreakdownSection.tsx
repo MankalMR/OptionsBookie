@@ -195,7 +195,7 @@ export default function MonthlyBreakdownSection({
 
               return (
                 <React.Fragment key={month.month}>
-                  <tr className="divide-y divide-border hover:bg-muted/20 transition-colors">
+                  <tr className="border-b border-border hover:bg-muted/20 transition-colors">
                     <td className="px-4 py-2 text-sm font-medium text-card-foreground">
                       <div className="flex items-center gap-2">
                         {hasTransactions && (
