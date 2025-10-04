@@ -242,13 +242,11 @@ export default function TransactionTable({
                 <span className={compact ? "text-xs" : ""}>Expires</span>
               </TableHead>
             )}
-            {!isMobile && (
-              <TableHead className={`hidden md:table-cell ${compact ? "px-2 py-1" : ""}`}>
-                <Tooltip content="Days to Expiry for open trades, Close date for finished trades">
-                  <span className={compact ? "text-xs" : ""}>DTE</span>
-                </Tooltip>
-              </TableHead>
-            )}
+            <TableHead className={`${compact ? "px-2 py-1" : ""}`}>
+              <Tooltip content="Days to Expiry for open trades, Close date for finished trades">
+                <span className={compact ? "text-xs" : ""}>DTE</span>
+              </Tooltip>
+            </TableHead>
             {!isMobile && (
               <TableHead className={`hidden lg:table-cell ${compact ? "px-2 py-1" : ""}`}>
                 <Tooltip content="Days Held">
@@ -372,7 +370,7 @@ export default function TransactionTable({
                   {!isMobile && showPortfolioColumn && <TableCell></TableCell>}
                   {!isMobile && <TableCell></TableCell>}
                   {!isMobile && <TableCell className="hidden lg:table-cell"></TableCell>}
-                  {!isMobile && <TableCell className="hidden md:table-cell"></TableCell>}
+                  <TableCell></TableCell>
                   {!isMobile && <TableCell className="hidden lg:table-cell"></TableCell>}
                   {!isMobile && <TableCell></TableCell>}
                   {!isMobile && pricesAvailable && <TableCell className="hidden xl:table-cell"></TableCell>}
@@ -503,37 +501,35 @@ export default function TransactionTable({
                           {formatDate(transaction.expiryDate)}
                         </TableCell>
                       )}
-                      {!isMobile && (
-                        <TableCell className="hidden md:table-cell">
-                          <div className="flex flex-col items-start">
-                            {transaction.status === 'Open' ? (
-                              <span className={`font-medium ${
-                                calculateDTE(transaction.expiryDate) <= 7
-                                  ? 'text-red-600 bg-red-50 px-2 py-1 rounded'
-                                  : calculateDTE(transaction.expiryDate) <= 30
-                                  ? 'text-orange-600 bg-orange-50 px-2 py-1 rounded'
-                                  : 'text-muted-foreground'
-                              }`}>
-                                {calculateDTE(transaction.expiryDate)}
-                              </span>
-                            ) : (
-                              <div className="text-muted-foreground text-sm">
-                                {transaction.status === 'Expired'
-                                  ? formatDate(transaction.expiryDate)
-                                  : transaction.closeDate
-                                    ? formatDate(transaction.closeDate)
-                                    : <span className="text-muted-foreground">-</span>
-                                }
-                              </div>
-                            )}
-                            {isLEAP(transaction) && (
-                              <Badge variant="secondary" className="text-[10px] bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 mt-1">
-                                LEAP
-                              </Badge>
-                            )}
-                          </div>
-                        </TableCell>
-                      )}
+                      <TableCell>
+                        <div className="flex flex-col items-start">
+                          {transaction.status === 'Open' ? (
+                            <span className={`font-medium ${
+                              calculateDTE(transaction.expiryDate) <= 7
+                                ? 'text-red-600 bg-red-50 px-2 py-1 rounded'
+                                : calculateDTE(transaction.expiryDate) <= 30
+                                ? 'text-orange-600 bg-orange-50 px-2 py-1 rounded'
+                                : 'text-muted-foreground'
+                            }`}>
+                              {calculateDTE(transaction.expiryDate)}
+                            </span>
+                          ) : (
+                            <div className="text-muted-foreground text-sm">
+                              {transaction.status === 'Expired'
+                                ? formatDate(transaction.expiryDate)
+                                : transaction.closeDate
+                                  ? formatDate(transaction.closeDate)
+                                  : <span className="text-muted-foreground">-</span>
+                              }
+                            </div>
+                          )}
+                          {isLEAP(transaction) && (
+                            <Badge variant="secondary" className="text-[10px] bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 mt-1">
+                              LEAP
+                            </Badge>
+                          )}
+                        </div>
+                      </TableCell>
                       {!isMobile && (
                         <TableCell className="hidden lg:table-cell">{calculateDH(transaction.tradeOpenDate, transaction.closeDate)}</TableCell>
                       )}
@@ -724,37 +720,35 @@ export default function TransactionTable({
                   {formatDate(transaction.expiryDate)}
                 </TableCell>
               )}
-              {!isMobile && (
-                <TableCell className="hidden md:table-cell">
-                  <div className="flex flex-col items-start">
-                    {transaction.status === 'Open' ? (
-                      <span className={`font-medium ${
-                        calculateDTE(transaction.expiryDate) <= 7
-                          ? 'text-red-600 bg-red-50 px-2 py-1 rounded'
-                          : calculateDTE(transaction.expiryDate) <= 30
-                          ? 'text-orange-600 bg-orange-50 px-2 py-1 rounded'
-                          : 'text-muted-foreground'
-                      }`}>
-                        {calculateDTE(transaction.expiryDate)}
-                      </span>
-                    ) : (
-                      <div className="text-muted-foreground text-sm">
-                        {transaction.status === 'Expired'
-                          ? formatDate(transaction.expiryDate)
-                          : transaction.closeDate
-                            ? formatDate(transaction.closeDate)
-                            : <span className="text-muted-foreground">-</span>
-                        }
-                      </div>
-                    )}
-                    {isLEAP(transaction) && (
-                      <Badge variant="secondary" className="text-[10px] bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 mt-1">
-                        LEAP
-                      </Badge>
-                    )}
-                  </div>
-                </TableCell>
-              )}
+              <TableCell>
+                <div className="flex flex-col items-start">
+                  {transaction.status === 'Open' ? (
+                    <span className={`font-medium ${
+                      calculateDTE(transaction.expiryDate) <= 7
+                        ? 'text-red-600 bg-red-50 px-2 py-1 rounded'
+                        : calculateDTE(transaction.expiryDate) <= 30
+                        ? 'text-orange-600 bg-orange-50 px-2 py-1 rounded'
+                        : 'text-muted-foreground'
+                    }`}>
+                      {calculateDTE(transaction.expiryDate)}
+                    </span>
+                  ) : (
+                    <div className="text-muted-foreground text-sm">
+                      {transaction.status === 'Expired'
+                        ? formatDate(transaction.expiryDate)
+                        : transaction.closeDate
+                          ? formatDate(transaction.closeDate)
+                          : <span className="text-muted-foreground">-</span>
+                      }
+                    </div>
+                  )}
+                  {isLEAP(transaction) && (
+                    <Badge variant="secondary" className="text-[10px] bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 mt-1">
+                      LEAP
+                    </Badge>
+                  )}
+                </div>
+              </TableCell>
               {!isMobile && (
                 <TableCell className="hidden lg:table-cell">
                   {calculateDH(transaction.tradeOpenDate, transaction.closeDate)}

@@ -50,12 +50,7 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState<'trades' | 'summary'>('trades');
   const [viewMode, setViewMode] = useState<'grouped' | 'flat'>('grouped');
 
-  // Force mobile users to trades tab
-  useEffect(() => {
-    if (isMobile && activeTab === 'summary') {
-      setActiveTab('trades');
-    }
-  }, [isMobile, activeTab]);
+  // No longer force mobile users to trades tab - they can access both tabs now
   const [selectedPortfolioId, setSelectedPortfolioId] = useState<string | null>(null);
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>(['Open', 'Rolled']);
   const [portfolios, setPortfolios] = useState<Portfolio[]>([]);
@@ -544,34 +539,32 @@ export default function Home() {
         </div>
 
         {/* Tab Navigation */}
-        {!isMobile && (
-          <div className="mb-8">
-            <div className="border-b border-border">
-              <nav className="-mb-px flex space-x-8">
-                <button
-                  onClick={() => setActiveTab('trades')}
-                  className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors ${
-                    activeTab === 'trades'
-                      ? 'border-blue-500 text-blue-600'
-                      : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground'
-                  }`}
-                >
-                  Options Trades
-                </button>
-                <button
-                  onClick={() => setActiveTab('summary')}
-                  className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors ${
-                    activeTab === 'summary'
-                      ? 'border-blue-500 text-blue-600'
-                      : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground'
-                  }`}
-                >
-                  Summary & Analytics
-                </button>
-              </nav>
-            </div>
+        <div className="mb-8">
+          <div className="border-b border-border">
+            <nav className={`-mb-px flex ${isMobile ? 'space-x-4' : 'space-x-8'}`}>
+              <button
+                onClick={() => setActiveTab('trades')}
+                className={`py-2 px-1 border-b-2 font-medium ${isMobile ? 'text-xs' : 'text-sm'} transition-colors ${
+                  activeTab === 'trades'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground'
+                }`}
+              >
+                Options Trades
+              </button>
+              <button
+                onClick={() => setActiveTab('summary')}
+                className={`py-2 px-1 border-b-2 font-medium ${isMobile ? 'text-xs' : 'text-sm'} transition-colors ${
+                  activeTab === 'summary'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground'
+                }`}
+              >
+                {isMobile ? 'Monthly Summary' : 'Summary & Analytics'}
+              </button>
+            </nav>
           </div>
-        )}
+        </div>
 
         {/* Tab Content */}
         {activeTab === 'trades' ? (

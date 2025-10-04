@@ -11,6 +11,7 @@ import {
   calculateCollateral
 } from '@/utils/optionsCalculations';
 import { parseLocalDate } from '@/utils/dateUtils';
+import { useIsMobile } from '@/hooks/useMediaQuery';
 
 // Import our new modular components
 import QuickStatsCard from './analytics/QuickStatsCard';
@@ -45,6 +46,7 @@ interface YearlySummary {
 }
 
 export default function SummaryView({ transactions }: SummaryViewProps) {
+  const isMobile = useIsMobile();
   const yearlySummaries = useMemo(() => {
     const completedTransactions = getRealizedTransactions(transactions).filter(t =>
       t.closeDate
@@ -334,6 +336,25 @@ export default function SummaryView({ transactions }: SummaryViewProps) {
     );
   }
 
+  if (isMobile) {
+    // Mobile view: Show only the monthly breakdown table
+    return (
+      <div className="space-y-4">
+        <YearlyPerformanceCard
+          yearlySummaries={yearlySummaries}
+          selectedYear={selectedYear}
+          setSelectedYear={setSelectedYear}
+          getChartDataForYear={getChartDataForYear}
+          getTop5TickersForYear={getTop5TickersForYear}
+          getTopTickersForMonth={getTopTickersForMonth}
+          transactions={transactions}
+          mobileOnly={true}
+        />
+      </div>
+    );
+  }
+
+  // Desktop view: Show all analytics components
   return (
     <div className="space-y-8">
       <QuickStatsCard {...quickStatsData} />
@@ -348,6 +369,7 @@ export default function SummaryView({ transactions }: SummaryViewProps) {
         getTop5TickersForYear={getTop5TickersForYear}
         getTopTickersForMonth={getTopTickersForMonth}
         transactions={transactions}
+        mobileOnly={false}
       />
     </div>
   );

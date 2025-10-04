@@ -2,6 +2,7 @@ import React from 'react';
 import { OptionsTransaction } from '@/types/options';
 import { calculateRoR, calculateDaysHeld, calculateCollateral, formatPnLCurrency } from '@/utils/optionsCalculations';
 import { parseLocalDate } from '@/utils/dateUtils';
+import { useIsMobile } from '@/hooks/useMediaQuery';
 
 interface MonthlyTradesTableProps {
   transactions: OptionsTransaction[];
@@ -9,6 +10,7 @@ interface MonthlyTradesTableProps {
 }
 
 export default function MonthlyTradesTable({ transactions, monthName }: MonthlyTradesTableProps) {
+  const isMobile = useIsMobile();
   const formatCurrency = formatPnLCurrency;
 
   // Sort transactions by close date (most recent first)
@@ -23,25 +25,35 @@ export default function MonthlyTradesTable({ transactions, monthName }: MonthlyT
       <div className="overflow-x-auto">
         <table className="min-w-full text-xs table-fixed">
           <colgroup>
-            <col className="w-[15%]" />  {/* Symbol (Contracts) */}
-            <col className="w-[10%]" />  {/* Strike Price */}
-            <col className="w-[12%]" />  {/* Type */}
-            <col className="w-[10%]" />  {/* Opened */}
-            <col className="w-[10%]" />  {/* Closed */}
-            <col className="w-[8%]" />   {/* Days Held */}
-            <col className="w-[12%]" />  {/* Status */}
-            <col className="w-[10%]" />  {/* RoR */}
-            <col className="w-[13%]" />  {/* P&L */}
+            {isMobile ? (
+              <>
+                <col className="w-[40%]" />  {/* Symbol (Contracts) */}
+                <col className="w-[30%]" />  {/* RoR */}
+                <col className="w-[30%]" />  {/* P&L */}
+              </>
+            ) : (
+              <>
+                <col className="w-[15%]" />  {/* Symbol (Contracts) */}
+                <col className="w-[10%]" />  {/* Strike Price */}
+                <col className="w-[12%]" />  {/* Type */}
+                <col className="w-[10%]" />  {/* Opened */}
+                <col className="w-[10%]" />  {/* Closed */}
+                <col className="w-[8%]" />   {/* Days Held */}
+                <col className="w-[12%]" />  {/* Status */}
+                <col className="w-[10%]" />  {/* RoR */}
+                <col className="w-[13%]" />  {/* P&L */}
+              </>
+            )}
           </colgroup>
           <thead>
             <tr className="border-b border-border/50">
               <th className="text-left py-2 pr-3 font-medium text-muted-foreground">Symbol (Contracts)</th>
-              <th className="text-left py-2 px-3 font-medium text-muted-foreground">Strike Price</th>
-              <th className="text-left py-2 px-3 font-medium text-muted-foreground">Type</th>
-              <th className="text-left py-2 px-3 font-medium text-muted-foreground">Opened</th>
-              <th className="text-left py-2 px-3 font-medium text-muted-foreground">Closed</th>
-              <th className="text-center py-2 px-3 font-medium text-muted-foreground">Days Held</th>
-              <th className="text-left py-2 px-3 font-medium text-muted-foreground">Status</th>
+              {!isMobile && <th className="text-left py-2 px-3 font-medium text-muted-foreground">Strike Price</th>}
+              {!isMobile && <th className="text-left py-2 px-3 font-medium text-muted-foreground">Type</th>}
+              {!isMobile && <th className="text-left py-2 px-3 font-medium text-muted-foreground">Opened</th>}
+              {!isMobile && <th className="text-left py-2 px-3 font-medium text-muted-foreground">Closed</th>}
+              {!isMobile && <th className="text-center py-2 px-3 font-medium text-muted-foreground">Days Held</th>}
+              {!isMobile && <th className="text-left py-2 px-3 font-medium text-muted-foreground">Status</th>}
               <th className="text-right py-2 px-3 font-medium text-muted-foreground">RoR</th>
               <th className="text-right py-2 pl-3 font-medium text-muted-foreground">P&L</th>
             </tr>
@@ -57,43 +69,55 @@ export default function MonthlyTradesTable({ transactions, monthName }: MonthlyT
                   <td className="py-2 pr-3 font-medium text-card-foreground truncate">
                     {transaction.stockSymbol} ({transaction.numberOfContracts})
                   </td>
-                  <td className="py-2 px-3 text-muted-foreground truncate">
-                    ${transaction.strikePrice}
-                  </td>
-                  <td className="py-2 px-3 text-muted-foreground">
-                    <span className="inline-flex items-center gap-1 truncate">
-                      <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
-                        transaction.callOrPut === 'Call' ? 'bg-blue-500' : 'bg-purple-500'
-                      }`} />
-                      <span className="truncate">{transaction.buyOrSell} {transaction.callOrPut}</span>
-                    </span>
-                  </td>
-                  <td className="py-2 px-3 text-muted-foreground truncate">
-                    {parseLocalDate(transaction.tradeOpenDate).toLocaleDateString('en-US', {
-                      month: 'short',
-                      day: 'numeric'
-                    })}
-                  </td>
-                  <td className="py-2 px-3 text-muted-foreground truncate">
-                    {parseLocalDate(transaction.closeDate!).toLocaleDateString('en-US', {
-                      month: 'short',
-                      day: 'numeric'
-                    })}
-                  </td>
-                  <td className="py-2 px-3 text-center text-muted-foreground">
-                    {daysHeld}
-                  </td>
-                  <td className="py-2 px-3 truncate">
-                    <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium truncate ${
-                      transaction.status === 'Closed'
-                        ? 'bg-emerald-100 dark:bg-emerald-950/30 text-emerald-800 dark:text-emerald-200'
-                        : transaction.status === 'Expired'
-                        ? 'bg-orange-100 dark:bg-orange-950/30 text-orange-800 dark:text-orange-200'
-                        : 'bg-blue-100 dark:bg-blue-950/30 text-blue-800 dark:text-blue-200'
-                    }`}>
-                      {transaction.status}
-                    </span>
-                  </td>
+                  {!isMobile && (
+                    <td className="py-2 px-3 text-muted-foreground truncate">
+                      ${transaction.strikePrice}
+                    </td>
+                  )}
+                  {!isMobile && (
+                    <td className="py-2 px-3 text-muted-foreground">
+                      <span className="inline-flex items-center gap-1 truncate">
+                        <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+                          transaction.callOrPut === 'Call' ? 'bg-blue-500' : 'bg-purple-500'
+                        }`} />
+                        <span className="truncate">{transaction.buyOrSell} {transaction.callOrPut}</span>
+                      </span>
+                    </td>
+                  )}
+                  {!isMobile && (
+                    <td className="py-2 px-3 text-muted-foreground truncate">
+                      {parseLocalDate(transaction.tradeOpenDate).toLocaleDateString('en-US', {
+                        month: 'short',
+                        day: 'numeric'
+                      })}
+                    </td>
+                  )}
+                  {!isMobile && (
+                    <td className="py-2 px-3 text-muted-foreground truncate">
+                      {parseLocalDate(transaction.closeDate!).toLocaleDateString('en-US', {
+                        month: 'short',
+                        day: 'numeric'
+                      })}
+                    </td>
+                  )}
+                  {!isMobile && (
+                    <td className="py-2 px-3 text-center text-muted-foreground">
+                      {daysHeld}
+                    </td>
+                  )}
+                  {!isMobile && (
+                    <td className="py-2 px-3 truncate">
+                      <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium truncate ${
+                        transaction.status === 'Closed'
+                          ? 'bg-emerald-100 dark:bg-emerald-950/30 text-emerald-800 dark:text-emerald-200'
+                          : transaction.status === 'Expired'
+                          ? 'bg-orange-100 dark:bg-orange-950/30 text-orange-800 dark:text-orange-200'
+                          : 'bg-blue-100 dark:bg-blue-950/30 text-blue-800 dark:text-blue-200'
+                      }`}>
+                        {transaction.status}
+                      </span>
+                    </td>
+                  )}
                   <td className={`py-2 px-3 text-right font-medium truncate ${
                     ror >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'
                   }`}>
@@ -112,52 +136,111 @@ export default function MonthlyTradesTable({ transactions, monthName }: MonthlyT
       </div>
 
       {/* Summary row */}
-      <div className="mt-3 pt-2 border-t border-border/50 flex justify-between items-center text-xs">
-        <span className="text-muted-foreground">
-          Total: {transactions.length} trade{transactions.length !== 1 ? 's' : ''}
-        </span>
-        <div className="flex gap-4">
-          <span className="text-muted-foreground">
-            Avg Days: <span className="font-medium text-card-foreground">
-              {Math.round(transactions.reduce((sum, t) =>
-                sum + calculateDaysHeld(t.tradeOpenDate, t.closeDate!), 0
-              ) / transactions.length)}
+      <div className="mt-3 pt-2 border-t border-border/50 text-xs">
+        {isMobile ? (
+          // Mobile: Vertical stack layout
+          <div className="space-y-2">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Total:</span>
+              <span className="font-medium text-card-foreground">
+                {transactions.length} trade{transactions.length !== 1 ? 's' : ''}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Avg Days:</span>
+              <span className="font-medium text-card-foreground">
+                {Math.round(transactions.reduce((sum, t) =>
+                  sum + calculateDaysHeld(t.tradeOpenDate, t.closeDate!), 0
+                ) / transactions.length)}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Capital Deployed:</span>
+              <span className="font-medium text-card-foreground">
+                {formatCurrency(transactions.reduce((sum, t) => sum + calculateCollateral(t), 0))}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Avg RoR:</span>
+              <span className={`font-medium ${
+                (() => {
+                  // Use Portfolio RoR calculation (same as chart) for consistency
+                  const totalPnL = transactions.reduce((sum, t) => sum + (t.profitLoss || 0), 0);
+                  const totalCollateral = transactions.reduce((sum, t) => sum + calculateCollateral(t), 0);
+                  const portfolioRoR = totalCollateral > 0 ? (totalPnL / totalCollateral * 100) : 0;
+                  return portfolioRoR >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400';
+                })()
+              }`}>
+                {(() => {
+                  // Use Portfolio RoR calculation (same as chart) for consistency
+                  const totalPnL = transactions.reduce((sum, t) => sum + (t.profitLoss || 0), 0);
+                  const totalCollateral = transactions.reduce((sum, t) => sum + calculateCollateral(t), 0);
+                  const portfolioRoR = totalCollateral > 0 ? (totalPnL / totalCollateral * 100) : 0;
+                  return isFinite(portfolioRoR) ? `${portfolioRoR.toFixed(1)}%` : '-';
+                })()}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Total P&L:</span>
+              <span className={`font-medium ${
+                transactions.reduce((sum, t) => sum + (t.profitLoss || 0), 0) >= 0
+                  ? 'text-emerald-600 dark:text-emerald-400'
+                  : 'text-red-600 dark:text-red-400'
+              }`}>
+                {formatCurrency(transactions.reduce((sum, t) => sum + (t.profitLoss || 0), 0))}
+              </span>
+            </div>
+          </div>
+        ) : (
+          // Desktop: Horizontal layout (original)
+          <div className="flex justify-between items-center">
+            <span className="text-muted-foreground">
+              Total: {transactions.length} trade{transactions.length !== 1 ? 's' : ''}
             </span>
-          </span>
-          <span className="text-muted-foreground">
-            Capital Deployed: <span className="font-medium text-card-foreground">
-              {formatCurrency(transactions.reduce((sum, t) => sum + calculateCollateral(t), 0))}
-            </span>
-          </span>
-          <span className="text-muted-foreground">
-            Avg RoR: <span className={`font-medium ${
-              (() => {
-                // Use Portfolio RoR calculation (same as chart) for consistency
-                const totalPnL = transactions.reduce((sum, t) => sum + (t.profitLoss || 0), 0);
-                const totalCollateral = transactions.reduce((sum, t) => sum + calculateCollateral(t), 0);
-                const portfolioRoR = totalCollateral > 0 ? (totalPnL / totalCollateral * 100) : 0;
-                return portfolioRoR >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400';
-              })()
-            }`}>
-              {(() => {
-                // Use Portfolio RoR calculation (same as chart) for consistency
-                const totalPnL = transactions.reduce((sum, t) => sum + (t.profitLoss || 0), 0);
-                const totalCollateral = transactions.reduce((sum, t) => sum + calculateCollateral(t), 0);
-                const portfolioRoR = totalCollateral > 0 ? (totalPnL / totalCollateral * 100) : 0;
-                return isFinite(portfolioRoR) ? `${portfolioRoR.toFixed(1)}%` : '-';
-              })()}
-            </span>
-          </span>
-          <span className="text-muted-foreground">
-            Total P&L: <span className={`font-medium ${
-              transactions.reduce((sum, t) => sum + (t.profitLoss || 0), 0) >= 0
-                ? 'text-emerald-600 dark:text-emerald-400'
-                : 'text-red-600 dark:text-red-400'
-            }`}>
-              {formatCurrency(transactions.reduce((sum, t) => sum + (t.profitLoss || 0), 0))}
-            </span>
-          </span>
-        </div>
+            <div className="flex gap-4">
+              <span className="text-muted-foreground">
+                Avg Days: <span className="font-medium text-card-foreground">
+                  {Math.round(transactions.reduce((sum, t) =>
+                    sum + calculateDaysHeld(t.tradeOpenDate, t.closeDate!), 0
+                  ) / transactions.length)}
+                </span>
+              </span>
+              <span className="text-muted-foreground">
+                Capital Deployed: <span className="font-medium text-card-foreground">
+                  {formatCurrency(transactions.reduce((sum, t) => sum + calculateCollateral(t), 0))}
+                </span>
+              </span>
+              <span className="text-muted-foreground">
+                Avg RoR: <span className={`font-medium ${
+                  (() => {
+                    // Use Portfolio RoR calculation (same as chart) for consistency
+                    const totalPnL = transactions.reduce((sum, t) => sum + (t.profitLoss || 0), 0);
+                    const totalCollateral = transactions.reduce((sum, t) => sum + calculateCollateral(t), 0);
+                    const portfolioRoR = totalCollateral > 0 ? (totalPnL / totalCollateral * 100) : 0;
+                    return portfolioRoR >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400';
+                  })()
+                }`}>
+                  {(() => {
+                    // Use Portfolio RoR calculation (same as chart) for consistency
+                    const totalPnL = transactions.reduce((sum, t) => sum + (t.profitLoss || 0), 0);
+                    const totalCollateral = transactions.reduce((sum, t) => sum + calculateCollateral(t), 0);
+                    const portfolioRoR = totalCollateral > 0 ? (totalPnL / totalCollateral * 100) : 0;
+                    return isFinite(portfolioRoR) ? `${portfolioRoR.toFixed(1)}%` : '-';
+                  })()}
+                </span>
+              </span>
+              <span className="text-muted-foreground">
+                Total P&L: <span className={`font-medium ${
+                  transactions.reduce((sum, t) => sum + (t.profitLoss || 0), 0) >= 0
+                    ? 'text-emerald-600 dark:text-emerald-400'
+                    : 'text-red-600 dark:text-red-400'
+                }`}>
+                  {formatCurrency(transactions.reduce((sum, t) => sum + (t.profitLoss || 0), 0))}
+                </span>
+              </span>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

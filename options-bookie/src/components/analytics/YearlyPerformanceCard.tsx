@@ -48,6 +48,7 @@ interface YearlyPerformanceCardProps {
   getTop5TickersForYear: (year: number) => TickerData[];
   getTopTickersForMonth: (year: number, month: number) => TopTickers | undefined;
   transactions: OptionsTransaction[];
+  mobileOnly?: boolean;
 }
 
 export default function YearlyPerformanceCard({
@@ -57,7 +58,8 @@ export default function YearlyPerformanceCard({
   getChartDataForYear,
   getTop5TickersForYear,
   getTopTickersForMonth,
-  transactions
+  transactions,
+  mobileOnly = false
 }: YearlyPerformanceCardProps) {
   const formatCurrency = formatPnLCurrency;
 
@@ -76,6 +78,28 @@ export default function YearlyPerformanceCard({
     );
   }
 
+  if (mobileOnly) {
+    // Mobile view: Show only the monthly breakdown table without charts or stats
+    return (
+      <div className="space-y-4">
+        {yearlySummaries.map((yearData) => (
+          <YearlySummaryCard
+            key={yearData.year}
+            yearData={yearData}
+            selectedYear={selectedYear}
+            onToggleYear={handleToggleYear}
+            chartData={getChartDataForYear(yearData.year)}
+            yearTop5Tickers={getTop5TickersForYear(yearData.year)}
+            getTopTickersForMonth={getTopTickersForMonth}
+            transactions={transactions}
+            mobileOnly={true}
+          />
+        ))}
+      </div>
+    );
+  }
+
+  // Desktop view: Show full analytics
   return (
     <div className="bg-card rounded-lg shadow border p-6">
       <h2 className="text-2xl font-bold text-card-foreground mb-6">Yearly Performance</h2>
@@ -90,6 +114,7 @@ export default function YearlyPerformanceCard({
             yearTop5Tickers={getTop5TickersForYear(yearData.year)}
             getTopTickersForMonth={getTopTickersForMonth}
             transactions={transactions}
+            mobileOnly={false}
           />
         ))}
       </div>

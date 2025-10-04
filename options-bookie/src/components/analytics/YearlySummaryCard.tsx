@@ -49,6 +49,7 @@ interface YearlySummaryCardProps {
   yearTop5Tickers: TickerData[];
   getTopTickersForMonth: (year: number, month: number) => TopTickers | undefined;
   transactions: OptionsTransaction[];
+  mobileOnly?: boolean;
 }
 
 export default function YearlySummaryCard({
@@ -58,7 +59,8 @@ export default function YearlySummaryCard({
   chartData,
   yearTop5Tickers,
   getTopTickersForMonth,
-  transactions
+  transactions,
+  mobileOnly = false
 }: YearlySummaryCardProps) {
   const formatCurrency = formatPnLCurrency;
 
@@ -97,29 +99,42 @@ export default function YearlySummaryCard({
 
       {selectedYear === yearData.year && (
         <div className="mt-6 space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="text-center p-4 bg-emerald-50 dark:bg-emerald-950/30 rounded-lg">
-              <p className="text-sm text-emerald-800 dark:text-emerald-200 font-medium">Best Month</p>
-              <p className="text-xl font-bold text-emerald-900 dark:text-emerald-100">
-                {yearData.bestMonth.month}: {formatCurrency(yearData.bestMonth.pnl)}
-              </p>
-            </div>
-            <div className="text-center p-4 bg-red-50 dark:bg-red-950/30 rounded-lg">
-              <p className="text-sm text-red-800 dark:text-red-200 font-medium">Worst Month</p>
-              <p className="text-xl font-bold text-red-900 dark:text-red-100">
-                {yearData.worstMonth.month}: {formatCurrency(yearData.worstMonth.pnl)}
-              </p>
-            </div>
-          </div>
+          {mobileOnly ? (
+            // Mobile view: Show only monthly breakdown table
+            <MonthlyBreakdownSection
+              yearData={yearData}
+              chartData={chartData}
+              getTopTickersForMonth={getTopTickersForMonth}
+              transactions={transactions}
+            />
+          ) : (
+            // Desktop view: Show all analytics
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="text-center p-4 bg-emerald-50 dark:bg-emerald-950/30 rounded-lg">
+                  <p className="text-sm text-emerald-800 dark:text-emerald-200 font-medium">Best Month</p>
+                  <p className="text-xl font-bold text-emerald-900 dark:text-emerald-100">
+                    {yearData.bestMonth.month}: {formatCurrency(yearData.bestMonth.pnl)}
+                  </p>
+                </div>
+                <div className="text-center p-4 bg-red-50 dark:bg-red-950/30 rounded-lg">
+                  <p className="text-sm text-red-800 dark:text-red-200 font-medium">Worst Month</p>
+                  <p className="text-xl font-bold text-red-900 dark:text-red-100">
+                    {yearData.worstMonth.month}: {formatCurrency(yearData.worstMonth.pnl)}
+                  </p>
+                </div>
+              </div>
 
-          <MonthlyBreakdownSection
-            yearData={yearData}
-            chartData={chartData}
-            getTopTickersForMonth={getTopTickersForMonth}
-            transactions={transactions}
-          />
+              <MonthlyBreakdownSection
+                yearData={yearData}
+                chartData={chartData}
+                getTopTickersForMonth={getTopTickersForMonth}
+                transactions={transactions}
+              />
 
-          <Top5TickersSection yearTop5Tickers={yearTop5Tickers} />
+              <Top5TickersSection yearTop5Tickers={yearTop5Tickers} />
+            </>
+          )}
         </div>
       )}
     </div>

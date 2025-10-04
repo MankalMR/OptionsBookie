@@ -7,6 +7,7 @@ import { ChevronDown, ChevronRight, Plus, Minus } from 'lucide-react';
 import { OptionsTransaction } from '@/types/options';
 import MonthlyTradesTable from './MonthlyTradesTable';
 import { parseLocalDate } from '@/utils/dateUtils';
+import { useIsMobile } from '@/hooks/useMediaQuery';
 
 interface MonthlyData {
   month: number;
@@ -44,6 +45,7 @@ export default function MonthlyBreakdownSection({
   getTopTickersForMonth,
   transactions
 }: MonthlyBreakdownSectionProps) {
+  const isMobile = useIsMobile();
   const [expandedMonths, setExpandedMonths] = useState<Set<number>>(new Set());
 
   const toggleMonth = (month: number) => {
@@ -178,12 +180,12 @@ export default function MonthlyBreakdownSection({
           <thead className="bg-muted">
             <tr>
               <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Month</th>
-              <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">P&L</th>
-              <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Trades</th>
-              <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Win Rate</th>
+              {!isMobile && <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">P&L</th>}
+              {!isMobile && <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Trades</th>}
+              {!isMobile && <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Win Rate</th>}
               <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Top by P&L</th>
               <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Top by RoR</th>
-              <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Fees</th>
+              {!isMobile && <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Fees</th>}
             </tr>
           </thead>
           <tbody className="bg-card">
@@ -214,11 +216,13 @@ export default function MonthlyBreakdownSection({
                         <span>{month.monthName}</span>
                       </div>
                     </td>
-                    <td className={`px-4 py-2 text-sm ${month.totalPnL >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
-                      {formatCurrency(month.totalPnL)}
-                    </td>
-                    <td className="px-4 py-2 text-sm text-card-foreground">{month.totalTrades}</td>
-                    <td className="px-4 py-2 text-sm text-card-foreground">{Math.round(month.winRate)}%</td>
+                    {!isMobile && (
+                      <td className={`px-4 py-2 text-sm ${month.totalPnL >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
+                        {formatCurrency(month.totalPnL)}
+                      </td>
+                    )}
+                    {!isMobile && <td className="px-4 py-2 text-sm text-card-foreground">{month.totalTrades}</td>}
+                    {!isMobile && <td className="px-4 py-2 text-sm text-card-foreground">{Math.round(month.winRate)}%</td>}
                     <td className="px-4 py-2 text-sm">
                       {topTickers ? (
                         <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-emerald-100 dark:bg-emerald-950/30 text-emerald-800 dark:text-emerald-200">
@@ -237,7 +241,7 @@ export default function MonthlyBreakdownSection({
                         <span className="text-muted-foreground text-xs">-</span>
                       )}
                     </td>
-                    <td className="px-4 py-2 text-sm text-card-foreground">{formatCurrency(month.fees)}</td>
+                    {!isMobile && <td className="px-4 py-2 text-sm text-card-foreground">{formatCurrency(month.fees)}</td>}
                   </tr>
 
                   {/* Expanded trades table */}
