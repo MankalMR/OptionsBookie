@@ -12,10 +12,7 @@ export default function robots(): MetadataRoute.Robots {
         disallow: [
           '/api/',
           '/auth/error',
-          '/invite/',
-          '/invitations/',
           '/_next/',
-          '/admin/',
         ],
       },
       {
