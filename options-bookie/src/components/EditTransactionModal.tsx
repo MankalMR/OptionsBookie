@@ -269,8 +269,8 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
       if (formData.exitPremium <= 0) {
         newErrors.exitPremium = 'Exit premium is required when rolling trade';
       }
-      if (formData.newExpiryDate && new Date(formData.newExpiryDate) <= new Date(formData.expiryDate)) {
-        newErrors.newExpiryDate = 'New expiry date should be after current expiry date';
+      if (formData.newExpiryDate && new Date(formData.newExpiryDate) < new Date(formData.expiryDate)) {
+        newErrors.newExpiryDate = 'New expiry date cannot be before current expiry date';
       }
     }
 
