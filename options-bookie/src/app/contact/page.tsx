@@ -49,7 +49,7 @@ export default function ContactPage() {
                       For feature requests, bug reports, or general feedback about OptionsBookie.
                     </p>
                     <a
-                      href="mailto:feedback@mankala.space?subject=OptionsBookie Feedback"
+                      href="mailto:manohar.mankala@gmail.com?subject=OptionsBookie Feedback"
                       className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors font-medium"
                     >
                       <Mail className="w-4 h-4" />
