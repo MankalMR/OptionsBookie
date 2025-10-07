@@ -4,6 +4,7 @@ import { signIn, getSession } from 'next-auth/react';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { BarChart3, Shield, Zap, Target, ArrowRight } from 'lucide-react';
+import Link from 'next/link';
 
 export default function SignIn() {
   const [isLoading, setIsLoading] = useState(false);
@@ -137,7 +138,24 @@ export default function SignIn() {
           </div>
 
           {/* Footer */}
-          <div className="text-center mt-8">
+          <div className="text-center mt-8 space-y-4">
+            {/* Navigation Links */}
+            <div className="flex justify-center space-x-6">
+              <Link
+                href="/about"
+                className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors font-medium"
+              >
+                About OptionsBookie
+              </Link>
+              <Link
+                href="/contact"
+                className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors font-medium"
+              >
+                Contact & Feedback
+              </Link>
+            </div>
+
+            {/* Terms */}
             <p className="text-sm text-slate-500 dark:text-slate-500">
               By signing in, you agree to our Terms of Service and Privacy Policy
             </p>
