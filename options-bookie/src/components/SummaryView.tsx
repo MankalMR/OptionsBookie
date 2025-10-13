@@ -17,9 +17,11 @@ import { useIsMobile } from '@/hooks/useMediaQuery';
 import QuickStatsCard from './analytics/QuickStatsCard';
 import StrategyPerformanceCard from './analytics/StrategyPerformanceCard';
 import YearlyPerformanceCard from './analytics/YearlyPerformanceCard';
+import AllTimePortfolioAnalytics from './analytics/AllTimePortfolioAnalytics';
 
 interface SummaryViewProps {
   transactions: OptionsTransaction[];
+  selectedPortfolioName?: string | null;
 }
 
 interface MonthlySummary {
@@ -45,7 +47,7 @@ interface YearlySummary {
   monthlyBreakdown: MonthlySummary[];
 }
 
-export default function SummaryView({ transactions }: SummaryViewProps) {
+export default function SummaryView({ transactions, selectedPortfolioName }: SummaryViewProps) {
   const isMobile = useIsMobile();
   const yearlySummaries = useMemo(() => {
     const completedTransactions = getRealizedTransactions(transactions).filter(t =>
@@ -357,9 +359,10 @@ export default function SummaryView({ transactions }: SummaryViewProps) {
   // Desktop view: Show all analytics components
   return (
     <div className="space-y-8">
-      <QuickStatsCard {...quickStatsData} />
-
-      <StrategyPerformanceCard strategyPerformance={strategyPerformance} />
+      <AllTimePortfolioAnalytics selectedPortfolioName={selectedPortfolioName}>
+        <QuickStatsCard {...quickStatsData} />
+        <StrategyPerformanceCard strategyPerformance={strategyPerformance} />
+      </AllTimePortfolioAnalytics>
 
       <YearlyPerformanceCard
         yearlySummaries={yearlySummaries}

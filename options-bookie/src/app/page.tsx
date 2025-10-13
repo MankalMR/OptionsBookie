@@ -57,12 +57,13 @@ export default function Home() {
   const [portfoliosLoading, setPortfoliosLoading] = useState(true);
   const [chains, setChains] = useState<TradeChain[]>([]);
   const [filteredTransactions, setFilteredTransactions] = useState<OptionsTransaction[]>([]);
+  const [portfolioFilteredTransactions, setPortfolioFilteredTransactions] = useState<OptionsTransaction[]>([]);
 
   // Get unique symbols for stock prices
   const uniqueSymbols = [...new Set(transactions.map(t => t.stockSymbol))];
   const { refreshPrices, loading: pricesLoading } = useStockPrices(uniqueSymbols);
 
-  // Filter transactions based on selected portfolio and statuses
+  // Filter transactions for Options Trades tab (portfolio + status filters)
   useEffect(() => {
     let filtered = transactions;
 
@@ -78,6 +79,18 @@ export default function Home() {
 
     setFilteredTransactions(filtered);
   }, [transactions, selectedPortfolioId, selectedStatuses]);
+
+  // Filter transactions for Summary & Analytics tab (portfolio only)
+  useEffect(() => {
+    let filtered = transactions;
+
+    // Filter by portfolio only (no status filtering for analytics)
+    if (selectedPortfolioId) {
+      filtered = filtered.filter(t => t.portfolioId === selectedPortfolioId);
+    }
+
+    setPortfolioFilteredTransactions(filtered);
+  }, [transactions, selectedPortfolioId]);
 
   const fetchPortfolios = useCallback(async () => {
     try {
@@ -651,7 +664,10 @@ export default function Home() {
             </Card>
           </div>
         ) : (
-          <SummaryView transactions={transactions} />
+          <SummaryView
+            transactions={portfolioFilteredTransactions}
+            selectedPortfolioName={selectedPortfolioId ? portfolios.find(p => p.id === selectedPortfolioId)?.name : null}
+          />
         )}
         </main>
       )}

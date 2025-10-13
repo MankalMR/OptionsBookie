@@ -33,8 +33,8 @@ export default function StrategyPerformanceCard({ strategyPerformance }: Strateg
   }
 
   return (
-    <div className="bg-card rounded-lg shadow border p-6">
-      <h2 className="text-2xl font-bold text-card-foreground mb-6">Strategy Performance</h2>
+    <div className="bg-muted/20 rounded-lg border p-6">
+      <h3 className="text-xl font-bold text-card-foreground mb-6">Strategy Performance</h3>
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-border">
           <thead className="bg-muted">

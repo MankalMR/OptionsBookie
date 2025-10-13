@@ -33,8 +33,8 @@ export default function QuickStatsCard({
   const formatCurrency = formatPnLCurrency;
 
   return (
-    <div className="bg-card rounded-lg shadow border p-6">
-      <h2 className="text-2xl font-bold text-card-foreground mb-6">Quick Stats</h2>
+    <div className="bg-muted/20 rounded-lg border p-6">
+      <h3 className="text-xl font-bold text-card-foreground mb-6">Quick Stats</h3>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <div className="text-center">
           <p className="text-sm text-muted-foreground">Performance</p>
