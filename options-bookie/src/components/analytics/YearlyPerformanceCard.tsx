@@ -48,6 +48,7 @@ interface YearlyPerformanceCardProps {
   getTop5TickersForYear: (year: number) => TickerData[];
   getTopTickersForMonth: (year: number, month: number) => TopTickers | undefined;
   transactions: OptionsTransaction[];
+  selectedPortfolioName?: string | null;
   mobileOnly?: boolean;
 }
 
@@ -59,6 +60,7 @@ export default function YearlyPerformanceCard({
   getTop5TickersForYear,
   getTopTickersForMonth,
   transactions,
+  selectedPortfolioName,
   mobileOnly = false
 }: YearlyPerformanceCardProps) {
   const formatCurrency = formatPnLCurrency;
@@ -92,6 +94,7 @@ export default function YearlyPerformanceCard({
             yearTop5Tickers={getTop5TickersForYear(yearData.year)}
             getTopTickersForMonth={getTopTickersForMonth}
             transactions={transactions}
+            selectedPortfolioName={selectedPortfolioName}
             mobileOnly={true}
           />
         ))}
@@ -114,6 +117,7 @@ export default function YearlyPerformanceCard({
             yearTop5Tickers={getTop5TickersForYear(yearData.year)}
             getTopTickersForMonth={getTopTickersForMonth}
             transactions={transactions}
+            selectedPortfolioName={selectedPortfolioName}
             mobileOnly={false}
           />
         ))}

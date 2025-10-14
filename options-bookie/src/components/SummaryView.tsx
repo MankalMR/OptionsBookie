@@ -159,20 +159,21 @@ export default function SummaryView({ transactions, selectedPortfolioName }: Sum
     return Object.values(yearlyData).sort((a, b) => b.year - a.year);
   }, [transactions]);
 
-  // Set the most recent year as expanded by default
+  // Set the most recent year as expanded by default, but respect user interactions
   const mostRecentYear = useMemo(() => {
     if (yearlySummaries.length === 0) return null;
     return Math.max(...yearlySummaries.map(data => data.year));
   }, [yearlySummaries]);
 
-  const [selectedYear, setSelectedYear] = useState<number | null>(mostRecentYear);
+  const [selectedYear, setSelectedYear] = useState<number | null>(null);
+  const [userHasInteracted, setUserHasInteracted] = useState(false);
 
-  // Update selectedYear when mostRecentYear changes (e.g., new year data or initial load)
+  // Auto-expand most recent year only if user hasn't interacted yet
   React.useEffect(() => {
-    if (mostRecentYear !== null && selectedYear === null) {
+    if (mostRecentYear !== null && !userHasInteracted) {
       setSelectedYear(mostRecentYear);
     }
-  }, [mostRecentYear, selectedYear]);
+  }, [mostRecentYear, userHasInteracted]);
 
   const overallStats = useMemo(() => {
     const realizedTransactions = getRealizedTransactions(transactions);
@@ -345,11 +346,15 @@ export default function SummaryView({ transactions, selectedPortfolioName }: Sum
         <YearlyPerformanceCard
           yearlySummaries={yearlySummaries}
           selectedYear={selectedYear}
-          setSelectedYear={setSelectedYear}
+          setSelectedYear={(year) => {
+            setUserHasInteracted(true);
+            setSelectedYear(year);
+          }}
           getChartDataForYear={getChartDataForYear}
           getTop5TickersForYear={getTop5TickersForYear}
           getTopTickersForMonth={getTopTickersForMonth}
           transactions={transactions}
+          selectedPortfolioName={selectedPortfolioName}
           mobileOnly={true}
         />
       </div>
@@ -367,11 +372,15 @@ export default function SummaryView({ transactions, selectedPortfolioName }: Sum
       <YearlyPerformanceCard
         yearlySummaries={yearlySummaries}
         selectedYear={selectedYear}
-        setSelectedYear={setSelectedYear}
+        setSelectedYear={(year) => {
+          setUserHasInteracted(true);
+          setSelectedYear(year);
+        }}
         getChartDataForYear={getChartDataForYear}
         getTop5TickersForYear={getTop5TickersForYear}
         getTopTickersForMonth={getTopTickersForMonth}
         transactions={transactions}
+        selectedPortfolioName={selectedPortfolioName}
         mobileOnly={false}
       />
     </div>

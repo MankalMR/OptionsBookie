@@ -304,17 +304,23 @@ export const calculateStrategyPerformance = (transactions: OptionsTransaction[])
       : 0;
   });
 
-  return Array.from(strategies.entries()).map(([strategyType, metrics]) => ({
-    strategy: strategyType,
-    tradeCount: metrics.trades.length,
-    realizedCount: getRealizedTransactions(metrics.trades).length,
-    openCount: metrics.trades.filter(t => t.status === 'Open').length,
-    totalPnL: metrics.totalPnL,
-    avgCollateral: metrics.totalCollateral,
-    avgRoR: metrics.avgRoR,
-    winRate: metrics.winRate,
-    avgDaysHeld: metrics.avgDaysHeld
-  })).sort((a, b) => b.avgRoR - a.avgRoR); // Sort by RoR descending
+  return Array.from(strategies.entries()).map(([strategyType, metrics]) => {
+    const realizedCount = getRealizedTransactions(metrics.trades).length;
+    const openCount = metrics.trades.filter(t => t.status === 'Open').length;
+    const rolledCount = metrics.trades.filter(t => t.status === 'Rolled').length;
+
+    return {
+      strategy: strategyType,
+      tradeCount: metrics.trades.length,
+      realizedCount,
+      openCount: openCount + rolledCount, // Rolled trades are ongoing, so count as "open"
+      totalPnL: metrics.totalPnL,
+      avgCollateral: metrics.totalCollateral,
+      avgRoR: metrics.avgRoR,
+      winRate: metrics.winRate,
+      avgDaysHeld: metrics.avgDaysHeld
+    };
+  }).sort((a, b) => b.avgRoR - a.avgRoR); // Sort by RoR descending
 };
 
 // Calculate monthly P&L and RoR data for charts

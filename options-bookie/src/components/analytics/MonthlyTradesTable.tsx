@@ -1,17 +1,67 @@
 import React from 'react';
 import { OptionsTransaction } from '@/types/options';
-import { calculateRoR, calculateDaysHeld, calculateCollateral, formatPnLCurrency } from '@/utils/optionsCalculations';
+import { calculateRoR, calculateDaysHeld, calculateCollateral, formatPnLCurrency, getRealizedTransactions, calculateStrategyPerformance } from '@/utils/optionsCalculations';
 import { parseLocalDate } from '@/utils/dateUtils';
 import { useIsMobile } from '@/hooks/useMediaQuery';
+import MonthPortfolioAnalytics from './MonthPortfolioAnalytics';
+import QuickStatsCard from './QuickStatsCard';
+import StrategyPerformanceCard from './StrategyPerformanceCard';
 
 interface MonthlyTradesTableProps {
   transactions: OptionsTransaction[];
   monthName: string;
+  selectedPortfolioName?: string | null;
 }
 
-export default function MonthlyTradesTable({ transactions, monthName }: MonthlyTradesTableProps) {
+export default function MonthlyTradesTable({ transactions, monthName, selectedPortfolioName }: MonthlyTradesTableProps) {
   const isMobile = useIsMobile();
   const formatCurrency = formatPnLCurrency;
+
+  // Calculate month-specific metrics for Quick Stats
+  const realizedTransactions = getRealizedTransactions(transactions);
+  const totalPnL = realizedTransactions.reduce((sum, t) => sum + (t.profitLoss || 0), 0);
+  const winningTrades = realizedTransactions.filter(t => (t.profitLoss || 0) > 0);
+  const winRate = realizedTransactions.length > 0 ? (winningTrades.length / realizedTransactions.length) * 100 : 0;
+
+  // Calculate month-specific strategy performance
+  const monthStrategyPerformance = calculateStrategyPerformance(transactions);
+
+  // Calculate best stock by P&L and RoR for this month
+  const stockPerformance = new Map<string, { pnl: number; trades: number; totalCollateral: number }>();
+  realizedTransactions.forEach(t => {
+    const symbol = t.stockSymbol;
+    if (!stockPerformance.has(symbol)) {
+      stockPerformance.set(symbol, { pnl: 0, trades: 0, totalCollateral: 0 });
+    }
+    const perf = stockPerformance.get(symbol)!;
+    perf.pnl += t.profitLoss || 0;
+    perf.trades += 1;
+    perf.totalCollateral += calculateCollateral(t);
+  });
+
+  const bestStockByPnL = Array.from(stockPerformance.entries())
+    .sort((a, b) => b[1].pnl - a[1].pnl)[0];
+
+  const bestStockByRoR = Array.from(stockPerformance.entries())
+    .map(([ticker, data]) => ({
+      ticker,
+      ror: data.totalCollateral > 0 ? (data.pnl / data.totalCollateral * 100) : 0
+    }))
+    .sort((a, b) => b.ror - a.ror)[0];
+
+  const quickStatsData = {
+    totalPnL,
+    totalTrades: realizedTransactions.length,
+    winRate,
+    avgRoR: monthStrategyPerformance.filter(s => s.realizedCount > 0).length > 0
+      ? monthStrategyPerformance.filter(s => s.realizedCount > 0).reduce((sum, s) => sum + s.avgRoR, 0) / monthStrategyPerformance.filter(s => s.realizedCount > 0).length
+      : 0,
+    bestStrategy: monthStrategyPerformance.filter(s => s.realizedCount > 0).length > 0
+      ? { name: monthStrategyPerformance.filter(s => s.realizedCount > 0)[0].strategy, ror: monthStrategyPerformance.filter(s => s.realizedCount > 0)[0].avgRoR }
+      : null,
+    bestStockByPnL: bestStockByPnL ? { ticker: bestStockByPnL[0], pnl: bestStockByPnL[1].pnl } : null,
+    bestStockByRoR: bestStockByRoR ? { ticker: bestStockByRoR.ticker, ror: bestStockByRoR.ror } : null
+  };
 
   // Sort transactions by close date (most recent first)
   const sortedTransactions = [...transactions].sort((a, b) => {
@@ -21,7 +71,14 @@ export default function MonthlyTradesTable({ transactions, monthName }: MonthlyT
   });
 
   return (
-    <div className="bg-muted/30 px-4 py-3">
+    <div className="bg-muted/30 px-4 py-3 space-y-6">
+      {/* Month-specific Quick Stats and Strategy Performance */}
+      <MonthPortfolioAnalytics month={monthName} selectedPortfolioName={selectedPortfolioName}>
+        <QuickStatsCard {...quickStatsData} />
+        <StrategyPerformanceCard strategyPerformance={monthStrategyPerformance} />
+      </MonthPortfolioAnalytics>
+
+      {/* Individual Trades Table */}
       <div className="overflow-x-auto">
         <table className="min-w-full text-xs table-fixed">
           <colgroup>

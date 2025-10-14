@@ -37,16 +37,23 @@ interface MonthlyBreakdownSectionProps {
   chartData: ChartDataPoint[];
   getTopTickersForMonth: (year: number, month: number) => TopTickers | undefined;
   transactions: OptionsTransaction[]; // Add transactions for drill-down
+  selectedPortfolioName?: string | null;
 }
 
 export default function MonthlyBreakdownSection({
   yearData,
   chartData,
   getTopTickersForMonth,
-  transactions
+  transactions,
+  selectedPortfolioName
 }: MonthlyBreakdownSectionProps) {
   const isMobile = useIsMobile();
+
+  // No months expanded by default - user must explicitly click to expand
   const [expandedMonths, setExpandedMonths] = useState<Set<number>>(new Set());
+
+  // Chart collapsed by default - user must explicitly click to expand
+  const [isChartExpanded, setIsChartExpanded] = useState(false);
 
   const toggleMonth = (month: number) => {
     const newExpanded = new Set(expandedMonths);
@@ -73,12 +80,28 @@ export default function MonthlyBreakdownSection({
   const formatCurrency = formatPnLCurrency;
 
   return (
-    <div>
-      <h4 className="text-lg font-medium text-card-foreground mb-4">Monthly Breakdown</h4>
+    <div className="bg-muted/20 rounded-lg border p-6">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-lg font-medium text-card-foreground">Monthly Breakdown</h3>
+        <button
+          onClick={() => setIsChartExpanded(!isChartExpanded)}
+          className="flex items-center gap-1 text-sky-600 dark:text-sky-400 hover:text-sky-800 dark:hover:text-sky-300 text-sm font-medium"
+        >
+          {isChartExpanded ? (
+            <>
+              <ChevronDown className="h-4 w-4" />
+              Hide Chart
+            </>
+          ) : (
+            <>
+              <ChevronRight className="h-4 w-4" />
+              Show Chart
+            </>
+          )}
+        </button>
+      </div>
 
-      {/* Monthly P&L and RoR Chart */}
-      <h5 className="text-md font-medium text-card-foreground mb-3">Monthly P&L and RoR Chart</h5>
-      {(() => {
+      {isChartExpanded && (() => {
         return chartData && chartData.length > 0 ? (
           <div className="mb-6">
             <ResponsiveContainer width="100%" height={300}>
@@ -251,6 +274,7 @@ export default function MonthlyBreakdownSection({
                         <MonthlyTradesTable
                           transactions={monthTransactions}
                           monthName={month.monthName}
+                          selectedPortfolioName={selectedPortfolioName}
                         />
                       </td>
                     </tr>

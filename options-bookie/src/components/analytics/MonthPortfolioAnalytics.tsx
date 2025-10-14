@@ -2,22 +2,24 @@
 
 import React from 'react';
 
-interface AllTimePortfolioAnalyticsProps {
+interface MonthPortfolioAnalyticsProps {
   children: React.ReactNode;
+  month: string; // e.g., "Sep 2025"
   selectedPortfolioName?: string | null;
 }
 
-export default function AllTimePortfolioAnalytics({
+export default function MonthPortfolioAnalytics({
   children,
+  month,
   selectedPortfolioName
-}: AllTimePortfolioAnalyticsProps) {
+}: MonthPortfolioAnalyticsProps) {
   const portfolioText = selectedPortfolioName || 'All Portfolios';
 
   return (
     <div className="bg-card rounded-lg shadow border p-6">
       <div className="flex justify-end mb-8">
-        <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
-          All Time ∞ • {portfolioText}
+        <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300">
+          {month} • {portfolioText}
         </span>
       </div>
 
