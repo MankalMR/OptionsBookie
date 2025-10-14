@@ -33,6 +33,7 @@ import {
   calculateChainCollateral,
   calculateChainRoR,
   calculateTotalDeployedCapital,
+  calculatePortfolioRoR,
   formatPnLNumber
 } from './optionsCalculations';
 import { OptionsTransaction } from '@/types/options';
@@ -1266,6 +1267,209 @@ describe('optionsCalculations', () => {
     it('should return 0 for empty transactions', () => {
       const avgRoR = calculateAverageRoR([]);
       expect(avgRoR).toBe(0);
+    });
+  });
+
+  describe('calculatePortfolioRoR', () => {
+    it('should calculate portfolio RoR correctly for realized trades', () => {
+      const transactions = [
+        // Closed trade with profit
+        createMockTransaction({
+          stockSymbol: 'AAPL',
+          callOrPut: 'Put',
+          buyOrSell: 'Sell',
+          strikePrice: 150,
+          premium: 2.00,
+          numberOfContracts: 1,
+          fees: 1.32,
+          status: 'Closed',
+          closeDate: '2025-01-20',
+          profitLoss: 200 - 1.32 // $198.68 profit
+        }),
+        // Closed trade with loss
+        createMockTransaction({
+          stockSymbol: 'MSFT',
+          callOrPut: 'Put',
+          buyOrSell: 'Sell',
+          strikePrice: 200,
+          premium: 3.00,
+          numberOfContracts: 1,
+          fees: 1.32,
+          status: 'Closed',
+          closeDate: '2025-01-25',
+          profitLoss: -100 - 1.32 // -$101.32 loss
+        })
+      ];
+
+      const portfolioRoR = calculatePortfolioRoR(transactions);
+
+      // Total P&L = 198.68 + (-101.32) = 97.36
+      // Total Collateral = 15,000 + 20,000 = 35,000
+      // Portfolio RoR = (97.36 / 35,000) * 100 = 0.278%
+      expect(portfolioRoR).toBeCloseTo(0.278, 2);
+    });
+
+    it('should only include realized transactions', () => {
+      const transactions = [
+        // Open trade (should be excluded)
+        createMockTransaction({
+          stockSymbol: 'AAPL',
+          callOrPut: 'Put',
+          buyOrSell: 'Sell',
+          strikePrice: 150,
+          premium: 2.00,
+          numberOfContracts: 1,
+          fees: 1.32,
+          status: 'Open',
+          profitLoss: 0 // No P&L for open trade
+        }),
+        // Closed trade (should be included)
+        createMockTransaction({
+          stockSymbol: 'MSFT',
+          callOrPut: 'Put',
+          buyOrSell: 'Sell',
+          strikePrice: 200,
+          premium: 3.00,
+          numberOfContracts: 1,
+          fees: 1.32,
+          status: 'Closed',
+          closeDate: '2025-01-25',
+          profitLoss: 300 - 1.32 // $298.68 profit
+        })
+      ];
+
+      const portfolioRoR = calculatePortfolioRoR(transactions);
+
+      // Only the closed trade should be included
+      // Portfolio RoR = (298.68 / 20,000) * 100 = 1.493%
+      expect(portfolioRoR).toBeCloseTo(1.493, 2);
+    });
+
+    it('should return 0 for empty transactions', () => {
+      const portfolioRoR = calculatePortfolioRoR([]);
+      expect(portfolioRoR).toBe(0);
+    });
+
+    it('should return 0 when no realized transactions exist', () => {
+      const transactions = [
+        createMockTransaction({
+          stockSymbol: 'AAPL',
+          status: 'Open',
+          profitLoss: 0
+        }),
+        createMockTransaction({
+          stockSymbol: 'MSFT',
+          status: 'Rolled',
+          profitLoss: 100
+        })
+      ];
+
+      const portfolioRoR = calculatePortfolioRoR(transactions);
+      expect(portfolioRoR).toBe(0);
+    });
+
+    it('should handle zero total collateral', () => {
+      const transactions = [
+        createMockTransaction({
+          stockSymbol: 'AAPL',
+          callOrPut: 'Call',
+          buyOrSell: 'Buy',
+          strikePrice: 150,
+          premium: 0, // Zero premium = zero collateral
+          numberOfContracts: 1,
+          fees: 1.32,
+          status: 'Closed',
+          closeDate: '2025-01-20',
+          profitLoss: 100
+        })
+      ];
+
+      const portfolioRoR = calculatePortfolioRoR(transactions);
+      expect(portfolioRoR).toBe(0);
+    });
+
+    it('should handle negative portfolio P&L correctly', () => {
+      const transactions = [
+        createMockTransaction({
+          stockSymbol: 'AAPL',
+          callOrPut: 'Put',
+          buyOrSell: 'Sell',
+          strikePrice: 150,
+          premium: 2.00,
+          numberOfContracts: 2,
+          fees: 1.32,
+          status: 'Closed',
+          closeDate: '2025-01-20',
+          profitLoss: -500 - 1.32 // -$501.32 loss
+        })
+      ];
+
+      const portfolioRoR = calculatePortfolioRoR(transactions);
+
+      // Total P&L = -501.32
+      // Total Collateral = 150 * 2 * 100 = 30,000
+      // Portfolio RoR = (-501.32 / 30,000) * 100 = -1.671%
+      expect(portfolioRoR).toBeCloseTo(-1.671, 2);
+    });
+
+    it('should match individual RoR calculation for single trade', () => {
+      const transaction = createMockTransaction({
+        stockSymbol: 'AAPL',
+        callOrPut: 'Put',
+        buyOrSell: 'Sell',
+        strikePrice: 150,
+        premium: 2.00,
+        numberOfContracts: 1,
+        fees: 1.32,
+        status: 'Closed',
+        closeDate: '2025-01-20',
+        profitLoss: 200 - 1.32
+      });
+
+      const portfolioRoR = calculatePortfolioRoR([transaction]);
+      const individualRoR = calculateRoR(transaction);
+
+      // For a single trade, portfolio RoR should equal individual RoR
+      expect(portfolioRoR).toBeCloseTo(individualRoR, 2);
+    });
+
+    it('should be different from average RoR for multiple trades with different collateral', () => {
+      const transactions = [
+        // Small trade
+        createMockTransaction({
+          stockSymbol: 'AAPL',
+          callOrPut: 'Put',
+          buyOrSell: 'Sell',
+          strikePrice: 100, // Lower strike = lower collateral
+          premium: 1.00,
+          numberOfContracts: 1,
+          fees: 1.32,
+          status: 'Closed',
+          closeDate: '2025-01-20',
+          profitLoss: 100 - 1.32 // High RoR: ~1% on $10k collateral
+        }),
+        // Large trade
+        createMockTransaction({
+          stockSymbol: 'MSFT',
+          callOrPut: 'Put',
+          buyOrSell: 'Sell',
+          strikePrice: 500, // Higher strike = higher collateral
+          premium: 5.00,
+          numberOfContracts: 2,
+          fees: 1.32,
+          status: 'Closed',
+          closeDate: '2025-01-25',
+          profitLoss: 100 - 1.32 // Lower RoR: ~0.1% on $100k collateral
+        })
+      ];
+
+      const portfolioRoR = calculatePortfolioRoR(transactions);
+      const averageRoR = calculateAverageRoR(transactions);
+
+      // Portfolio RoR should be weighted by capital, average RoR treats all trades equally
+      expect(portfolioRoR).not.toBeCloseTo(averageRoR, 1);
+      expect(portfolioRoR).toBeGreaterThan(0);
+      expect(averageRoR).toBeGreaterThan(0);
     });
   });
 

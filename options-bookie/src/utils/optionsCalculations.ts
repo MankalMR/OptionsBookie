@@ -225,6 +225,16 @@ export const calculateAverageRoR = (transactions: OptionsTransaction[]): number 
   return transactionsWithRoR.reduce((sum, ror) => sum + ror, 0) / transactionsWithRoR.length;
 };
 
+// Calculate Portfolio RoR (Total P&L / Total Capital Deployed * 100)
+// This is the standardized method used across all time periods for consistency
+export const calculatePortfolioRoR = (transactions: OptionsTransaction[]): number => {
+  const realizedTransactions = getRealizedTransactions(transactions);
+  const totalPnL = realizedTransactions.reduce((sum, t) => sum + (t.profitLoss || 0), 0);
+  const totalCollateral = realizedTransactions.reduce((sum, t) => sum + calculateCollateral(t), 0);
+
+  return totalCollateral > 0 ? (totalPnL / totalCollateral * 100) : 0;
+};
+
 // Determine strategy type based on transaction characteristics
 export const getStrategyType = (transaction: OptionsTransaction): string => {
   const { callOrPut, buyOrSell } = transaction;

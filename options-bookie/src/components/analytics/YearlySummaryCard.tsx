@@ -1,6 +1,6 @@
 'use client';
 
-import { formatPnLCurrency, getRealizedTransactions, calculateStrategyPerformance, calculateCollateral } from '@/utils/optionsCalculations';
+import { formatPnLCurrency, getRealizedTransactions, calculateStrategyPerformance, calculateCollateral, calculatePortfolioRoR } from '@/utils/optionsCalculations';
 import { OptionsTransaction } from '@/types/options';
 import { parseLocalDate } from '@/utils/dateUtils';
 import MonthlyBreakdownSection from './MonthlyBreakdownSection';
@@ -113,9 +113,7 @@ export default function YearlySummaryCard({
     totalPnL,
     totalTrades: realizedTransactions.length,
     winRate,
-    avgRoR: yearStrategyPerformance.filter(s => s.realizedCount > 0).length > 0
-      ? yearStrategyPerformance.filter(s => s.realizedCount > 0).reduce((sum, s) => sum + s.avgRoR, 0) / yearStrategyPerformance.filter(s => s.realizedCount > 0).length
-      : 0,
+    avgRoR: calculatePortfolioRoR(yearTransactions),
     bestStrategy: yearStrategyPerformance.filter(s => s.realizedCount > 0).length > 0
       ? { name: yearStrategyPerformance.filter(s => s.realizedCount > 0)[0].strategy, ror: yearStrategyPerformance.filter(s => s.realizedCount > 0)[0].avgRoR }
       : null,

@@ -1,7 +1,9 @@
 import React from 'react';
 import { OptionsTransaction } from '@/types/options';
-import { calculateRoR, calculateDaysHeld, calculateCollateral, formatPnLCurrency, getRealizedTransactions, calculateStrategyPerformance } from '@/utils/optionsCalculations';
+import { calculateRoR, calculateDaysHeld, calculateCollateral, formatPnLCurrency, getRealizedTransactions, calculateStrategyPerformance, calculatePortfolioRoR } from '@/utils/optionsCalculations';
 import { parseLocalDate } from '@/utils/dateUtils';
+import { formatStrikePrice } from '@/utils/formatUtils';
+import { Badge } from '@/components/ui/badge';
 import { useIsMobile } from '@/hooks/useMediaQuery';
 
 interface MonthlyTradesTableProps {
@@ -49,9 +51,7 @@ export default function MonthlyTradesTable({ transactions, monthName, selectedPo
     totalPnL,
     totalTrades: realizedTransactions.length,
     winRate,
-    avgRoR: monthStrategyPerformance.filter(s => s.realizedCount > 0).length > 0
-      ? monthStrategyPerformance.filter(s => s.realizedCount > 0).reduce((sum, s) => sum + s.avgRoR, 0) / monthStrategyPerformance.filter(s => s.realizedCount > 0).length
-      : 0,
+    avgRoR: calculatePortfolioRoR(transactions),
     bestStrategy: monthStrategyPerformance.filter(s => s.realizedCount > 0).length > 0
       ? { name: monthStrategyPerformance.filter(s => s.realizedCount > 0)[0].strategy, ror: monthStrategyPerformance.filter(s => s.realizedCount > 0)[0].avgRoR }
       : null,
@@ -70,39 +70,16 @@ export default function MonthlyTradesTable({ transactions, monthName, selectedPo
     <div className="bg-muted/30 px-4 py-3 space-y-6">
       {/* Individual Trades Table */}
       <div className="overflow-x-auto">
-        <table className="min-w-full text-xs table-fixed">
-          <colgroup>
-            {isMobile ? (
-              <>
-                <col className="w-[40%]" />  {/* Symbol (Contracts) */}
-                <col className="w-[30%]" />  {/* RoR */}
-                <col className="w-[30%]" />  {/* P&L */}
-              </>
-            ) : (
-              <>
-                <col className="w-[15%]" />  {/* Symbol (Contracts) */}
-                <col className="w-[10%]" />  {/* Strike Price */}
-                <col className="w-[12%]" />  {/* Type */}
-                <col className="w-[10%]" />  {/* Opened */}
-                <col className="w-[10%]" />  {/* Closed */}
-                <col className="w-[8%]" />   {/* Days Held */}
-                <col className="w-[12%]" />  {/* Status */}
-                <col className="w-[10%]" />  {/* RoR */}
-                <col className="w-[13%]" />  {/* P&L */}
-              </>
-            )}
-          </colgroup>
+        <table className="min-w-full text-xs">
           <thead>
             <tr className="border-b border-border/50">
-              <th className="text-left py-2 pr-3 font-medium text-muted-foreground">Symbol (Contracts)</th>
-              {!isMobile && <th className="text-left py-2 px-3 font-medium text-muted-foreground">Strike Price</th>}
-              {!isMobile && <th className="text-left py-2 px-3 font-medium text-muted-foreground">Type</th>}
+              <th className="text-left py-2 px-3 font-medium text-muted-foreground">Symbol (Contracts)</th>
+              <th className="text-left py-2 px-3 font-medium text-muted-foreground">Strike & Type</th>
               {!isMobile && <th className="text-left py-2 px-3 font-medium text-muted-foreground">Opened</th>}
               {!isMobile && <th className="text-left py-2 px-3 font-medium text-muted-foreground">Closed</th>}
               {!isMobile && <th className="text-center py-2 px-3 font-medium text-muted-foreground">Days Held</th>}
               {!isMobile && <th className="text-left py-2 px-3 font-medium text-muted-foreground">Status</th>}
-              <th className="text-right py-2 px-3 font-medium text-muted-foreground">RoR</th>
-              <th className="text-right py-2 pl-3 font-medium text-muted-foreground">P&L</th>
+              <th className="text-right py-2 px-3 font-medium text-muted-foreground">P&L (RoR) / Capital</th>
             </tr>
           </thead>
           <tbody>
@@ -113,24 +90,33 @@ export default function MonthlyTradesTable({ transactions, monthName, selectedPo
 
               return (
                 <tr key={transaction.id} className="border-b border-border/30 hover:bg-muted/20">
-                  <td className="py-2 pr-3 font-medium text-card-foreground truncate">
-                    {transaction.stockSymbol} ({transaction.numberOfContracts})
+                  <td className="py-2 px-3 font-medium text-card-foreground">
+                    <div className="flex flex-col space-y-1">
+                      <span className="truncate">{transaction.stockSymbol} ({transaction.numberOfContracts})</span>
+                      <Badge
+                        variant={transaction.buyOrSell === 'Buy' ? 'outline' : 'default'}
+                        className={`text-xs px-1 py-0 w-fit text-xs ${transaction.buyOrSell === 'Buy'
+                          ? 'bg-blue-100 dark:bg-blue-950/30 text-blue-800 dark:text-blue-200 hover:bg-blue-200 dark:hover:bg-blue-950/50'
+                          : 'bg-orange-100 dark:bg-orange-950/30 text-orange-800 dark:text-orange-200 hover:bg-orange-200 dark:hover:bg-orange-950/50'
+                        }`}
+                      >
+                        {transaction.buyOrSell}
+                      </Badge>
+                    </div>
                   </td>
-                  {!isMobile && (
-                    <td className="py-2 px-3 text-muted-foreground truncate">
-                      ${transaction.strikePrice}
-                    </td>
-                  )}
-                  {!isMobile && (
-                    <td className="py-2 px-3 text-muted-foreground">
-                      <span className="inline-flex items-center gap-1 truncate">
-                        <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
-                          transaction.callOrPut === 'Call' ? 'bg-blue-500' : 'bg-purple-500'
-                        }`} />
-                        <span className="truncate">{transaction.buyOrSell} {transaction.callOrPut}</span>
+                  <td className="py-2 px-3">
+                    <div className="flex items-center space-x-2">
+                      <span className="text-muted-foreground">${formatStrikePrice(transaction.strikePrice)}</span>
+                      <span
+                        className={`text-xs px-1.5 py-0.5 rounded font-medium ${transaction.callOrPut === 'Call'
+                          ? 'bg-green-100 dark:bg-green-950/30 text-green-800 dark:text-green-200'
+                          : 'bg-orange-100 dark:bg-orange-950/30 text-orange-800 dark:text-orange-200'
+                        }`}
+                      >
+                        {transaction.callOrPut === 'Call' ? 'C' : 'P'}
                       </span>
-                    </td>
-                  )}
+                    </div>
+                  </td>
                   {!isMobile && (
                     <td className="py-2 px-3 text-muted-foreground truncate">
                       {parseLocalDate(transaction.tradeOpenDate).toLocaleDateString('en-US', {
@@ -165,15 +151,15 @@ export default function MonthlyTradesTable({ transactions, monthName, selectedPo
                       </span>
                     </td>
                   )}
-                  <td className={`py-2 px-3 text-right font-medium truncate ${
-                    ror >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'
-                  }`}>
-                    {isFinite(ror) ? `${ror.toFixed(1)}%` : '-'}
-                  </td>
-                  <td className={`py-2 pl-3 text-right font-medium truncate ${
-                    pnl >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'
-                  }`}>
-                    {formatPnLCurrency(pnl)}
+                  <td className="py-2 px-3 text-right font-medium">
+                    <div className="flex flex-col">
+                      <span className={`${pnl >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
+                        {formatPnLCurrency(pnl)} ({isFinite(ror) ? `${ror.toFixed(1)}%` : '-'})
+                      </span>
+                      <span className="text-red-600 dark:text-red-400 text-xs">
+                        / {formatPnLCurrency(calculateCollateral(transaction))}
+                      </span>
+                    </div>
                   </td>
                 </tr>
               );
@@ -182,11 +168,10 @@ export default function MonthlyTradesTable({ transactions, monthName, selectedPo
         </table>
       </div>
 
-      {/* Enhanced Summary Card */}
-      <div className="bg-slate-50/80 dark:bg-slate-900/50 rounded-lg border border-slate-200/60 dark:border-slate-700/50 p-4 mt-4">
-
-        {isMobile ? (
-          // Mobile: Vertical layout with sections
+      {/* Enhanced Summary Card - Only show on mobile */}
+      {isMobile && (
+        <div className="bg-slate-50/80 dark:bg-slate-900/50 rounded-lg border border-slate-200/60 dark:border-slate-700/50 p-4 mt-4">
+          {/* Mobile: Vertical layout with sections */}
           <div className="space-y-4">
             {/* Basic Metrics */}
             <div className="grid grid-cols-2 gap-4">
@@ -268,97 +253,8 @@ export default function MonthlyTradesTable({ transactions, monthName, selectedPo
               </div>
             )}
           </div>
-        ) : (
-          // Desktop: Grid layout
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {/* Performance Section */}
-            <div className="text-center">
-              <p className="text-xs text-muted-foreground mb-2">Performance</p>
-              <div className="space-y-1">
-                <p className="text-base font-medium text-card-foreground">{transactions.length}</p>
-                <p className="text-xs text-muted-foreground">Trades</p>
-                <p className="text-base font-medium text-card-foreground">{Math.round(winRate)}%</p>
-                <p className="text-xs text-muted-foreground">Win Rate</p>
-              </div>
-            </div>
-
-            {/* P&L & Returns Section */}
-            <div className="text-center">
-              <p className="text-xs text-muted-foreground mb-2">P&L & Returns</p>
-              <div className="space-y-1">
-                <p className={`text-base font-medium ${
-                  totalPnL >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'
-                }`}>
-                  {formatPnLCurrency(totalPnL)}
-                </p>
-                <p className="text-xs text-muted-foreground">Total P&L</p>
-                <p className={`text-base font-medium ${
-                  (() => {
-                    const totalCollateral = transactions.reduce((sum, t) => sum + calculateCollateral(t), 0);
-                    const portfolioRoR = totalCollateral > 0 ? (totalPnL / totalCollateral * 100) : 0;
-                    return portfolioRoR >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400';
-                  })()
-                }`}>
-                  {(() => {
-                    const totalCollateral = transactions.reduce((sum, t) => sum + calculateCollateral(t), 0);
-                    const portfolioRoR = totalCollateral > 0 ? (totalPnL / totalCollateral * 100) : 0;
-                    return isFinite(portfolioRoR) ? `${portfolioRoR.toFixed(1)}%` : '-';
-                  })()}
-                </p>
-                <p className="text-xs text-muted-foreground">Avg RoR</p>
-              </div>
-            </div>
-
-            {/* Capital & Time Section */}
-            <div className="text-center">
-              <p className="text-xs text-muted-foreground mb-2">Capital & Time</p>
-              <div className="space-y-1">
-                <p className="text-base font-medium text-orange-600">
-                  {formatPnLCurrency(transactions.reduce((sum, t) => sum + calculateCollateral(t), 0))}
-                </p>
-                <p className="text-xs text-muted-foreground">Capital Deployed</p>
-                <p className="text-base font-medium text-card-foreground">
-                  {Math.round(transactions.reduce((sum, t) =>
-                    sum + calculateDaysHeld(t.tradeOpenDate, t.closeDate!), 0
-                  ) / transactions.length)}
-                </p>
-                <p className="text-xs text-muted-foreground">Avg Days</p>
-              </div>
-            </div>
-
-            {/* Best Performance Section */}
-            <div className="text-center">
-              <p className="text-xs text-muted-foreground mb-2">Best Performance</p>
-              <div className="space-y-1">
-                {quickStatsData.bestStrategy ? (
-                  <>
-                    <p className="text-sm font-medium text-blue-600 dark:text-blue-400 truncate">
-                      {quickStatsData.bestStrategy.name}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {quickStatsData.bestStrategy.ror.toFixed(1)}% RoR
-                    </p>
-                  </>
-                ) : (
-                  <p className="text-sm text-muted-foreground">-</p>
-                )}
-                {quickStatsData.bestStockByPnL ? (
-                  <>
-                    <p className="text-sm font-medium text-emerald-600 dark:text-emerald-400">
-                      {quickStatsData.bestStockByPnL.ticker}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {formatPnLCurrency(quickStatsData.bestStockByPnL.pnl)} P&L
-                    </p>
-                  </>
-                ) : (
-                  <p className="text-sm text-muted-foreground">-</p>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

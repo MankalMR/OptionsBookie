@@ -8,6 +8,7 @@ import {
   calculateTotalRealizedPnL,
   calculateStrategyPerformance,
   calculateMonthlyTopTickers,
+  calculatePortfolioRoR,
   calculateCollateral
 } from '@/utils/optionsCalculations';
 import { parseLocalDate } from '@/utils/dateUtils';
@@ -337,9 +338,7 @@ export default function SummaryView({ transactions, selectedPortfolioName }: Sum
     totalPnL: overallStats.totalPnL,
     totalTrades: overallStats.totalTrades,
     winRate: overallStats.winRate,
-    avgRoR: strategyPerformance.filter(s => s.realizedCount > 0).length > 0
-      ? strategyPerformance.filter(s => s.realizedCount > 0).reduce((sum, s) => sum + s.avgRoR, 0) / strategyPerformance.filter(s => s.realizedCount > 0).length
-      : 0,
+    avgRoR: calculatePortfolioRoR(transactions),
     bestStrategy: strategyPerformance.filter(s => s.realizedCount > 0).length > 0
       ? { name: strategyPerformance.filter(s => s.realizedCount > 0)[0].strategy, ror: strategyPerformance.filter(s => s.realizedCount > 0)[0].avgRoR }
       : null,

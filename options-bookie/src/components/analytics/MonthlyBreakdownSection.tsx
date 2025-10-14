@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { formatPnLCurrency, getRealizedTransactions } from '@/utils/optionsCalculations';
+import { formatPnLCurrency, getRealizedTransactions, calculateCollateral, calculateDaysHeld, calculateStrategyPerformance, calculatePortfolioRoR } from '@/utils/optionsCalculations';
 import { ResponsiveContainer, ComposedChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend, Bar } from 'recharts';
 import { ChevronDown, ChevronRight, Plus, Minus } from 'lucide-react';
 import { OptionsTransaction } from '@/types/options';
@@ -203,11 +203,13 @@ export default function MonthlyBreakdownSection({
           <thead className="bg-muted">
             <tr>
               <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Month</th>
-              {!isMobile && <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">P&L</th>}
               {!isMobile && <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Trades</th>}
+              {!isMobile && <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Avg Days</th>}
               {!isMobile && <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Win Rate</th>}
+              {!isMobile && <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Top Strategy</th>}
               <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Top by P&L</th>
               <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Top by RoR</th>
+              {!isMobile && <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">P&L (RoR) / Capital</th>}
               {!isMobile && <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Fees</th>}
             </tr>
           </thead>
@@ -217,6 +219,18 @@ export default function MonthlyBreakdownSection({
               const isExpanded = expandedMonths.has(month.month);
               const monthTransactions = getMonthTransactions(month.month);
               const hasTransactions = monthTransactions.length > 0;
+
+              // Calculate additional metrics for this month
+              const realizedMonthTransactions = getRealizedTransactions(monthTransactions);
+              const totalCollateral = realizedMonthTransactions.reduce((sum, t) => sum + calculateCollateral(t), 0);
+              const avgRoR = calculatePortfolioRoR(monthTransactions);
+              const avgDays = realizedMonthTransactions.length > 0
+                ? realizedMonthTransactions.reduce((sum, t) => sum + calculateDaysHeld(t.tradeOpenDate, t.closeDate!), 0) / realizedMonthTransactions.length
+                : 0;
+              const monthStrategyPerformance = calculateStrategyPerformance(realizedMonthTransactions);
+              const bestStrategy = monthStrategyPerformance.filter(s => s.realizedCount > 0).length > 0
+                ? monthStrategyPerformance.filter(s => s.realizedCount > 0)[0]
+                : null;
 
               return (
                 <React.Fragment key={month.month}>
@@ -239,13 +253,20 @@ export default function MonthlyBreakdownSection({
                         <span>{month.monthName}</span>
                       </div>
                     </td>
+                    {!isMobile && <td className="px-4 py-2 text-sm text-card-foreground">{month.totalTrades}</td>}
+                    {!isMobile && <td className="px-4 py-2 text-sm text-card-foreground">{Math.round(avgDays)}</td>}
+                    {!isMobile && <td className="px-4 py-2 text-sm text-card-foreground">{Math.round(month.winRate)}%</td>}
                     {!isMobile && (
-                      <td className={`px-4 py-2 text-sm ${month.totalPnL >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
-                        {formatCurrency(month.totalPnL)}
+                      <td className="px-4 py-2 text-sm">
+                        {bestStrategy ? (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 dark:bg-blue-950/30 text-blue-800 dark:text-blue-200">
+                            {bestStrategy.strategy}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground text-xs">-</span>
+                        )}
                       </td>
                     )}
-                    {!isMobile && <td className="px-4 py-2 text-sm text-card-foreground">{month.totalTrades}</td>}
-                    {!isMobile && <td className="px-4 py-2 text-sm text-card-foreground">{Math.round(month.winRate)}%</td>}
                     <td className="px-4 py-2 text-sm">
                       {topTickers ? (
                         <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-emerald-100 dark:bg-emerald-950/30 text-emerald-800 dark:text-emerald-200">
@@ -264,13 +285,25 @@ export default function MonthlyBreakdownSection({
                         <span className="text-muted-foreground text-xs">-</span>
                       )}
                     </td>
-                    {!isMobile && <td className="px-4 py-2 text-sm text-card-foreground">{formatCurrency(month.fees)}</td>}
+                    {!isMobile && (
+                      <td className="px-4 py-2 text-sm">
+                        <div className="flex flex-col">
+                          <span className={`${month.totalPnL >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
+                            {formatCurrency(month.totalPnL)} ({isFinite(avgRoR) ? `${avgRoR.toFixed(1)}%` : '-'})
+                          </span>
+                          <span className="text-red-600 dark:text-red-400 text-xs">
+                            / {formatCurrency(totalCollateral)}
+                          </span>
+                        </div>
+                      </td>
+                    )}
+                    {!isMobile && <td className="px-4 py-2 text-sm text-red-600 dark:text-red-400">{formatCurrency(month.fees)}</td>}
                   </tr>
 
                   {/* Expanded trades table */}
                   {isExpanded && hasTransactions && (
                     <tr>
-                      <td colSpan={7} className="p-0">
+                      <td colSpan={isMobile ? 3 : 9} className="p-0">
                         <MonthlyTradesTable
                           transactions={monthTransactions}
                           monthName={month.monthName}
