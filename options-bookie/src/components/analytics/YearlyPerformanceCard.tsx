@@ -10,8 +10,8 @@ interface YearlyData {
   totalTrades: number;
   winRate: number;
   averageDaysHeld: number;
-  bestMonth: { month: string; pnl: number };
-  worstMonth: { month: string; pnl: number };
+  bestMonth: { month: string; pnl: number; ror: number; capitalDeployed: number; trades: number };
+  worstMonth: { month: string; pnl: number; ror: number; capitalDeployed: number; trades: number };
   monthlyBreakdown: Array<{
     month: number;
     monthName: string;

@@ -42,8 +42,8 @@ interface YearlySummary {
   winRate: number;
   totalFees: number;
   averageDaysHeld: number;
-  bestMonth: { month: string; pnl: number };
-  worstMonth: { month: string; pnl: number };
+  bestMonth: { month: string; pnl: number; ror: number; capitalDeployed: number; trades: number };
+  worstMonth: { month: string; pnl: number; ror: number; capitalDeployed: number; trades: number };
   monthlyBreakdown: MonthlySummary[];
 }
 
@@ -73,8 +73,8 @@ export default function SummaryView({ transactions, selectedPortfolioName }: Sum
           winRate: 0,
           totalFees: 0,
           averageDaysHeld: 0,
-          bestMonth: { month: '', pnl: -Infinity },
-          worstMonth: { month: '', pnl: Infinity },
+          bestMonth: { month: '', pnl: -Infinity, ror: 0, capitalDeployed: 0, trades: 0 },
+          worstMonth: { month: '', pnl: Infinity, ror: 0, capitalDeployed: 0, trades: 0 },
           monthlyBreakdown: []
         };
       }
@@ -143,15 +143,34 @@ export default function SummaryView({ transactions, selectedPortfolioName }: Sum
         monthData.winRate = monthData.totalTrades > 0 ? (winningTrades / monthData.totalTrades) * 100 : 0;
       });
 
-      // Find best and worst months
+      // Find best and worst months with enhanced metrics
       if (yearData.monthlyBreakdown.length > 0) {
-        yearData.bestMonth = yearData.monthlyBreakdown.reduce(
-          (best, month) => month.totalPnL > best.pnl ? { month: month.monthName, pnl: month.totalPnL } : best,
-          { month: '', pnl: -Infinity }
+        // Calculate enhanced metrics for each month
+        const monthsWithMetrics = yearData.monthlyBreakdown.map(monthData => {
+          const monthTransactions = completedTransactions.filter(t => {
+            const closeDate = parseLocalDate(t.closeDate!);
+            return closeDate.getFullYear() === yearData.year && closeDate.getMonth() === monthData.month;
+          });
+
+          const totalCollateral = monthTransactions.reduce((sum, t) => sum + calculateCollateral(t), 0);
+          const ror = totalCollateral > 0 ? (monthData.totalPnL / totalCollateral * 100) : 0;
+
+          return {
+            month: monthData.monthName,
+            pnl: monthData.totalPnL,
+            ror: Number(ror.toFixed(1)),
+            capitalDeployed: totalCollateral,
+            trades: monthData.totalTrades
+          };
+        });
+
+        yearData.bestMonth = monthsWithMetrics.reduce(
+          (best, month) => month.pnl > best.pnl ? month : best,
+          { month: '', pnl: -Infinity, ror: 0, capitalDeployed: 0, trades: 0 }
         );
-        yearData.worstMonth = yearData.monthlyBreakdown.reduce(
-          (worst, month) => month.totalPnL < worst.pnl ? { month: month.monthName, pnl: month.totalPnL } : worst,
-          { month: '', pnl: Infinity }
+        yearData.worstMonth = monthsWithMetrics.reduce(
+          (worst, month) => month.pnl < worst.pnl ? month : worst,
+          { month: '', pnl: Infinity, ror: 0, capitalDeployed: 0, trades: 0 }
         );
       }
     });

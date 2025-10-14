@@ -15,8 +15,8 @@ interface YearlyData {
   totalTrades: number;
   winRate: number;
   averageDaysHeld: number;
-  bestMonth: { month: string; pnl: number };
-  worstMonth: { month: string; pnl: number };
+  bestMonth: { month: string; pnl: number; ror: number; capitalDeployed: number; trades: number };
+  worstMonth: { month: string; pnl: number; ror: number; capitalDeployed: number; trades: number };
   monthlyBreakdown: Array<{
     month: number;
     monthName: string;
@@ -183,17 +183,55 @@ export default function YearlySummaryCard({
 
       {/* Best/Worst Month Cards - Summary of Monthly Data */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="text-center p-4 bg-emerald-50 dark:bg-emerald-950/30 rounded-lg">
-          <p className="text-sm text-emerald-800 dark:text-emerald-200 font-medium">Best Month</p>
-          <p className="text-xl font-bold text-emerald-900 dark:text-emerald-100">
-            {yearData.bestMonth.month}: {formatCurrency(yearData.bestMonth.pnl)}
+        <div className="p-4 bg-emerald-50 dark:bg-emerald-950/30 rounded-lg text-center">
+          <p className="text-sm text-emerald-800 dark:text-emerald-200 font-medium mb-2">
+            Best Month: {yearData.bestMonth.month}
           </p>
+          <div className="grid grid-cols-3 gap-2 text-xs">
+            <div className="text-center">
+              <p className="font-semibold text-emerald-800 dark:text-emerald-200">
+                {formatCurrency(yearData.bestMonth.pnl)}
+              </p>
+              <p className="text-emerald-600 dark:text-emerald-400">P&L</p>
+            </div>
+            <div className="text-center">
+              <p className="font-semibold text-emerald-800 dark:text-emerald-200">
+                {yearData.bestMonth.ror.toFixed(1)}%
+              </p>
+              <p className="text-emerald-600 dark:text-emerald-400">RoR</p>
+            </div>
+            <div className="text-center">
+              <p className="font-semibold text-emerald-800 dark:text-emerald-200">
+                {formatCurrency(yearData.bestMonth.capitalDeployed)}
+              </p>
+              <p className="text-emerald-600 dark:text-emerald-400">Capital</p>
+            </div>
+          </div>
         </div>
-        <div className="text-center p-4 bg-red-50 dark:bg-red-950/30 rounded-lg">
-          <p className="text-sm text-red-800 dark:text-red-200 font-medium">Worst Month</p>
-          <p className="text-xl font-bold text-red-900 dark:text-red-100">
-            {yearData.worstMonth.month}: {formatCurrency(yearData.worstMonth.pnl)}
+        <div className="p-4 bg-red-50 dark:bg-red-950/30 rounded-lg text-center">
+          <p className="text-sm text-red-800 dark:text-red-200 font-medium mb-2">
+            Worst Month: {yearData.worstMonth.month}
           </p>
+          <div className="grid grid-cols-3 gap-2 text-xs">
+            <div className="text-center">
+              <p className="font-semibold text-red-800 dark:text-red-200">
+                {formatCurrency(yearData.worstMonth.pnl)}
+              </p>
+              <p className="text-red-600 dark:text-red-400">P&L</p>
+            </div>
+            <div className="text-center">
+              <p className="font-semibold text-red-800 dark:text-red-200">
+                {yearData.worstMonth.ror.toFixed(1)}%
+              </p>
+              <p className="text-red-600 dark:text-red-400">RoR</p>
+            </div>
+            <div className="text-center">
+              <p className="font-semibold text-red-800 dark:text-red-200">
+                {formatCurrency(yearData.worstMonth.capitalDeployed)}
+              </p>
+              <p className="text-red-600 dark:text-red-400">Capital</p>
+            </div>
+          </div>
         </div>
       </div>
     </YearPortfolioAnalytics>
