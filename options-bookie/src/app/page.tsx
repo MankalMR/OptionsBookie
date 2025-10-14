@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { OptionsTransaction, Portfolio, TradeChain } from '@/types/options';
 import TransactionTable from '@/components/TransactionTable';
 import PortfolioSummary from '@/components/PortfolioSummary';
@@ -80,16 +80,36 @@ export default function Home() {
     setFilteredTransactions(filtered);
   }, [transactions, selectedPortfolioId, selectedStatuses]);
 
-  // Filter transactions for Summary & Analytics tab (portfolio only)
+  // Filter transactions for Summary & Analytics tab (portfolio + concluded transactions only)
   useEffect(() => {
     let filtered = transactions;
 
-    // Filter by portfolio only (no status filtering for analytics)
+    // Filter by portfolio
     if (selectedPortfolioId) {
       filtered = filtered.filter(t => t.portfolioId === selectedPortfolioId);
     }
 
+    // For analytics, only include concluded transactions (Closed, Assigned, Expired)
+    // Exclude Open and Rolled as they are ongoing positions
+    filtered = filtered.filter(t =>
+      t.status === 'Closed' ||
+      t.status === 'Expired' ||
+      t.status === 'Assigned'
+    );
+
     setPortfolioFilteredTransactions(filtered);
+  }, [transactions, selectedPortfolioId]);
+
+  // Filter transactions for Portfolio Overview (portfolio only, all statuses)
+  const portfolioOverviewTransactions = useMemo(() => {
+    let filtered = transactions;
+
+    // Filter by portfolio only (no status filtering for overview)
+    if (selectedPortfolioId) {
+      filtered = filtered.filter(t => t.portfolioId === selectedPortfolioId);
+    }
+
+    return filtered;
   }, [transactions, selectedPortfolioId]);
 
   const fetchPortfolios = useCallback(async () => {
@@ -583,7 +603,7 @@ export default function Home() {
         {activeTab === 'trades' ? (
           <div className="space-y-8">
             {/* Portfolio Overview */}
-            <PortfolioSummary transactions={filteredTransactions} chains={chains} />
+            <PortfolioSummary transactions={portfolioOverviewTransactions} chains={chains} />
 
             {/* Recent Trades - Full Width */}
             <Card>
