@@ -74,11 +74,23 @@ export default function Home() {
 
     // Filter by statuses (multiple selection)
     if (selectedStatuses.length > 0) {
-      filtered = filtered.filter(t => selectedStatuses.includes(t.status));
+      filtered = filtered.filter(t => {
+        // For chained transactions, also check if the chain is active
+        if (t.chainId) {
+          const chain = chains.find(c => c.id === t.chainId);
+          // If chain is closed, exclude all its transactions from active view
+          if (chain && chain.chainStatus === 'Closed') {
+            return false;
+          }
+        }
+
+        // Apply normal status filtering
+        return selectedStatuses.includes(t.status);
+      });
     }
 
     setFilteredTransactions(filtered);
-  }, [transactions, selectedPortfolioId, selectedStatuses]);
+  }, [transactions, selectedPortfolioId, selectedStatuses, chains]);
 
   // Filter transactions for Summary & Analytics tab (portfolio + concluded transactions only)
   useEffect(() => {

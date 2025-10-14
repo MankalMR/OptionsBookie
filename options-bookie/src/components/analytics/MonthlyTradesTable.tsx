@@ -3,9 +3,6 @@ import { OptionsTransaction } from '@/types/options';
 import { calculateRoR, calculateDaysHeld, calculateCollateral, formatPnLCurrency, getRealizedTransactions, calculateStrategyPerformance } from '@/utils/optionsCalculations';
 import { parseLocalDate } from '@/utils/dateUtils';
 import { useIsMobile } from '@/hooks/useMediaQuery';
-import MonthPortfolioAnalytics from './MonthPortfolioAnalytics';
-import QuickStatsCard from './QuickStatsCard';
-import StrategyPerformanceCard from './StrategyPerformanceCard';
 
 interface MonthlyTradesTableProps {
   transactions: OptionsTransaction[];
@@ -15,7 +12,6 @@ interface MonthlyTradesTableProps {
 
 export default function MonthlyTradesTable({ transactions, monthName, selectedPortfolioName }: MonthlyTradesTableProps) {
   const isMobile = useIsMobile();
-  const formatCurrency = formatPnLCurrency;
 
   // Calculate month-specific metrics for Quick Stats
   const realizedTransactions = getRealizedTransactions(transactions);
@@ -72,12 +68,6 @@ export default function MonthlyTradesTable({ transactions, monthName, selectedPo
 
   return (
     <div className="bg-muted/30 px-4 py-3 space-y-6">
-      {/* Month-specific Quick Stats and Strategy Performance */}
-      <MonthPortfolioAnalytics month={monthName} selectedPortfolioName={selectedPortfolioName}>
-        <QuickStatsCard {...quickStatsData} />
-        <StrategyPerformanceCard strategyPerformance={monthStrategyPerformance} />
-      </MonthPortfolioAnalytics>
-
       {/* Individual Trades Table */}
       <div className="overflow-x-auto">
         <table className="min-w-full text-xs table-fixed">
@@ -183,7 +173,7 @@ export default function MonthlyTradesTable({ transactions, monthName, selectedPo
                   <td className={`py-2 pl-3 text-right font-medium truncate ${
                     pnl >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'
                   }`}>
-                    {formatCurrency(pnl)}
+                    {formatPnLCurrency(pnl)}
                   </td>
                 </tr>
               );
@@ -192,109 +182,179 @@ export default function MonthlyTradesTable({ transactions, monthName, selectedPo
         </table>
       </div>
 
-      {/* Summary row */}
-      <div className="mt-3 pt-2 border-t border-border/50 text-xs">
+      {/* Enhanced Summary Card */}
+      <div className="bg-slate-50/80 dark:bg-slate-900/50 rounded-lg border border-slate-200/60 dark:border-slate-700/50 p-4 mt-4">
+
         {isMobile ? (
-          // Mobile: Vertical stack layout
-          <div className="space-y-2">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Total:</span>
-              <span className="font-medium text-card-foreground">
-                {transactions.length} trade{transactions.length !== 1 ? 's' : ''}
-              </span>
+          // Mobile: Vertical layout with sections
+          <div className="space-y-4">
+            {/* Basic Metrics */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="text-center">
+                <p className="text-base font-medium text-card-foreground">{transactions.length}</p>
+                <p className="text-xs text-muted-foreground">Trades</p>
+              </div>
+              <div className="text-center">
+                <p className="text-base font-medium text-card-foreground">{Math.round(winRate)}%</p>
+                <p className="text-xs text-muted-foreground">Win Rate</p>
+              </div>
             </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Avg Days:</span>
-              <span className="font-medium text-card-foreground">
-                {Math.round(transactions.reduce((sum, t) =>
-                  sum + calculateDaysHeld(t.tradeOpenDate, t.closeDate!), 0
-                ) / transactions.length)}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Capital Deployed:</span>
-              <span className="font-medium text-card-foreground">
-                {formatCurrency(transactions.reduce((sum, t) => sum + calculateCollateral(t), 0))}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Avg RoR:</span>
-              <span className={`font-medium ${
-                (() => {
-                  // Use Portfolio RoR calculation (same as chart) for consistency
-                  const totalPnL = transactions.reduce((sum, t) => sum + (t.profitLoss || 0), 0);
-                  const totalCollateral = transactions.reduce((sum, t) => sum + calculateCollateral(t), 0);
-                  const portfolioRoR = totalCollateral > 0 ? (totalPnL / totalCollateral * 100) : 0;
-                  return portfolioRoR >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400';
-                })()
-              }`}>
-                {(() => {
-                  // Use Portfolio RoR calculation (same as chart) for consistency
-                  const totalPnL = transactions.reduce((sum, t) => sum + (t.profitLoss || 0), 0);
-                  const totalCollateral = transactions.reduce((sum, t) => sum + calculateCollateral(t), 0);
-                  const portfolioRoR = totalCollateral > 0 ? (totalPnL / totalCollateral * 100) : 0;
-                  return isFinite(portfolioRoR) ? `${portfolioRoR.toFixed(1)}%` : '-';
-                })()}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Total P&L:</span>
-              <span className={`font-medium ${
-                transactions.reduce((sum, t) => sum + (t.profitLoss || 0), 0) >= 0
-                  ? 'text-emerald-600 dark:text-emerald-400'
-                  : 'text-red-600 dark:text-red-400'
-              }`}>
-                {formatCurrency(transactions.reduce((sum, t) => sum + (t.profitLoss || 0), 0))}
-              </span>
-            </div>
-          </div>
-        ) : (
-          // Desktop: Horizontal layout (original)
-          <div className="flex justify-between items-center">
-            <span className="text-muted-foreground">
-              Total: {transactions.length} trade{transactions.length !== 1 ? 's' : ''}
-            </span>
-            <div className="flex gap-4">
-              <span className="text-muted-foreground">
-                Avg Days: <span className="font-medium text-card-foreground">
-                  {Math.round(transactions.reduce((sum, t) =>
-                    sum + calculateDaysHeld(t.tradeOpenDate, t.closeDate!), 0
-                  ) / transactions.length)}
-                </span>
-              </span>
-              <span className="text-muted-foreground">
-                Capital Deployed: <span className="font-medium text-card-foreground">
-                  {formatCurrency(transactions.reduce((sum, t) => sum + calculateCollateral(t), 0))}
-                </span>
-              </span>
-              <span className="text-muted-foreground">
-                Avg RoR: <span className={`font-medium ${
+
+            {/* Performance Metrics */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="text-center">
+                <p className={`text-base font-medium ${
+                  totalPnL >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'
+                }`}>
+                  {formatPnLCurrency(totalPnL)}
+                </p>
+                <p className="text-xs text-muted-foreground">Total P&L</p>
+              </div>
+              <div className="text-center">
+                <p className={`text-base font-medium ${
                   (() => {
-                    // Use Portfolio RoR calculation (same as chart) for consistency
-                    const totalPnL = transactions.reduce((sum, t) => sum + (t.profitLoss || 0), 0);
                     const totalCollateral = transactions.reduce((sum, t) => sum + calculateCollateral(t), 0);
                     const portfolioRoR = totalCollateral > 0 ? (totalPnL / totalCollateral * 100) : 0;
                     return portfolioRoR >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400';
                   })()
                 }`}>
                   {(() => {
-                    // Use Portfolio RoR calculation (same as chart) for consistency
-                    const totalPnL = transactions.reduce((sum, t) => sum + (t.profitLoss || 0), 0);
                     const totalCollateral = transactions.reduce((sum, t) => sum + calculateCollateral(t), 0);
                     const portfolioRoR = totalCollateral > 0 ? (totalPnL / totalCollateral * 100) : 0;
                     return isFinite(portfolioRoR) ? `${portfolioRoR.toFixed(1)}%` : '-';
                   })()}
-                </span>
-              </span>
-              <span className="text-muted-foreground">
-                Total P&L: <span className={`font-medium ${
-                  transactions.reduce((sum, t) => sum + (t.profitLoss || 0), 0) >= 0
-                    ? 'text-emerald-600 dark:text-emerald-400'
-                    : 'text-red-600 dark:text-red-400'
+                </p>
+                <p className="text-xs text-muted-foreground">Avg RoR</p>
+              </div>
+            </div>
+
+            {/* Additional Metrics */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="text-center">
+                <p className="text-sm font-medium text-card-foreground">
+                  {Math.round(transactions.reduce((sum, t) =>
+                    sum + calculateDaysHeld(t.tradeOpenDate, t.closeDate!), 0
+                  ) / transactions.length)} days
+                </p>
+                <p className="text-xs text-muted-foreground">Avg Days</p>
+              </div>
+              <div className="text-center">
+                <p className="text-sm font-medium text-card-foreground">
+                  {formatPnLCurrency(transactions.reduce((sum, t) => sum + calculateCollateral(t), 0))}
+                </p>
+                <p className="text-xs text-muted-foreground">Capital</p>
+              </div>
+            </div>
+
+            {/* Best Performance */}
+            {(quickStatsData.bestStrategy || quickStatsData.bestStockByPnL) && (
+              <div className="border-t pt-4 space-y-2">
+                {quickStatsData.bestStrategy && (
+                  <div className="text-center">
+                    <p className="text-xs text-muted-foreground">Best Strategy</p>
+                    <p className="text-sm font-medium text-blue-600 dark:text-blue-400">
+                      {quickStatsData.bestStrategy.name} ({quickStatsData.bestStrategy.ror.toFixed(1)}%)
+                    </p>
+                  </div>
+                )}
+                {quickStatsData.bestStockByPnL && (
+                  <div className="text-center">
+                    <p className="text-xs text-muted-foreground">Top Stock</p>
+                    <p className="text-sm font-medium text-emerald-600 dark:text-emerald-400">
+                      {quickStatsData.bestStockByPnL.ticker} ({formatPnLCurrency(quickStatsData.bestStockByPnL.pnl)})
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        ) : (
+          // Desktop: Grid layout
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {/* Performance Section */}
+            <div className="text-center">
+              <p className="text-xs text-muted-foreground mb-2">Performance</p>
+              <div className="space-y-1">
+                <p className="text-base font-medium text-card-foreground">{transactions.length}</p>
+                <p className="text-xs text-muted-foreground">Trades</p>
+                <p className="text-base font-medium text-card-foreground">{Math.round(winRate)}%</p>
+                <p className="text-xs text-muted-foreground">Win Rate</p>
+              </div>
+            </div>
+
+            {/* P&L & Returns Section */}
+            <div className="text-center">
+              <p className="text-xs text-muted-foreground mb-2">P&L & Returns</p>
+              <div className="space-y-1">
+                <p className={`text-base font-medium ${
+                  totalPnL >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'
                 }`}>
-                  {formatCurrency(transactions.reduce((sum, t) => sum + (t.profitLoss || 0), 0))}
-                </span>
-              </span>
+                  {formatPnLCurrency(totalPnL)}
+                </p>
+                <p className="text-xs text-muted-foreground">Total P&L</p>
+                <p className={`text-base font-medium ${
+                  (() => {
+                    const totalCollateral = transactions.reduce((sum, t) => sum + calculateCollateral(t), 0);
+                    const portfolioRoR = totalCollateral > 0 ? (totalPnL / totalCollateral * 100) : 0;
+                    return portfolioRoR >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400';
+                  })()
+                }`}>
+                  {(() => {
+                    const totalCollateral = transactions.reduce((sum, t) => sum + calculateCollateral(t), 0);
+                    const portfolioRoR = totalCollateral > 0 ? (totalPnL / totalCollateral * 100) : 0;
+                    return isFinite(portfolioRoR) ? `${portfolioRoR.toFixed(1)}%` : '-';
+                  })()}
+                </p>
+                <p className="text-xs text-muted-foreground">Avg RoR</p>
+              </div>
+            </div>
+
+            {/* Capital & Time Section */}
+            <div className="text-center">
+              <p className="text-xs text-muted-foreground mb-2">Capital & Time</p>
+              <div className="space-y-1">
+                <p className="text-base font-medium text-orange-600">
+                  {formatPnLCurrency(transactions.reduce((sum, t) => sum + calculateCollateral(t), 0))}
+                </p>
+                <p className="text-xs text-muted-foreground">Capital Deployed</p>
+                <p className="text-base font-medium text-card-foreground">
+                  {Math.round(transactions.reduce((sum, t) =>
+                    sum + calculateDaysHeld(t.tradeOpenDate, t.closeDate!), 0
+                  ) / transactions.length)}
+                </p>
+                <p className="text-xs text-muted-foreground">Avg Days</p>
+              </div>
+            </div>
+
+            {/* Best Performance Section */}
+            <div className="text-center">
+              <p className="text-xs text-muted-foreground mb-2">Best Performance</p>
+              <div className="space-y-1">
+                {quickStatsData.bestStrategy ? (
+                  <>
+                    <p className="text-sm font-medium text-blue-600 dark:text-blue-400 truncate">
+                      {quickStatsData.bestStrategy.name}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {quickStatsData.bestStrategy.ror.toFixed(1)}% RoR
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-sm text-muted-foreground">-</p>
+                )}
+                {quickStatsData.bestStockByPnL ? (
+                  <>
+                    <p className="text-sm font-medium text-emerald-600 dark:text-emerald-400">
+                      {quickStatsData.bestStockByPnL.ticker}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {formatPnLCurrency(quickStatsData.bestStockByPnL.pnl)} P&L
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-sm text-muted-foreground">-</p>
+                )}
+              </div>
             </div>
           </div>
         )}
