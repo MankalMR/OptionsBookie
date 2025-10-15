@@ -2,25 +2,9 @@
 
 import { formatPnLCurrency } from '@/utils/optionsCalculations';
 import { OptionsTransaction } from '@/types/options';
+import { YearlySummary } from '@/components/SummaryView';
 import YearlySummaryCard from './YearlySummaryCard';
 
-interface YearlyData {
-  year: number;
-  totalPnL: number;
-  totalTrades: number;
-  winRate: number;
-  averageDaysHeld: number;
-  bestMonth: { month: string; pnl: number; ror: number; capitalDeployed: number; trades: number };
-  worstMonth: { month: string; pnl: number; ror: number; capitalDeployed: number; trades: number };
-  monthlyBreakdown: Array<{
-    month: number;
-    monthName: string;
-    totalPnL: number;
-    totalTrades: number;
-    winRate: number;
-    fees: number;
-  }>;
-}
 
 interface TickerData {
   ticker: string;
@@ -41,7 +25,7 @@ interface ChartDataPoint {
 }
 
 interface YearlyPerformanceCardProps {
-  yearlySummaries: YearlyData[];
+  yearlySummaries: YearlySummary[];
   selectedYear: number | null;
   setSelectedYear: (year: number | null) => void;
   getChartDataForYear: (year: number) => ChartDataPoint[];

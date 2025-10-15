@@ -9,6 +9,7 @@ import {
   calculateStrategyPerformance,
   calculateMonthlyTopTickers,
   calculatePortfolioRoR,
+  calculatePortfolioAnnualizedRoR,
   calculateCollateral
 } from '@/utils/optionsCalculations';
 import { parseLocalDate } from '@/utils/dateUtils';
@@ -34,7 +35,7 @@ interface MonthlySummary {
   fees: number;
 }
 
-interface YearlySummary {
+export interface YearlySummary {
   year: number;
   totalPnL: number;
   totalTrades: number;
@@ -43,8 +44,8 @@ interface YearlySummary {
   winRate: number;
   totalFees: number;
   averageDaysHeld: number;
-  bestMonth: { month: string; pnl: number; ror: number; capitalDeployed: number; trades: number };
-  worstMonth: { month: string; pnl: number; ror: number; capitalDeployed: number; trades: number };
+  bestMonth: { month: string; pnl: number; ror: number; annualizedRoR: number; capitalDeployed: number; trades: number };
+  worstMonth: { month: string; pnl: number; ror: number; annualizedRoR: number; capitalDeployed: number; trades: number };
   monthlyBreakdown: MonthlySummary[];
 }
 
@@ -74,8 +75,8 @@ export default function SummaryView({ transactions, selectedPortfolioName }: Sum
           winRate: 0,
           totalFees: 0,
           averageDaysHeld: 0,
-          bestMonth: { month: '', pnl: -Infinity, ror: 0, capitalDeployed: 0, trades: 0 },
-          worstMonth: { month: '', pnl: Infinity, ror: 0, capitalDeployed: 0, trades: 0 },
+          bestMonth: { month: '', pnl: -Infinity, ror: 0, annualizedRoR: 0, capitalDeployed: 0, trades: 0 },
+          worstMonth: { month: '', pnl: Infinity, ror: 0, annualizedRoR: 0, capitalDeployed: 0, trades: 0 },
           monthlyBreakdown: []
         };
       }
@@ -155,11 +156,13 @@ export default function SummaryView({ transactions, selectedPortfolioName }: Sum
 
           const totalCollateral = monthTransactions.reduce((sum, t) => sum + calculateCollateral(t), 0);
           const ror = totalCollateral > 0 ? (monthData.totalPnL / totalCollateral * 100) : 0;
+          const annualizedRoR = calculatePortfolioAnnualizedRoR(monthTransactions);
 
           return {
             month: monthData.monthName,
             pnl: monthData.totalPnL,
             ror: Number(ror.toFixed(1)),
+            annualizedRoR: Number(annualizedRoR.toFixed(1)),
             capitalDeployed: totalCollateral,
             trades: monthData.totalTrades
           };
@@ -167,11 +170,11 @@ export default function SummaryView({ transactions, selectedPortfolioName }: Sum
 
         yearData.bestMonth = monthsWithMetrics.reduce(
           (best, month) => month.pnl > best.pnl ? month : best,
-          { month: '', pnl: -Infinity, ror: 0, capitalDeployed: 0, trades: 0 }
+          { month: '', pnl: -Infinity, ror: 0, annualizedRoR: 0, capitalDeployed: 0, trades: 0 }
         );
         yearData.worstMonth = monthsWithMetrics.reduce(
           (worst, month) => month.pnl < worst.pnl ? month : worst,
-          { month: '', pnl: Infinity, ror: 0, capitalDeployed: 0, trades: 0 }
+          { month: '', pnl: Infinity, ror: 0, annualizedRoR: 0, capitalDeployed: 0, trades: 0 }
         );
       }
     });
@@ -339,6 +342,7 @@ export default function SummaryView({ transactions, selectedPortfolioName }: Sum
     totalTrades: overallStats.totalTrades,
     winRate: overallStats.winRate,
     avgRoR: calculatePortfolioRoR(transactions),
+    annualizedRoR: calculatePortfolioAnnualizedRoR(transactions),
     bestStrategy: strategyPerformance.filter(s => s.realizedCount > 0).length > 0
       ? { name: strategyPerformance.filter(s => s.realizedCount > 0)[0].strategy, ror: strategyPerformance.filter(s => s.realizedCount > 0)[0].avgRoR }
       : null,

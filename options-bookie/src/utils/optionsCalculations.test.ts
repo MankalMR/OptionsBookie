@@ -28,6 +28,9 @@ import {
   calculateAverageRoR,
   calculateNewTradeProfitLoss,
   calculateAnnualizedROR,
+  calculateAnnualizedRoR,
+  calculatePortfolioAnnualizedRoR,
+  getRoRColorClasses,
   updateTransactionPandL,
   calculateChainPnL,
   calculateChainCollateral,
@@ -1892,6 +1895,499 @@ describe('optionsCalculations', () => {
 
       const chainPnL = calculateChainPnL('chain-1', transactions);
       expect(chainPnL).toBe(0);
+    });
+  });
+
+  describe('calculateAnnualizedRoR', () => {
+    it('should calculate annualized RoR correctly for normal trades', () => {
+      const transaction = createMockTransaction({
+      stockSymbol: 'AAPL',
+      callOrPut: 'Put',
+      buyOrSell: 'Sell',
+      strikePrice: 150,
+      premium: 2.00,
+      numberOfContracts: 1,
+      fees: 1.32,
+      status: 'Closed',
+      tradeOpenDate: '2025-01-01',
+      closeDate: '2025-01-31', // 30 days
+      profitLoss: 200 - 1.32 // $198.68 profit
+    });
+
+    const annualizedRoR = calculateAnnualizedRoR(transaction);
+    const expectedRoR = calculateRoR(transaction); // ~1.32%
+    const expectedAnnualizedRoR = (expectedRoR * 365) / 30; // ~16.1%
+
+    expect(annualizedRoR).toBeCloseTo(expectedAnnualizedRoR, 1);
+    expect(annualizedRoR).toBeGreaterThan(expectedRoR); // Should be higher than regular RoR
+  });
+
+  it('should handle same-day trades with 0.5 day minimum', () => {
+    const transaction = createMockTransaction({
+      stockSymbol: 'AAPL',
+      callOrPut: 'Put',
+      buyOrSell: 'Sell',
+      strikePrice: 150,
+      premium: 2.00,
+      numberOfContracts: 1,
+      fees: 1.32,
+      status: 'Closed',
+      tradeOpenDate: '2025-01-01',
+      closeDate: '2025-01-01', // Same day = 0 days held
+      profitLoss: 100 - 1.32
+    });
+
+    const annualizedRoR = calculateAnnualizedRoR(transaction);
+    const expectedRoR = calculateRoR(transaction);
+    const expectedAnnualizedRoR = (expectedRoR * 365) / 0.5; // Use 0.5 days for same-day trades
+
+    expect(annualizedRoR).toBeCloseTo(expectedAnnualizedRoR, 1);
+    expect(annualizedRoR).toBeGreaterThan(expectedRoR * 700); // Should be very high (730x)
+  });
+
+  it('should return NaN for invalid negative days held', () => {
+    const transaction = createMockTransaction({
+      stockSymbol: 'AAPL',
+      status: 'Closed',
+      tradeOpenDate: '2025-01-31',
+      closeDate: '2025-01-01', // Close before open = negative days
+      profitLoss: 100
+    });
+
+    const annualizedRoR = calculateAnnualizedRoR(transaction);
+    expect(annualizedRoR).toBeNaN();
+  });
+
+  it('should return 0 for zero RoR trades', () => {
+    const transaction = createMockTransaction({
+      stockSymbol: 'AAPL',
+      status: 'Closed',
+      tradeOpenDate: '2025-01-01',
+      closeDate: '2025-01-15',
+      profitLoss: 0 // Zero profit/loss
+    });
+
+    const annualizedRoR = calculateAnnualizedRoR(transaction);
+    expect(annualizedRoR).toBe(0);
+  });
+
+  it('should return 0 for open trades (no close date)', () => {
+    const transaction = createMockTransaction({
+      stockSymbol: 'AAPL',
+      status: 'Open',
+      closeDate: null,
+      profitLoss: 0
+    });
+
+    const annualizedRoR = calculateAnnualizedRoR(transaction);
+    expect(annualizedRoR).toBe(0);
+  });
+
+  it('should handle negative RoR correctly', () => {
+    const transaction = createMockTransaction({
+      stockSymbol: 'AAPL',
+      callOrPut: 'Put',
+      buyOrSell: 'Sell',
+      strikePrice: 150,
+      premium: 2.00,
+      numberOfContracts: 1,
+      fees: 1.32,
+      status: 'Closed',
+      tradeOpenDate: '2025-01-01',
+      closeDate: '2025-01-08', // 7 days
+      profitLoss: -300 - 1.32 // Loss
+    });
+
+    const annualizedRoR = calculateAnnualizedRoR(transaction);
+    const expectedRoR = calculateRoR(transaction); // Negative
+    const expectedAnnualizedRoR = (expectedRoR * 365) / 7;
+
+    expect(annualizedRoR).toBeCloseTo(expectedAnnualizedRoR, 1);
+    expect(annualizedRoR).toBeLessThan(0); // Should be negative
+  });
+
+  it('should scale correctly with different time periods', () => {
+    const baseTransaction = {
+      stockSymbol: 'AAPL',
+      callOrPut: 'Put' as const,
+      buyOrSell: 'Sell' as const,
+      strikePrice: 150,
+      premium: 2.00,
+      numberOfContracts: 1,
+      fees: 1.32,
+      status: 'Closed' as const,
+      tradeOpenDate: '2025-01-01',
+      profitLoss: 200 - 1.32
+    };
+
+    // 1 day trade
+    const oneDayTrade = createMockTransaction({
+      ...baseTransaction,
+      closeDate: '2025-01-02'
+    });
+
+    // 365 day trade (1 year)
+    const oneYearTrade = createMockTransaction({
+      ...baseTransaction,
+      closeDate: '2025-12-31'
+    });
+
+    const oneDayAnnualized = calculateAnnualizedRoR(oneDayTrade);
+    const oneYearAnnualized = calculateAnnualizedRoR(oneYearTrade);
+    const regularRoR = calculateRoR(oneYearTrade);
+
+    // 1-day trade should have much higher annualized return
+    expect(oneDayAnnualized).toBeGreaterThan(oneYearAnnualized * 300);
+
+    // 1-year trade annualized RoR should equal regular RoR
+    expect(oneYearAnnualized).toBeCloseTo(regularRoR, 1);
+  });
+});
+
+describe('calculatePortfolioAnnualizedRoR', () => {
+  it('should calculate weighted average annualized RoR correctly', () => {
+    const transactions = [
+      // Small trade with high annualized return (short duration)
+      createMockTransaction({
+        stockSymbol: 'AAPL',
+        callOrPut: 'Put',
+        buyOrSell: 'Sell',
+        strikePrice: 100, // Lower collateral
+        premium: 1.00,
+        numberOfContracts: 1,
+        fees: 1.32,
+        status: 'Closed',
+        tradeOpenDate: '2025-01-01',
+        closeDate: '2025-01-02', // 1 day
+        profitLoss: 100 - 1.32
+      }),
+      // Large trade with lower annualized return (longer duration)
+      createMockTransaction({
+        stockSymbol: 'MSFT',
+        callOrPut: 'Put',
+        buyOrSell: 'Sell',
+        strikePrice: 500, // Higher collateral
+        premium: 5.00,
+        numberOfContracts: 2,
+        fees: 1.32,
+        status: 'Closed',
+        tradeOpenDate: '2025-01-01',
+        closeDate: '2025-02-01', // 31 days
+        profitLoss: 200 - 1.32
+      })
+    ];
+
+    const portfolioAnnualizedRoR = calculatePortfolioAnnualizedRoR(transactions);
+
+    // Should be weighted by capital, so closer to the larger trade's annualized RoR
+    const largeTradeAnnualizedRoR = calculateAnnualizedRoR(transactions[1]);
+    const smallTradeAnnualizedRoR = calculateAnnualizedRoR(transactions[0]);
+
+    expect(portfolioAnnualizedRoR).toBeGreaterThan(0);
+    expect(portfolioAnnualizedRoR).toBeLessThan(smallTradeAnnualizedRoR); // Should be less than the high short-term return
+
+    // Portfolio should be closer to large trade due to capital weighting
+    // But since the small trade has extremely high annualized return (1-day),
+    // the portfolio will be somewhere between them, weighted by capital
+    expect(portfolioAnnualizedRoR).toBeGreaterThan(largeTradeAnnualizedRoR); // Will be higher due to small trade influence
+    expect(portfolioAnnualizedRoR).toBeLessThan(smallTradeAnnualizedRoR * 0.5); // But much less than small trade
+  });
+
+  it('should only include realized transactions', () => {
+    const transactions = [
+      // Open trade (should be excluded)
+      createMockTransaction({
+        stockSymbol: 'AAPL',
+        status: 'Open',
+        profitLoss: 0
+      }),
+      // Closed trade (should be included)
+      createMockTransaction({
+        stockSymbol: 'MSFT',
+        callOrPut: 'Put',
+        buyOrSell: 'Sell',
+        strikePrice: 200,
+        premium: 3.00,
+        numberOfContracts: 1,
+        fees: 1.32,
+        status: 'Closed',
+        tradeOpenDate: '2025-01-01',
+        closeDate: '2025-01-15',
+        profitLoss: 300 - 1.32
+      })
+    ];
+
+    const portfolioAnnualizedRoR = calculatePortfolioAnnualizedRoR(transactions);
+    const closedTradeAnnualizedRoR = calculateAnnualizedRoR(transactions[1]);
+
+    // Should equal the single closed trade's annualized RoR
+    expect(portfolioAnnualizedRoR).toBeCloseTo(closedTradeAnnualizedRoR, 2);
+  });
+
+  it('should return 0 for empty transactions', () => {
+    const portfolioAnnualizedRoR = calculatePortfolioAnnualizedRoR([]);
+    expect(portfolioAnnualizedRoR).toBe(0);
+  });
+
+  it('should return 0 when no realized transactions exist', () => {
+    const transactions = [
+      createMockTransaction({
+        stockSymbol: 'AAPL',
+        status: 'Open',
+        profitLoss: 0
+      }),
+      createMockTransaction({
+        stockSymbol: 'MSFT',
+        status: 'Rolled',
+        profitLoss: 100
+      })
+    ];
+
+    const portfolioAnnualizedRoR = calculatePortfolioAnnualizedRoR(transactions);
+    expect(portfolioAnnualizedRoR).toBe(0);
+  });
+
+  it('should handle zero collateral trades gracefully', () => {
+    const transactions = [
+      // Zero collateral trade (long call with zero premium)
+      createMockTransaction({
+        stockSymbol: 'AAPL',
+        callOrPut: 'Call',
+        buyOrSell: 'Buy',
+        strikePrice: 150,
+        premium: 0, // Zero premium = zero collateral
+        numberOfContracts: 1,
+        fees: 1.32,
+        status: 'Closed',
+        tradeOpenDate: '2025-01-01',
+        closeDate: '2025-01-15',
+        profitLoss: 100
+      }),
+      // Normal trade
+      createMockTransaction({
+        stockSymbol: 'MSFT',
+        callOrPut: 'Put',
+        buyOrSell: 'Sell',
+        strikePrice: 200,
+        premium: 3.00,
+        numberOfContracts: 1,
+        fees: 1.32,
+        status: 'Closed',
+        tradeOpenDate: '2025-01-01',
+        closeDate: '2025-01-15',
+        profitLoss: 200 - 1.32
+      })
+    ];
+
+    const portfolioAnnualizedRoR = calculatePortfolioAnnualizedRoR(transactions);
+    const normalTradeAnnualizedRoR = calculateAnnualizedRoR(transactions[1]);
+
+    // Should equal the normal trade's annualized RoR (zero collateral trade excluded)
+    expect(portfolioAnnualizedRoR).toBeCloseTo(normalTradeAnnualizedRoR, 2);
+  });
+
+  it('should handle infinite annualized RoR gracefully', () => {
+    const transactions = [
+      createMockTransaction({
+        stockSymbol: 'AAPL',
+        callOrPut: 'Put',
+        buyOrSell: 'Sell',
+        strikePrice: 150,
+        premium: 2.00,
+        numberOfContracts: 1,
+        fees: 1.32,
+        status: 'Closed',
+        tradeOpenDate: '2025-01-01',
+        closeDate: '2025-01-01', // Same day - will use 0.5 days
+        profitLoss: 200 - 1.32
+      })
+    ];
+
+    const portfolioAnnualizedRoR = calculatePortfolioAnnualizedRoR(transactions);
+
+    // Should be finite (using 0.5 days for same-day trades)
+    expect(isFinite(portfolioAnnualizedRoR)).toBe(true);
+    expect(portfolioAnnualizedRoR).toBeGreaterThan(0);
+  });
+
+  it('should handle negative portfolio annualized RoR correctly', () => {
+    const transactions = [
+      createMockTransaction({
+        stockSymbol: 'AAPL',
+        callOrPut: 'Put',
+        buyOrSell: 'Sell',
+        strikePrice: 150,
+        premium: 2.00,
+        numberOfContracts: 1,
+        fees: 1.32,
+        status: 'Closed',
+        tradeOpenDate: '2025-01-01',
+        closeDate: '2025-01-15',
+        profitLoss: -500 - 1.32 // Large loss
+      })
+    ];
+
+    const portfolioAnnualizedRoR = calculatePortfolioAnnualizedRoR(transactions);
+    const individualAnnualizedRoR = calculateAnnualizedRoR(transactions[0]);
+
+    expect(portfolioAnnualizedRoR).toBeLessThan(0);
+    expect(portfolioAnnualizedRoR).toBeCloseTo(individualAnnualizedRoR, 2);
+  });
+
+  it('should weight by capital deployment correctly', () => {
+    const transactions = [
+      // Small capital, high annualized return
+      createMockTransaction({
+        stockSymbol: 'AAPL',
+        callOrPut: 'Put',
+        buyOrSell: 'Sell',
+        strikePrice: 50, // Low collateral: $5,000
+        premium: 1.00,
+        numberOfContracts: 1,
+        fees: 1.32,
+        status: 'Closed',
+        tradeOpenDate: '2025-01-01',
+        closeDate: '2025-01-02', // 1 day - very high annualized return
+        profitLoss: 100 - 1.32
+      }),
+      // Large capital, moderate annualized return
+      createMockTransaction({
+        stockSymbol: 'MSFT',
+        callOrPut: 'Put',
+        buyOrSell: 'Sell',
+        strikePrice: 400, // High collateral: $40,000
+        premium: 4.00,
+        numberOfContracts: 1,
+        fees: 1.32,
+        status: 'Closed',
+        tradeOpenDate: '2025-01-01',
+        closeDate: '2025-01-31', // 30 days - moderate annualized return
+        profitLoss: 200 - 1.32
+      })
+    ];
+
+    const portfolioAnnualizedRoR = calculatePortfolioAnnualizedRoR(transactions);
+    const smallTradeAnnualizedRoR = calculateAnnualizedRoR(transactions[0]);
+    const largeTradeAnnualizedRoR = calculateAnnualizedRoR(transactions[1]);
+
+    // Portfolio should be closer to large trade due to capital weighting
+    expect(Math.abs(portfolioAnnualizedRoR - largeTradeAnnualizedRoR))
+      .toBeLessThan(Math.abs(portfolioAnnualizedRoR - smallTradeAnnualizedRoR));
+    });
+  });
+
+  describe('getRoRColorClasses', () => {
+    it('should return green classes for positive RoR when only regular RoR is provided', () => {
+      const colorClasses = getRoRColorClasses(5.2);
+      expect(colorClasses).toBe('text-emerald-600 dark:text-emerald-400');
+    });
+
+    it('should return red classes for negative RoR when only regular RoR is provided', () => {
+      const colorClasses = getRoRColorClasses(-3.1);
+      expect(colorClasses).toBe('text-red-600 dark:text-red-400');
+    });
+
+    it('should return green classes for zero RoR when only regular RoR is provided', () => {
+      const colorClasses = getRoRColorClasses(0);
+      expect(colorClasses).toBe('text-emerald-600 dark:text-emerald-400');
+    });
+
+    it('should return green classes when both RoR values are positive', () => {
+      const colorClasses = getRoRColorClasses(5.2, 45.8);
+      expect(colorClasses).toBe('text-emerald-600 dark:text-emerald-400');
+    });
+
+    it('should return red classes when regular RoR is negative and annualized RoR is positive', () => {
+      const colorClasses = getRoRColorClasses(-2.1, 15.3);
+      expect(colorClasses).toBe('text-red-600 dark:text-red-400');
+    });
+
+    it('should return red classes when regular RoR is positive and annualized RoR is negative', () => {
+      const colorClasses = getRoRColorClasses(3.5, -12.7);
+      expect(colorClasses).toBe('text-red-600 dark:text-red-400');
+    });
+
+    it('should return red classes when both RoR values are negative', () => {
+      const colorClasses = getRoRColorClasses(-1.8, -25.4);
+      expect(colorClasses).toBe('text-red-600 dark:text-red-400');
+    });
+
+    it('should return green classes when both RoR values are zero', () => {
+      const colorClasses = getRoRColorClasses(0, 0);
+      expect(colorClasses).toBe('text-emerald-600 dark:text-emerald-400');
+    });
+
+    it('should return green classes when regular RoR is zero and annualized RoR is positive', () => {
+      const colorClasses = getRoRColorClasses(0, 12.5);
+      expect(colorClasses).toBe('text-emerald-600 dark:text-emerald-400');
+    });
+
+    it('should return green classes when regular RoR is positive and annualized RoR is zero', () => {
+      const colorClasses = getRoRColorClasses(2.3, 0);
+      expect(colorClasses).toBe('text-emerald-600 dark:text-emerald-400');
+    });
+
+    it('should return red classes when regular RoR is zero and annualized RoR is negative', () => {
+      const colorClasses = getRoRColorClasses(0, -8.2);
+      expect(colorClasses).toBe('text-red-600 dark:text-red-400');
+    });
+
+    it('should handle very small positive numbers correctly', () => {
+      const colorClasses = getRoRColorClasses(0.01, 0.001);
+      expect(colorClasses).toBe('text-emerald-600 dark:text-emerald-400');
+    });
+
+    it('should handle very small negative numbers correctly', () => {
+      const colorClasses = getRoRColorClasses(-0.01, 5.2);
+      expect(colorClasses).toBe('text-red-600 dark:text-red-400');
+    });
+
+    it('should handle large positive numbers correctly', () => {
+      const colorClasses = getRoRColorClasses(150.5, 2847.3);
+      expect(colorClasses).toBe('text-emerald-600 dark:text-emerald-400');
+    });
+
+    it('should handle large negative numbers correctly', () => {
+      const colorClasses = getRoRColorClasses(-89.7, -1205.4);
+      expect(colorClasses).toBe('text-red-600 dark:text-red-400');
+    });
+
+    it('should handle Infinity values correctly', () => {
+      const colorClasses = getRoRColorClasses(Infinity, 25.3);
+      expect(colorClasses).toBe('text-emerald-600 dark:text-emerald-400');
+    });
+
+    it('should handle negative Infinity values correctly', () => {
+      const colorClasses = getRoRColorClasses(-Infinity, 10.2);
+      expect(colorClasses).toBe('text-red-600 dark:text-red-400');
+    });
+
+    it('should handle NaN values as negative (red)', () => {
+      const colorClasses = getRoRColorClasses(NaN, 15.7);
+      expect(colorClasses).toBe('text-red-600 dark:text-red-400');
+    });
+
+    it('should handle NaN in annualized RoR as negative (red)', () => {
+      const colorClasses = getRoRColorClasses(5.2, NaN);
+      expect(colorClasses).toBe('text-red-600 dark:text-red-400');
+    });
+
+    it('should prioritize safety - any negative or invalid value results in red', () => {
+      // This test ensures that the function errs on the side of caution
+      // If any value is problematic, show red (negative) color
+      const testCases = [
+        [5.2, -0.001], // Tiny negative annualized RoR
+        [-0.001, 50.0], // Tiny negative regular RoR
+        [NaN, 100],     // Invalid regular RoR
+        [100, NaN],     // Invalid annualized RoR
+        [-Infinity, 5], // Negative infinity regular RoR
+        [5, -Infinity], // Negative infinity annualized RoR
+      ];
+
+      testCases.forEach(([ror, annualizedRoR]) => {
+        const colorClasses = getRoRColorClasses(ror, annualizedRoR);
+        expect(colorClasses).toBe('text-red-600 dark:text-red-400');
+      });
     });
   });
 });

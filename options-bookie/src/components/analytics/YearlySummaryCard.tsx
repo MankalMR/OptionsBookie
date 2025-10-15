@@ -1,7 +1,8 @@
 'use client';
 
-import { formatPnLCurrency, getRealizedTransactions, calculateStrategyPerformance, calculateCollateral, calculatePortfolioRoR } from '@/utils/optionsCalculations';
+import { formatPnLCurrency, getRealizedTransactions, calculateStrategyPerformance, calculateCollateral, calculatePortfolioRoR, calculatePortfolioAnnualizedRoR } from '@/utils/optionsCalculations';
 import { OptionsTransaction } from '@/types/options';
+import { YearlySummary } from '@/components/SummaryView';
 import { parseLocalDate } from '@/utils/dateUtils';
 import MonthlyBreakdownSection from './MonthlyBreakdownSection';
 import Top5TickersSection from './Top5TickersSection';
@@ -9,23 +10,6 @@ import YearPortfolioAnalytics from './YearPortfolioAnalytics';
 import QuickStatsCard from './QuickStatsCard';
 import StrategyPerformanceCard from './StrategyPerformanceCard';
 
-interface YearlyData {
-  year: number;
-  totalPnL: number;
-  totalTrades: number;
-  winRate: number;
-  averageDaysHeld: number;
-  bestMonth: { month: string; pnl: number; ror: number; capitalDeployed: number; trades: number };
-  worstMonth: { month: string; pnl: number; ror: number; capitalDeployed: number; trades: number };
-  monthlyBreakdown: Array<{
-    month: number;
-    monthName: string;
-    totalPnL: number;
-    totalTrades: number;
-    winRate: number;
-    fees: number;
-  }>;
-}
 
 interface TickerData {
   ticker: string;
@@ -46,7 +30,7 @@ interface ChartDataPoint {
 }
 
 interface YearlySummaryCardProps {
-  yearData: YearlyData;
+  yearData: YearlySummary;
   selectedYear: number | null;
   onToggleYear: (year: number) => void;
   chartData: ChartDataPoint[];
@@ -114,6 +98,7 @@ export default function YearlySummaryCard({
     totalTrades: realizedTransactions.length,
     winRate,
     avgRoR: calculatePortfolioRoR(yearTransactions),
+    annualizedRoR: calculatePortfolioAnnualizedRoR(yearTransactions),
     bestStrategy: yearStrategyPerformance.filter(s => s.realizedCount > 0).length > 0
       ? { name: yearStrategyPerformance.filter(s => s.realizedCount > 0)[0].strategy, ror: yearStrategyPerformance.filter(s => s.realizedCount > 0)[0].avgRoR }
       : null,
@@ -185,7 +170,7 @@ export default function YearlySummaryCard({
           <p className="text-sm text-emerald-800 dark:text-emerald-200 font-medium mb-2">
             Best Month: {yearData.bestMonth.month}
           </p>
-          <div className="grid grid-cols-3 gap-2 text-xs">
+          <div className="grid grid-cols-4 gap-2 text-xs">
             <div className="text-center">
               <p className="font-semibold text-emerald-800 dark:text-emerald-200">
                 {formatCurrency(yearData.bestMonth.pnl)}
@@ -200,6 +185,12 @@ export default function YearlySummaryCard({
             </div>
             <div className="text-center">
               <p className="font-semibold text-emerald-800 dark:text-emerald-200">
+                {isFinite(yearData.bestMonth.annualizedRoR) ? `${yearData.bestMonth.annualizedRoR.toFixed(1)}%` : '-'}
+              </p>
+              <p className="text-emerald-600 dark:text-emerald-400">Ann. RoR</p>
+            </div>
+            <div className="text-center">
+              <p className="font-semibold text-emerald-800 dark:text-emerald-200">
                 {formatCurrency(yearData.bestMonth.capitalDeployed)}
               </p>
               <p className="text-emerald-600 dark:text-emerald-400">Capital</p>
@@ -210,7 +201,7 @@ export default function YearlySummaryCard({
           <p className="text-sm text-red-800 dark:text-red-200 font-medium mb-2">
             Worst Month: {yearData.worstMonth.month}
           </p>
-          <div className="grid grid-cols-3 gap-2 text-xs">
+          <div className="grid grid-cols-4 gap-2 text-xs">
             <div className="text-center">
               <p className="font-semibold text-red-800 dark:text-red-200">
                 {formatCurrency(yearData.worstMonth.pnl)}
@@ -222,6 +213,12 @@ export default function YearlySummaryCard({
                 {yearData.worstMonth.ror.toFixed(1)}%
               </p>
               <p className="text-red-600 dark:text-red-400">RoR</p>
+            </div>
+            <div className="text-center">
+              <p className="font-semibold text-red-800 dark:text-red-200">
+                {isFinite(yearData.worstMonth.annualizedRoR) ? `${yearData.worstMonth.annualizedRoR.toFixed(1)}%` : '-'}
+              </p>
+              <p className="text-red-600 dark:text-red-400">Ann. RoR</p>
             </div>
             <div className="text-center">
               <p className="font-semibold text-red-800 dark:text-red-200">

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { formatPnLCurrency, getRealizedTransactions, calculateCollateral, calculateDaysHeld, calculateStrategyPerformance, calculatePortfolioRoR } from '@/utils/optionsCalculations';
+import { formatPnLCurrency, getRealizedTransactions, calculateCollateral, calculateDaysHeld, calculateStrategyPerformance, calculatePortfolioRoR, calculatePortfolioAnnualizedRoR, getRoRColorClasses } from '@/utils/optionsCalculations';
 import { ResponsiveContainer, ComposedChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend, Bar } from 'recharts';
 import { ChevronDown, ChevronRight, Plus, Minus } from 'lucide-react';
 import { OptionsTransaction } from '@/types/options';
@@ -209,7 +209,14 @@ export default function MonthlyBreakdownSection({
               {!isMobile && <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Top Strategy</th>}
               <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Top by P&L</th>
               <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Top by RoR</th>
-              {!isMobile && <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">P&L (RoR) / Capital</th>}
+              {!isMobile && (
+                <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">
+                  <div className="flex flex-col">
+                    <span>P&L / Capital</span>
+                    <span className="text-xs">RoR / Ann. RoR</span>
+                  </div>
+                </th>
+              )}
               {!isMobile && <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Fees</th>}
             </tr>
           </thead>
@@ -224,6 +231,7 @@ export default function MonthlyBreakdownSection({
               const realizedMonthTransactions = getRealizedTransactions(monthTransactions);
               const totalCollateral = realizedMonthTransactions.reduce((sum, t) => sum + calculateCollateral(t), 0);
               const avgRoR = calculatePortfolioRoR(monthTransactions);
+              const avgAnnualizedRoR = calculatePortfolioAnnualizedRoR(monthTransactions);
               const avgDays = realizedMonthTransactions.length > 0
                 ? realizedMonthTransactions.reduce((sum, t) => sum + calculateDaysHeld(t.tradeOpenDate, t.closeDate!), 0) / realizedMonthTransactions.length
                 : 0;
@@ -287,12 +295,24 @@ export default function MonthlyBreakdownSection({
                     </td>
                     {!isMobile && (
                       <td className="px-4 py-2 text-sm">
-                        <div className="flex flex-col">
-                          <span className={`${month.totalPnL >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
-                            {formatCurrency(month.totalPnL)} ({isFinite(avgRoR) ? `${avgRoR.toFixed(1)}%` : '-'})
+                        <div className="flex flex-col space-y-1">
+                          <span className="text-xs">
+                            <span className={`${month.totalPnL >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
+                              {formatCurrency(month.totalPnL)}
+                            </span>
+                            <span className="text-muted-foreground"> / </span>
+                            <span className="text-red-600 dark:text-red-400">
+                              {formatCurrency(totalCollateral)}
+                            </span>
                           </span>
-                          <span className="text-red-600 dark:text-red-400 text-xs">
-                            / {formatCurrency(totalCollateral)}
+                          <span className="text-xs">
+                            <span className={`${getRoRColorClasses(avgRoR, avgAnnualizedRoR)}`}>
+                              {isFinite(avgRoR) ? `${avgRoR.toFixed(1)}%` : '-'}
+                            </span>
+                            <span className="text-muted-foreground"> / </span>
+                            <span className={`${getRoRColorClasses(avgRoR, avgAnnualizedRoR)}`}>
+                              {isFinite(avgAnnualizedRoR) ? `${avgAnnualizedRoR.toFixed(1)}%` : '-'}
+                            </span>
                           </span>
                         </div>
                       </td>

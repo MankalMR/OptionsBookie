@@ -175,6 +175,28 @@ export const calculateRoR = (transaction: OptionsTransaction): number => {
   return (profitLoss / collateral) * 100;
 };
 
+// Calculate Annualized Return on Risk percentage
+export const calculateAnnualizedRoR = (transaction: OptionsTransaction): number => {
+  const ror = calculateRoR(transaction);
+
+  if (!transaction.closeDate || ror === 0) return 0;
+
+  // Check for invalid date order before calculating days held
+  const openDate = new Date(transaction.tradeOpenDate);
+  const closeDate = new Date(transaction.closeDate);
+  if (closeDate < openDate) return NaN; // Invalid data - close before open
+
+  const daysHeld = calculateDaysHeld(transaction.tradeOpenDate, transaction.closeDate);
+
+  if (daysHeld === 0) {
+    // Same-day trade: use 0.5 days to avoid infinity but show very high returns
+    return (ror * 365) / 0.5;
+  }
+
+  // Annualized RoR = RoR × (365 / Days Held)
+  return (ror * 365) / daysHeld;
+};
+
 // Calculate total collateral for a chain
 // Only count collateral for currently OPEN positions (closed/rolled positions don't tie up capital)
 export const calculateChainCollateral = (chainId: string, transactions: OptionsTransaction[]): number => {
@@ -235,6 +257,44 @@ export const calculatePortfolioRoR = (transactions: OptionsTransaction[]): numbe
   return totalCollateral > 0 ? (totalPnL / totalCollateral * 100) : 0;
 };
 
+// Calculate Portfolio Annualized RoR (Time-weighted portfolio return)
+export const calculatePortfolioAnnualizedRoR = (transactions: OptionsTransaction[]): number => {
+  const realizedTransactions = getRealizedTransactions(transactions);
+
+  if (realizedTransactions.length === 0) return 0;
+
+  // Calculate weighted average annualized RoR based on capital deployment
+  let totalWeightedAnnualizedReturn = 0;
+  let totalCollateral = 0;
+
+  realizedTransactions.forEach(transaction => {
+    const collateral = calculateCollateral(transaction);
+    const annualizedRoR = calculateAnnualizedRoR(transaction);
+
+    if (collateral > 0 && isFinite(annualizedRoR)) {
+      totalWeightedAnnualizedReturn += (annualizedRoR * collateral);
+      totalCollateral += collateral;
+    }
+  });
+
+  return totalCollateral > 0 ? totalWeightedAnnualizedReturn / totalCollateral : 0;
+};
+
+// Get color classes for RoR values (both regular and annualized)
+export const getRoRColorClasses = (ror: number, annualizedRoR?: number): string => {
+  // If both values are provided, both must be non-negative for green color
+  if (annualizedRoR !== undefined) {
+    return (ror >= 0 && annualizedRoR >= 0)
+      ? 'text-emerald-600 dark:text-emerald-400'
+      : 'text-red-600 dark:text-red-400';
+  }
+
+  // If only regular RoR is provided
+  return ror >= 0
+    ? 'text-emerald-600 dark:text-emerald-400'
+    : 'text-red-600 dark:text-red-400';
+};
+
 // Determine strategy type based on transaction characteristics
 export const getStrategyType = (transaction: OptionsTransaction): string => {
   const { callOrPut, buyOrSell } = transaction;
@@ -259,6 +319,7 @@ export const calculateStrategyPerformance = (transactions: OptionsTransaction[])
     totalPnL: number;
     totalCollateral: number;
     avgRoR: number;
+    avgAnnualizedRoR: number;
     winRate: number;
     avgDaysHeld: number;
   }>();
@@ -273,6 +334,7 @@ export const calculateStrategyPerformance = (transactions: OptionsTransaction[])
         totalPnL: 0,
         totalCollateral: 0,
         avgRoR: 0,
+        avgAnnualizedRoR: 0,
         winRate: 0,
         avgDaysHeld: 0
       });
@@ -304,6 +366,10 @@ export const calculateStrategyPerformance = (transactions: OptionsTransaction[])
     const rorValues = realizedTrades.map(t => calculateRoR(t)).filter(ror => !isNaN(ror) && isFinite(ror));
     strategy.avgRoR = rorValues.length > 0 ? rorValues.reduce((sum, ror) => sum + ror, 0) / rorValues.length : 0;
 
+    // Calculate average annualized RoR (only for realized trades)
+    const annualizedRorValues = realizedTrades.map(t => calculateAnnualizedRoR(t)).filter(ror => !isNaN(ror) && isFinite(ror));
+    strategy.avgAnnualizedRoR = annualizedRorValues.length > 0 ? annualizedRorValues.reduce((sum, ror) => sum + ror, 0) / annualizedRorValues.length : 0;
+
     // Calculate win rate
     const winningTrades = realizedTrades.filter(t => (t.profitLoss || 0) > 0);
     strategy.winRate = realizedTrades.length > 0 ? (winningTrades.length / realizedTrades.length) * 100 : 0;
@@ -327,6 +393,7 @@ export const calculateStrategyPerformance = (transactions: OptionsTransaction[])
       totalPnL: metrics.totalPnL,
       avgCollateral: metrics.totalCollateral,
       avgRoR: metrics.avgRoR,
+      avgAnnualizedRoR: metrics.avgAnnualizedRoR,
       winRate: metrics.winRate,
       avgDaysHeld: metrics.avgDaysHeld
     };

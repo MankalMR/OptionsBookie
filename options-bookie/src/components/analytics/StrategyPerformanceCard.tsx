@@ -1,6 +1,6 @@
 'use client';
 
-import { formatPnLCurrency } from '@/utils/optionsCalculations';
+import { formatPnLCurrency, getRealizedTransactions, calculateAnnualizedRoR, getRoRColorClasses } from '@/utils/optionsCalculations';
 
 interface StrategyData {
   strategy: string;
@@ -8,6 +8,7 @@ interface StrategyData {
   openCount: number;
   realizedCount: number;
   avgRoR: number;
+  avgAnnualizedRoR: number;
   totalPnL: number;
   winRate: number;
   avgDaysHeld: number;
@@ -46,7 +47,10 @@ export default function StrategyPerformanceCard({ strategyPerformance }: Strateg
                 Trades
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                Avg RoR
+                <div className="flex flex-col">
+                  <span>Avg RoR</span>
+                  <span className="text-xs">Ann. RoR</span>
+                </div>
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                 Total P&L
@@ -77,11 +81,14 @@ export default function StrategyPerformanceCard({ strategyPerformance }: Strateg
                   </div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm">
-                  <span className={`font-semibold ${
-                    strategy.avgRoR >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'
-                  }`}>
-                    {strategy.avgRoR.toFixed(1)}%
-                  </span>
+                  <div className="flex flex-col space-y-1">
+                    <span className={`text-xs ${getRoRColorClasses(strategy.avgRoR, strategy.avgAnnualizedRoR)}`}>
+                      {strategy.avgRoR.toFixed(1)}%
+                    </span>
+                    <span className={`text-xs ${getRoRColorClasses(strategy.avgRoR, strategy.avgAnnualizedRoR)}`}>
+                      {isFinite(strategy.avgAnnualizedRoR) ? `${strategy.avgAnnualizedRoR.toFixed(1)}%` : '-'}
+                    </span>
+                  </div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm">
                   <span className={`font-semibold ${

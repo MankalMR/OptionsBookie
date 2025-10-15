@@ -1,12 +1,13 @@
 'use client';
 
-import { formatPnLCurrency } from '@/utils/optionsCalculations';
+import { formatPnLCurrency, getRoRColorClasses } from '@/utils/optionsCalculations';
 
 interface QuickStatsCardProps {
   totalPnL: number;
   totalTrades: number;
   winRate: number;
   avgRoR: number;
+  annualizedRoR: number;
   bestStrategy: {
     name: string;
     ror: number;
@@ -26,6 +27,7 @@ export default function QuickStatsCard({
   totalTrades,
   winRate,
   avgRoR,
+  annualizedRoR,
   bestStrategy,
   bestStockByPnL,
   bestStockByRoR
@@ -57,22 +59,30 @@ export default function QuickStatsCard({
         </div>
         <div className="text-center">
           <p className="text-sm text-muted-foreground">P&L & Returns</p>
-          <div className="grid grid-cols-2 gap-2 mt-1">
-            <span className={`text-lg font-bold ${totalPnL >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
-              {formatCurrency(totalPnL)}
-            </span>
-            <span className={`text-lg font-bold ${
-              avgRoR >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'
-            }`}>
-              {avgRoR.toFixed(1)}%
-            </span>
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <div className="text-xs text-muted-foreground">
-              Total P&L
+          <div className="grid grid-cols-3 gap-2 mt-1">
+            <div className="flex flex-col">
+              <span className={`text-lg font-bold ${totalPnL >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
+                {formatCurrency(totalPnL)}
+              </span>
+              <div className="text-xs text-muted-foreground">
+                Total P&L
+              </div>
             </div>
-            <div className="text-xs text-muted-foreground">
-              Avg RoR
+            <div className="flex flex-col">
+              <span className={`text-lg font-bold ${getRoRColorClasses(avgRoR)}`}>
+                {avgRoR.toFixed(1)}%
+              </span>
+              <div className="text-xs text-muted-foreground">
+                Avg RoR
+              </div>
+            </div>
+            <div className="flex flex-col">
+              <span className={`text-lg font-bold ${getRoRColorClasses(avgRoR, annualizedRoR)}`}>
+                {isFinite(annualizedRoR) ? `${annualizedRoR.toFixed(1)}%` : '-'}
+              </span>
+              <div className="text-xs text-muted-foreground">
+                Ann. RoR
+              </div>
             </div>
           </div>
         </div>

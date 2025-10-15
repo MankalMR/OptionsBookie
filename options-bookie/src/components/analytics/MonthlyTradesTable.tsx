@@ -1,6 +1,7 @@
 import React from 'react';
 import { OptionsTransaction } from '@/types/options';
-import { calculateRoR, calculateDaysHeld, calculateCollateral, formatPnLCurrency, getRealizedTransactions, calculateStrategyPerformance, calculatePortfolioRoR } from '@/utils/optionsCalculations';
+import { calculateRoR, calculateDaysHeld, calculateCollateral, formatPnLCurrency, getRealizedTransactions, calculateStrategyPerformance, calculatePortfolioRoR, calculateAnnualizedRoR, calculatePortfolioAnnualizedRoR, getRoRColorClasses } from '@/utils/optionsCalculations';
+import RoRDisplay from '@/components/ui/RoRDisplay';
 import { parseLocalDate } from '@/utils/dateUtils';
 import { formatStrikePrice } from '@/utils/formatUtils';
 import { Badge } from '@/components/ui/badge';
@@ -79,12 +80,18 @@ export default function MonthlyTradesTable({ transactions, monthName, selectedPo
               {!isMobile && <th className="text-left py-2 px-3 font-medium text-muted-foreground">Closed</th>}
               {!isMobile && <th className="text-center py-2 px-3 font-medium text-muted-foreground">Days Held</th>}
               {!isMobile && <th className="text-left py-2 px-3 font-medium text-muted-foreground">Status</th>}
-              <th className="text-right py-2 px-3 font-medium text-muted-foreground">P&L (RoR) / Capital</th>
+              <th className="text-right py-2 px-3 font-medium text-muted-foreground">
+                <div className="flex flex-col">
+                  <span>P&L / Capital</span>
+                  <span className="text-xs">RoR / Ann. RoR</span>
+                </div>
+              </th>
             </tr>
           </thead>
           <tbody>
             {sortedTransactions.map((transaction) => {
               const ror = calculateRoR(transaction);
+              const annualizedRoR = calculateAnnualizedRoR(transaction);
               const daysHeld = calculateDaysHeld(transaction.tradeOpenDate, transaction.closeDate!);
               const pnl = transaction.profitLoss || 0;
 
@@ -152,12 +159,24 @@ export default function MonthlyTradesTable({ transactions, monthName, selectedPo
                     </td>
                   )}
                   <td className="py-2 px-3 text-right font-medium">
-                    <div className="flex flex-col">
-                      <span className={`${pnl >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
-                        {formatPnLCurrency(pnl)} ({isFinite(ror) ? `${ror.toFixed(1)}%` : '-'})
+                    <div className="flex flex-col space-y-1">
+                      <span className="text-xs">
+                        <span className={`${pnl >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
+                          {formatPnLCurrency(pnl)}
+                        </span>
+                        <span className="text-muted-foreground"> / </span>
+                        <span className="text-red-600 dark:text-red-400">
+                          {formatPnLCurrency(calculateCollateral(transaction))}
+                        </span>
                       </span>
-                      <span className="text-red-600 dark:text-red-400 text-xs">
-                        / {formatPnLCurrency(calculateCollateral(transaction))}
+                      <span className="text-xs">
+                        <span className={`${getRoRColorClasses(ror, annualizedRoR)}`}>
+                          {isFinite(ror) ? `${ror.toFixed(1)}%` : '-'}
+                        </span>
+                        <span className="text-muted-foreground"> / </span>
+                        <span className={`${getRoRColorClasses(ror, annualizedRoR)}`}>
+                          {isFinite(annualizedRoR) ? `${annualizedRoR.toFixed(1)}%` : '-'}
+                        </span>
                       </span>
                     </div>
                   </td>
@@ -188,28 +207,27 @@ export default function MonthlyTradesTable({ transactions, monthName, selectedPo
             {/* Performance Metrics */}
             <div className="grid grid-cols-2 gap-4">
               <div className="text-center">
-                <p className={`text-base font-medium ${
-                  totalPnL >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'
-                }`}>
-                  {formatPnLCurrency(totalPnL)}
-                </p>
-                <p className="text-xs text-muted-foreground">Total P&L</p>
+                <div className="flex flex-col">
+                  <span className={`text-base font-bold ${
+                    totalPnL >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'
+                  } leading-tight`}>
+                    {formatPnLCurrency(totalPnL)}
+                  </span>
+                  <div className="text-xs text-muted-foreground">
+                    Total P&L
+                  </div>
+                </div>
               </div>
               <div className="text-center">
-                <p className={`text-base font-medium ${
-                  (() => {
+                <RoRDisplay
+                  ror={(() => {
                     const totalCollateral = transactions.reduce((sum, t) => sum + calculateCollateral(t), 0);
-                    const portfolioRoR = totalCollateral > 0 ? (totalPnL / totalCollateral * 100) : 0;
-                    return portfolioRoR >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400';
-                  })()
-                }`}>
-                  {(() => {
-                    const totalCollateral = transactions.reduce((sum, t) => sum + calculateCollateral(t), 0);
-                    const portfolioRoR = totalCollateral > 0 ? (totalPnL / totalCollateral * 100) : 0;
-                    return isFinite(portfolioRoR) ? `${portfolioRoR.toFixed(1)}%` : '-';
+                    return totalCollateral > 0 ? (totalPnL / totalCollateral * 100) : 0;
                   })()}
-                </p>
-                <p className="text-xs text-muted-foreground">Avg RoR</p>
+                  annualizedRoR={calculatePortfolioAnnualizedRoR(transactions)}
+                  size="base"
+                  showLabel={true}
+                />
               </div>
             </div>
 
