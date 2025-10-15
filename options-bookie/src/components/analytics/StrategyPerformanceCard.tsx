@@ -83,10 +83,10 @@ export default function StrategyPerformanceCard({ strategyPerformance }: Strateg
                 <td className="px-6 py-4 whitespace-nowrap text-sm">
                   <div className="flex flex-col space-y-1">
                     <span className={`text-xs ${getRoRColorClasses(strategy.avgRoR, strategy.avgAnnualizedRoR)}`}>
-                      {strategy.avgRoR.toFixed(1)}%
+                      {Math.round(strategy.avgRoR)}%
                     </span>
                     <span className={`text-xs ${getRoRColorClasses(strategy.avgRoR, strategy.avgAnnualizedRoR)}`}>
-                      {isFinite(strategy.avgAnnualizedRoR) ? `${strategy.avgAnnualizedRoR.toFixed(1)}%` : '-'}
+                      {isFinite(strategy.avgAnnualizedRoR) ? `${Math.round(strategy.avgAnnualizedRoR)}%` : '-'}
                     </span>
                   </div>
                 </td>

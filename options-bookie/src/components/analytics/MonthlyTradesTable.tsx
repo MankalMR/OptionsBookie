@@ -171,11 +171,11 @@ export default function MonthlyTradesTable({ transactions, monthName, selectedPo
                       </span>
                       <span className="text-xs">
                         <span className={`${getRoRColorClasses(ror, annualizedRoR)}`}>
-                          {isFinite(ror) ? `${ror.toFixed(1)}%` : '-'}
+                          {isFinite(ror) ? `${Math.round(ror)}%` : '-'}
                         </span>
                         <span className="text-muted-foreground"> / </span>
                         <span className={`${getRoRColorClasses(ror, annualizedRoR)}`}>
-                          {isFinite(annualizedRoR) ? `${annualizedRoR.toFixed(1)}%` : '-'}
+                          {isFinite(annualizedRoR) ? `${Math.round(annualizedRoR)}%` : '-'}
                         </span>
                       </span>
                     </div>

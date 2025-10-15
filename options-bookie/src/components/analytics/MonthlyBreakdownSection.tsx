@@ -307,11 +307,11 @@ export default function MonthlyBreakdownSection({
                           </span>
                           <span className="text-xs">
                             <span className={`${getRoRColorClasses(avgRoR, avgAnnualizedRoR)}`}>
-                              {isFinite(avgRoR) ? `${avgRoR.toFixed(1)}%` : '-'}
+                              {isFinite(avgRoR) ? `${Math.round(avgRoR)}%` : '-'}
                             </span>
                             <span className="text-muted-foreground"> / </span>
                             <span className={`${getRoRColorClasses(avgRoR, avgAnnualizedRoR)}`}>
-                              {isFinite(avgAnnualizedRoR) ? `${avgAnnualizedRoR.toFixed(1)}%` : '-'}
+                              {isFinite(avgAnnualizedRoR) ? `${Math.round(avgAnnualizedRoR)}%` : '-'}
                             </span>
                           </span>
                         </div>

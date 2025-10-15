@@ -70,7 +70,7 @@ export default function QuickStatsCard({
             </div>
             <div className="flex flex-col">
               <span className={`text-lg font-bold ${getRoRColorClasses(avgRoR)}`}>
-                {avgRoR.toFixed(1)}%
+                {Math.round(avgRoR)}%
               </span>
               <div className="text-xs text-muted-foreground">
                 Avg RoR
@@ -78,7 +78,7 @@ export default function QuickStatsCard({
             </div>
             <div className="flex flex-col">
               <span className={`text-lg font-bold ${getRoRColorClasses(avgRoR, annualizedRoR)}`}>
-                {isFinite(annualizedRoR) ? `${annualizedRoR.toFixed(1)}%` : '-'}
+                {isFinite(annualizedRoR) ? `${Math.round(annualizedRoR)}%` : '-'}
               </span>
               <div className="text-xs text-muted-foreground">
                 Ann. RoR

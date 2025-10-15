@@ -179,13 +179,13 @@ export default function YearlySummaryCard({
             </div>
             <div className="text-center">
               <p className="font-semibold text-emerald-800 dark:text-emerald-200">
-                {yearData.bestMonth.ror.toFixed(1)}%
+                {Math.round(yearData.bestMonth.ror)}%
               </p>
               <p className="text-emerald-600 dark:text-emerald-400">RoR</p>
             </div>
             <div className="text-center">
               <p className="font-semibold text-emerald-800 dark:text-emerald-200">
-                {isFinite(yearData.bestMonth.annualizedRoR) ? `${yearData.bestMonth.annualizedRoR.toFixed(1)}%` : '-'}
+                {isFinite(yearData.bestMonth.annualizedRoR) ? `${Math.round(yearData.bestMonth.annualizedRoR)}%` : '-'}
               </p>
               <p className="text-emerald-600 dark:text-emerald-400">Ann. RoR</p>
             </div>
@@ -210,13 +210,13 @@ export default function YearlySummaryCard({
             </div>
             <div className="text-center">
               <p className="font-semibold text-red-800 dark:text-red-200">
-                {yearData.worstMonth.ror.toFixed(1)}%
+                {Math.round(yearData.worstMonth.ror)}%
               </p>
               <p className="text-red-600 dark:text-red-400">RoR</p>
             </div>
             <div className="text-center">
               <p className="font-semibold text-red-800 dark:text-red-200">
-                {isFinite(yearData.worstMonth.annualizedRoR) ? `${yearData.worstMonth.annualizedRoR.toFixed(1)}%` : '-'}
+                {isFinite(yearData.worstMonth.annualizedRoR) ? `${Math.round(yearData.worstMonth.annualizedRoR)}%` : '-'}
               </p>
               <p className="text-red-600 dark:text-red-400">Ann. RoR</p>
             </div>

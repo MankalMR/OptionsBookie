@@ -387,7 +387,7 @@ export default function TransactionTable({
                       <span className={`font-medium text-sm ${
                         calculateChainRoR(chainId, transactions) >= 0 ? 'text-green-600' : 'text-red-600'
                       }`}>
-                        {calculateChainRoR(chainId, transactions).toFixed(1)}%
+                        {Math.round(calculateChainRoR(chainId, transactions))}%
                       </span>
                       <div className="text-xs text-muted-foreground font-normal">Chain RoR</div>
                     </TableCell>
@@ -795,7 +795,7 @@ export default function TransactionTable({
                   <span className={`font-medium text-sm ${
                     calculateRoR(transaction) >= 0 ? 'text-green-600' : 'text-red-600'
                   }`}>
-                    {calculateRoR(transaction).toFixed(1)}%
+                    {Math.round(calculateRoR(transaction))}%
                   </span>
                 </TableCell>
               )}
