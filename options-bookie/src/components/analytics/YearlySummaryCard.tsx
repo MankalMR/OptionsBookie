@@ -1,6 +1,6 @@
 'use client';
 
-import { formatPnLCurrency, getRealizedTransactions, calculateStrategyPerformance, calculateCollateral, calculatePortfolioRoR, calculatePortfolioAnnualizedRoR } from '@/utils/optionsCalculations';
+import { formatPnLCurrency, getRealizedTransactions, calculateStrategyPerformance, calculateCollateral, calculateYearlyAnnualizedRoRWithActiveMonths } from '@/utils/optionsCalculations';
 import { OptionsTransaction } from '@/types/options';
 import { YearlySummary } from '@/components/SummaryView';
 import { parseLocalDate } from '@/utils/dateUtils';
@@ -93,12 +93,16 @@ export default function YearlySummaryCard({
     }))
     .sort((a, b) => b.ror - a.ror)[0];
 
+  // Use the common function to calculate yearly annualized RoR with active months
+  const yearlyRoRData = calculateYearlyAnnualizedRoRWithActiveMonths(yearTransactions, yearData.year);
+
   const quickStatsData = {
     totalPnL,
     totalTrades: realizedTransactions.length,
     winRate,
-    avgRoR: calculatePortfolioRoR(yearTransactions),
-    annualizedRoR: calculatePortfolioAnnualizedRoR(yearTransactions),
+    avgRoR: yearlyRoRData.baseRoR,
+    annualizedRoR: yearlyRoRData.annualizedRoR,
+    activeTradingDays: yearlyRoRData.activeTradingDays,
     bestStrategy: yearStrategyPerformance.filter(s => s.realizedCount > 0).length > 0
       ? { name: yearStrategyPerformance.filter(s => s.realizedCount > 0)[0].strategy, ror: yearStrategyPerformance.filter(s => s.realizedCount > 0)[0].avgRoR }
       : null,
@@ -178,13 +182,19 @@ export default function YearlySummaryCard({
               <p className="text-emerald-600 dark:text-emerald-400">P&L</p>
             </div>
             <div className="text-center">
-              <p className="font-semibold text-emerald-800 dark:text-emerald-200">
+              <p
+                className="font-semibold text-emerald-800 dark:text-emerald-200 cursor-help"
+                title={`Precise RoR: ${yearData.bestMonth.preciseRoR?.toFixed(6)}%`}
+              >
                 {Math.round(yearData.bestMonth.ror)}%
               </p>
               <p className="text-emerald-600 dark:text-emerald-400">RoR</p>
             </div>
             <div className="text-center">
-              <p className="font-semibold text-emerald-800 dark:text-emerald-200">
+              <p
+                className="font-semibold text-emerald-800 dark:text-emerald-200 cursor-help"
+                title={`Precise Ann. RoR: ${yearData.bestMonth.preciseAnnualizedRoR?.toFixed(3)}% | Formula: (${yearData.bestMonth.preciseRoR?.toFixed(3)}% × 365) ÷ 30`}
+              >
                 {isFinite(yearData.bestMonth.annualizedRoR) ? `${Math.round(yearData.bestMonth.annualizedRoR)}%` : '-'}
               </p>
               <p className="text-emerald-600 dark:text-emerald-400">Ann. RoR</p>
@@ -209,13 +219,19 @@ export default function YearlySummaryCard({
               <p className="text-red-600 dark:text-red-400">P&L</p>
             </div>
             <div className="text-center">
-              <p className="font-semibold text-red-800 dark:text-red-200">
+              <p
+                className="font-semibold text-red-800 dark:text-red-200 cursor-help"
+                title={`Precise RoR: ${yearData.worstMonth.preciseRoR?.toFixed(6)}%`}
+              >
                 {Math.round(yearData.worstMonth.ror)}%
               </p>
               <p className="text-red-600 dark:text-red-400">RoR</p>
             </div>
             <div className="text-center">
-              <p className="font-semibold text-red-800 dark:text-red-200">
+              <p
+                className="font-semibold text-red-800 dark:text-red-200 cursor-help"
+                title={`Precise Ann. RoR: ${yearData.worstMonth.preciseAnnualizedRoR?.toFixed(3)}% | Formula: (${yearData.worstMonth.preciseRoR?.toFixed(3)}% × 365) ÷ 30`}
+              >
                 {isFinite(yearData.worstMonth.annualizedRoR) ? `${Math.round(yearData.worstMonth.annualizedRoR)}%` : '-'}
               </p>
               <p className="text-red-600 dark:text-red-400">Ann. RoR</p>

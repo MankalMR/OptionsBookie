@@ -1,6 +1,7 @@
 'use client';
 
-import { formatPnLCurrency, getRealizedTransactions, calculateAnnualizedRoR, getRoRColorClasses } from '@/utils/optionsCalculations';
+import { formatPnLCurrency, getRealizedTransactions, calculateAnnualizedRoR } from '@/utils/optionsCalculations';
+import { RegularRoRTooltip, AnnualizedRoRTooltip } from '@/components/ui/RoRTooltip';
 
 interface StrategyData {
   strategy: string;
@@ -82,12 +83,19 @@ export default function StrategyPerformanceCard({ strategyPerformance }: Strateg
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm">
                   <div className="flex flex-col space-y-1">
-                    <span className={`text-xs ${getRoRColorClasses(strategy.avgRoR, strategy.avgAnnualizedRoR)}`}>
-                      {Math.round(strategy.avgRoR)}%
-                    </span>
-                    <span className={`text-xs ${getRoRColorClasses(strategy.avgRoR, strategy.avgAnnualizedRoR)}`}>
-                      {isFinite(strategy.avgAnnualizedRoR) ? `${Math.round(strategy.avgAnnualizedRoR)}%` : '-'}
-                    </span>
+                    <RegularRoRTooltip
+                      displayValue={strategy.avgRoR}
+                      preciseValue={strategy.avgRoR}
+                      size="sm"
+                    />
+                    <AnnualizedRoRTooltip
+                      displayValue={strategy.avgAnnualizedRoR}
+                      preciseValue={strategy.avgAnnualizedRoR}
+                      baseRoR={strategy.avgRoR}
+                      context="yearly"
+                      calculationMethod="trade-weighted"
+                      size="sm"
+                    />
                   </div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm">

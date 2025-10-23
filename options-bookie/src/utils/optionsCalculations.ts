@@ -38,7 +38,7 @@ export const calculateProfitLoss = (transaction: OptionsTransaction, exitPrice?:
 };
 
 // Calculate P&L for a new trade (when opening)
-export const calculateNewTradeProfitLoss = (_transaction: Omit<OptionsTransaction, 'id' | 'createdAt' | 'updatedAt'>): number => {
+export const calculateNewTradeProfitLoss = (): number => {
   // For new trades, P&L is initially 0 since no exit has occurred yet
   // The premium is the cost/revenue, but P&L is realized only when closed
   return 0;
@@ -280,6 +280,113 @@ export const calculatePortfolioAnnualizedRoR = (transactions: OptionsTransaction
   return totalCollateral > 0 ? totalWeightedAnnualizedReturn / totalCollateral : 0;
 };
 
+// =============================================================================
+// TIME-PERIOD BASED ANNUALIZED ROR CALCULATIONS
+// =============================================================================
+
+/**
+ * Calculate time-period based annualized RoR
+ * This method assumes capital was deployed for the entire period and calculates
+ * what the return would be if sustained for 365 days
+ */
+export const calculateTimeBasedAnnualizedRoR = (ror: number, days: number): number => {
+  if (days <= 0 || !isFinite(ror)) return 0;
+  return (ror * 365) / days;
+};
+
+/**
+ * Calculate monthly annualized RoR using time-period approach
+ * Assumes capital was rotated/deployed for 30 days
+ */
+export const calculateMonthlyAnnualizedRoR = (monthlyRoR: number): number => {
+  return calculateTimeBasedAnnualizedRoR(monthlyRoR, 30);
+};
+
+/**
+ * Calculate yearly annualized RoR using time-period approach
+ * Uses 365 days as the base period
+ */
+export const calculateYearlyAnnualizedRoR = (yearlyRoR: number): number => {
+  return calculateTimeBasedAnnualizedRoR(yearlyRoR, 365);
+};
+
+/**
+ * Calculate all-time annualized RoR using time-period approach
+ * Based on total calendar days since portfolio started
+ * Formula: R_total × (365 ÷ D_total)
+ */
+export const calculateAllTimeAnnualizedRoR = (totalRoR: number, portfolioStartDate: Date): number => {
+  const totalDays = Math.floor((Date.now() - portfolioStartDate.getTime()) / (1000 * 60 * 60 * 24));
+  return calculateTimeBasedAnnualizedRoR(totalRoR, Math.max(totalDays, 1)); // Minimum 1 day
+};
+
+/**
+ * Calculate yearly annualized RoR using active trading days
+ * Formula: R_yearly × (365 ÷ D_active)
+ */
+export const calculateYearlyAnnualizedRoRWithActiveDays = (yearlyRoR: number, activeDays: number): number => {
+  return calculateTimeBasedAnnualizedRoR(yearlyRoR, Math.max(activeDays, 1));
+};
+
+/**
+ * Get the annualized RoR calculation method based on environment variable
+ * ANN_ROR_TYPE: 'time-period' (default) or 'trade-weighted'
+ */
+export const getAnnualizedRoRMethod = (): 'time-period' | 'trade-weighted' => {
+  const envValue = process.env.ANN_ROR_TYPE?.toLowerCase();
+  return envValue === 'trade-weighted' ? 'trade-weighted' : 'time-period';
+};
+
+/**
+ * Calculate portfolio annualized RoR with configurable method
+ * Supports both time-period based and trade-weighted approaches
+ */
+export const calculatePortfolioAnnualizedRoRWithMethod = (
+  transactions: OptionsTransaction[],
+  method?: 'time-period' | 'trade-weighted',
+  periodDays?: number
+): number => {
+  const calculationMethod = method || getAnnualizedRoRMethod();
+
+  if (calculationMethod === 'trade-weighted') {
+    return calculatePortfolioAnnualizedRoR(transactions);
+  }
+
+  // Time-period based calculation
+  const portfolioRoR = calculatePortfolioRoR(transactions);
+  const days = periodDays || 365; // Default to yearly if no period specified
+
+  return calculateTimeBasedAnnualizedRoR(portfolioRoR, days);
+};
+
+/**
+ * Calculate monthly portfolio annualized RoR with method toggle
+ */
+export const calculateMonthlyPortfolioAnnualizedRoR = (transactions: OptionsTransaction[]): number => {
+  const method = getAnnualizedRoRMethod();
+
+  if (method === 'trade-weighted') {
+    return calculatePortfolioAnnualizedRoR(transactions);
+  }
+
+  const monthlyRoR = calculatePortfolioRoR(transactions);
+  return calculateMonthlyAnnualizedRoR(monthlyRoR);
+};
+
+/**
+ * Calculate yearly portfolio annualized RoR with method toggle
+ */
+export const calculateYearlyPortfolioAnnualizedRoR = (transactions: OptionsTransaction[]): number => {
+  const method = getAnnualizedRoRMethod();
+
+  if (method === 'trade-weighted') {
+    return calculatePortfolioAnnualizedRoR(transactions);
+  }
+
+  const yearlyRoR = calculatePortfolioRoR(transactions);
+  return calculateYearlyAnnualizedRoR(yearlyRoR);
+};
+
 // Get color classes for RoR values (both regular and annualized)
 export const getRoRColorClasses = (ror: number, annualizedRoR?: number): string => {
   // If both values are provided, both must be non-negative for green color
@@ -344,7 +451,7 @@ export const calculateStrategyPerformance = (transactions: OptionsTransaction[])
   });
 
   // Calculate metrics for each strategy
-  strategies.forEach((strategy, _strategyType) => {
+  strategies.forEach((strategy) => {
     const { trades } = strategy;
 
     // Only include realized trades for most metrics
@@ -789,3 +896,46 @@ export const calculateDH = calculateDaysHeld;
  * Alias for calculateDaysToExpiry with shorter name for convenience
  */
 export const calculateDTE = calculateDaysToExpiry;
+
+/**
+ * Calculate active trading days based on unique months with trades × 30
+ * This provides a standardized way to measure trading activity duration
+ */
+export function calculateActiveTradingDays(transactions: OptionsTransaction[]): number {
+  const activeMonths = new Set(
+    transactions.map(t => {
+      const tradeDate = new Date(t.tradeOpenDate);
+      return `${tradeDate.getFullYear()}-${tradeDate.getMonth()}`;
+    })
+  ).size;
+
+  return activeMonths * 30;
+}
+
+/**
+ * Calculate yearly annualized RoR using active trading days (months × 30)
+ * This is more accurate than using individual trading days as it accounts for
+ * the sustained capital deployment over full months
+ */
+export function calculateYearlyAnnualizedRoRWithActiveMonths(
+  transactions: OptionsTransaction[],
+  year?: number
+): { annualizedRoR: number; activeTradingDays: number; baseRoR: number } {
+  const targetYear = year || new Date().getFullYear();
+
+  // Filter transactions for the target year
+  const yearTransactions = transactions.filter(t => {
+    const tradeDate = new Date(t.tradeOpenDate);
+    return tradeDate.getFullYear() === targetYear;
+  });
+
+  if (yearTransactions.length === 0) {
+    return { annualizedRoR: 0, activeTradingDays: 0, baseRoR: 0 };
+  }
+
+  const baseRoR = calculatePortfolioRoR(yearTransactions);
+  const activeTradingDays = calculateActiveTradingDays(yearTransactions);
+  const annualizedRoR = activeTradingDays > 0 ? baseRoR * (365 / activeTradingDays) : baseRoR;
+
+  return { annualizedRoR, activeTradingDays, baseRoR };
+}

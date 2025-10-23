@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
-import { formatPnLCurrency, getRealizedTransactions, calculateCollateral, calculateDaysHeld, calculateStrategyPerformance, calculatePortfolioRoR, calculatePortfolioAnnualizedRoR, getRoRColorClasses } from '@/utils/optionsCalculations';
+import { formatPnLCurrency, getRealizedTransactions, calculateCollateral, calculateDaysHeld, calculateStrategyPerformance, calculatePortfolioRoR, calculateMonthlyPortfolioAnnualizedRoR } from '@/utils/optionsCalculations';
+import { RegularRoRTooltip, AnnualizedRoRTooltip } from '@/components/ui/RoRTooltip';
 import { ResponsiveContainer, ComposedChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend, Bar } from 'recharts';
 import { ChevronDown, ChevronRight, Plus, Minus } from 'lucide-react';
 import { OptionsTransaction } from '@/types/options';
@@ -231,7 +232,7 @@ export default function MonthlyBreakdownSection({
               const realizedMonthTransactions = getRealizedTransactions(monthTransactions);
               const totalCollateral = realizedMonthTransactions.reduce((sum, t) => sum + calculateCollateral(t), 0);
               const avgRoR = calculatePortfolioRoR(monthTransactions);
-              const avgAnnualizedRoR = calculatePortfolioAnnualizedRoR(monthTransactions);
+              const avgAnnualizedRoR = calculateMonthlyPortfolioAnnualizedRoR(monthTransactions);
               const avgDays = realizedMonthTransactions.length > 0
                 ? realizedMonthTransactions.reduce((sum, t) => sum + calculateDaysHeld(t.tradeOpenDate, t.closeDate!), 0) / realizedMonthTransactions.length
                 : 0;
@@ -305,14 +306,20 @@ export default function MonthlyBreakdownSection({
                               {formatCurrency(totalCollateral)}
                             </span>
                           </span>
-                          <span className="text-xs">
-                            <span className={`${getRoRColorClasses(avgRoR, avgAnnualizedRoR)}`}>
-                              {isFinite(avgRoR) ? `${Math.round(avgRoR)}%` : '-'}
-                            </span>
+                          <span className="text-xs flex items-center space-x-1">
+                            <RegularRoRTooltip
+                              displayValue={avgRoR}
+                              preciseValue={avgRoR}
+                              size="sm"
+                            />
                             <span className="text-muted-foreground"> / </span>
-                            <span className={`${getRoRColorClasses(avgRoR, avgAnnualizedRoR)}`}>
-                              {isFinite(avgAnnualizedRoR) ? `${Math.round(avgAnnualizedRoR)}%` : '-'}
-                            </span>
+                            <AnnualizedRoRTooltip
+                              displayValue={avgAnnualizedRoR}
+                              preciseValue={avgAnnualizedRoR}
+                              baseRoR={avgRoR}
+                              context="monthly"
+                              size="sm"
+                            />
                           </span>
                         </div>
                       </td>

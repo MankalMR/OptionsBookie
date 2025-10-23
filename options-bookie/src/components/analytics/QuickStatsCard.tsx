@@ -1,13 +1,18 @@
 'use client';
 
-import { formatPnLCurrency, getRoRColorClasses } from '@/utils/optionsCalculations';
+import { formatPnLCurrency } from '@/utils/optionsCalculations';
+import { RegularRoRTooltip, AnnualizedRoRTooltip } from '@/components/ui/RoRTooltip';
 
 interface QuickStatsCardProps {
   totalPnL: number;
   totalTrades: number;
   winRate: number;
   avgRoR: number;
+  preciseAvgRoR?: number;
   annualizedRoR: number;
+  preciseAnnualizedRoR?: number;
+  activeTradingDays?: number;
+  totalDaysSinceInception?: number;
   bestStrategy: {
     name: string;
     ror: number;
@@ -27,7 +32,11 @@ export default function QuickStatsCard({
   totalTrades,
   winRate,
   avgRoR,
+  preciseAvgRoR,
   annualizedRoR,
+  preciseAnnualizedRoR,
+  activeTradingDays,
+  totalDaysSinceInception,
   bestStrategy,
   bestStockByPnL,
   bestStockByRoR
@@ -69,17 +78,24 @@ export default function QuickStatsCard({
               </div>
             </div>
             <div className="flex flex-col">
-              <span className={`text-lg font-bold ${getRoRColorClasses(avgRoR)}`}>
-                {Math.round(avgRoR)}%
-              </span>
+              <RegularRoRTooltip
+                displayValue={avgRoR}
+                preciseValue={preciseAvgRoR || avgRoR}
+                size="lg"
+              />
               <div className="text-xs text-muted-foreground">
                 Avg RoR
               </div>
             </div>
             <div className="flex flex-col">
-              <span className={`text-lg font-bold ${getRoRColorClasses(avgRoR, annualizedRoR)}`}>
-                {isFinite(annualizedRoR) ? `${Math.round(annualizedRoR)}%` : '-'}
-              </span>
+              <AnnualizedRoRTooltip
+                displayValue={annualizedRoR}
+                preciseValue={preciseAnnualizedRoR || annualizedRoR}
+                baseRoR={preciseAvgRoR || avgRoR}
+                context="all-time"
+                activeDays={totalDaysSinceInception}
+                size="lg"
+              />
               <div className="text-xs text-muted-foreground">
                 Ann. RoR
               </div>

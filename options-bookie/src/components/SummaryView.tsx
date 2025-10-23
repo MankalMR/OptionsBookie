@@ -9,8 +9,9 @@ import {
   calculateStrategyPerformance,
   calculateMonthlyTopTickers,
   calculatePortfolioRoR,
-  calculatePortfolioAnnualizedRoR,
-  calculateCollateral
+  calculateMonthlyAnnualizedRoR,
+  calculateCollateral,
+  calculateYearlyAnnualizedRoRWithActiveMonths
 } from '@/utils/optionsCalculations';
 import { parseLocalDate } from '@/utils/dateUtils';
 import { useIsMobile } from '@/hooks/useMediaQuery';
@@ -44,8 +45,8 @@ export interface YearlySummary {
   winRate: number;
   totalFees: number;
   averageDaysHeld: number;
-  bestMonth: { month: string; pnl: number; ror: number; annualizedRoR: number; capitalDeployed: number; trades: number };
-  worstMonth: { month: string; pnl: number; ror: number; annualizedRoR: number; capitalDeployed: number; trades: number };
+  bestMonth: { month: string; pnl: number; ror: number; preciseRoR: number; annualizedRoR: number; preciseAnnualizedRoR: number; capitalDeployed: number; trades: number };
+  worstMonth: { month: string; pnl: number; ror: number; preciseRoR: number; annualizedRoR: number; preciseAnnualizedRoR: number; capitalDeployed: number; trades: number };
   monthlyBreakdown: MonthlySummary[];
 }
 
@@ -75,8 +76,8 @@ export default function SummaryView({ transactions, selectedPortfolioName }: Sum
           winRate: 0,
           totalFees: 0,
           averageDaysHeld: 0,
-          bestMonth: { month: '', pnl: -Infinity, ror: 0, annualizedRoR: 0, capitalDeployed: 0, trades: 0 },
-          worstMonth: { month: '', pnl: Infinity, ror: 0, annualizedRoR: 0, capitalDeployed: 0, trades: 0 },
+          bestMonth: { month: '', pnl: -Infinity, ror: 0, preciseRoR: 0, annualizedRoR: 0, preciseAnnualizedRoR: 0, capitalDeployed: 0, trades: 0 },
+          worstMonth: { month: '', pnl: Infinity, ror: 0, preciseRoR: 0, annualizedRoR: 0, preciseAnnualizedRoR: 0, capitalDeployed: 0, trades: 0 },
           monthlyBreakdown: []
         };
       }
@@ -155,14 +156,16 @@ export default function SummaryView({ transactions, selectedPortfolioName }: Sum
           });
 
           const totalCollateral = monthTransactions.reduce((sum, t) => sum + calculateCollateral(t), 0);
-          const ror = totalCollateral > 0 ? (monthData.totalPnL / totalCollateral * 100) : 0;
-          const annualizedRoR = calculatePortfolioAnnualizedRoR(monthTransactions);
+          const ror = calculatePortfolioRoR(monthTransactions);
+          const annualizedRoR = calculateMonthlyAnnualizedRoR(ror);
 
           return {
             month: monthData.monthName,
             pnl: monthData.totalPnL,
             ror: Number(ror.toFixed(1)),
+            preciseRoR: ror,
             annualizedRoR: Number(annualizedRoR.toFixed(1)),
+            preciseAnnualizedRoR: annualizedRoR,
             capitalDeployed: totalCollateral,
             trades: monthData.totalTrades
           };
@@ -170,11 +173,11 @@ export default function SummaryView({ transactions, selectedPortfolioName }: Sum
 
         yearData.bestMonth = monthsWithMetrics.reduce(
           (best, month) => month.pnl > best.pnl ? month : best,
-          { month: '', pnl: -Infinity, ror: 0, annualizedRoR: 0, capitalDeployed: 0, trades: 0 }
+          { month: '', pnl: -Infinity, ror: 0, preciseRoR: 0, annualizedRoR: 0, preciseAnnualizedRoR: 0, capitalDeployed: 0, trades: 0 }
         );
         yearData.worstMonth = monthsWithMetrics.reduce(
           (worst, month) => month.pnl < worst.pnl ? month : worst,
-          { month: '', pnl: Infinity, ror: 0, annualizedRoR: 0, capitalDeployed: 0, trades: 0 }
+          { month: '', pnl: Infinity, ror: 0, preciseRoR: 0, annualizedRoR: 0, preciseAnnualizedRoR: 0, capitalDeployed: 0, trades: 0 }
         );
       }
     });
@@ -337,12 +340,34 @@ export default function SummaryView({ transactions, selectedPortfolioName }: Sum
   }, [transactions]);
 
   // Calculate quick stats data
+  const preciseAvgRoR = calculatePortfolioRoR(transactions);
+
+  // For all-time annualized RoR, use total calendar days since inception
+  const portfolioStartDate = transactions.length > 0
+    ? new Date(Math.min(...transactions.map(t => new Date(t.tradeOpenDate).getTime())))
+    : new Date();
+
+  const totalDaysSinceInception = Math.max(
+    Math.ceil((new Date().getTime() - portfolioStartDate.getTime()) / (1000 * 60 * 60 * 24)),
+    1
+  );
+
+  const preciseAnnualizedRoR = preciseAvgRoR * (365 / totalDaysSinceInception);
+
+  // Use the common function to calculate yearly annualized RoR with active months
+  const yearlyRoRData = calculateYearlyAnnualizedRoRWithActiveMonths(transactions);
+  const activeTradingDays = yearlyRoRData.activeTradingDays;
+
   const quickStatsData = {
     totalPnL: overallStats.totalPnL,
     totalTrades: overallStats.totalTrades,
     winRate: overallStats.winRate,
-    avgRoR: calculatePortfolioRoR(transactions),
-    annualizedRoR: calculatePortfolioAnnualizedRoR(transactions),
+    avgRoR: preciseAvgRoR,
+    preciseAvgRoR,
+    annualizedRoR: preciseAnnualizedRoR,
+    preciseAnnualizedRoR,
+    activeTradingDays, // This is for yearly context tooltip
+    totalDaysSinceInception, // Add this for all-time context tooltip
     bestStrategy: strategyPerformance.filter(s => s.realizedCount > 0).length > 0
       ? { name: strategyPerformance.filter(s => s.realizedCount > 0)[0].strategy, ror: strategyPerformance.filter(s => s.realizedCount > 0)[0].avgRoR }
       : null,

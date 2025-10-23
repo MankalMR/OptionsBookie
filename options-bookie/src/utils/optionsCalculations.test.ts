@@ -31,6 +31,16 @@ import {
   calculateAnnualizedRoR,
   calculatePortfolioAnnualizedRoR,
   getRoRColorClasses,
+  calculateTimeBasedAnnualizedRoR,
+  calculateMonthlyAnnualizedRoR,
+  calculateYearlyAnnualizedRoR,
+  calculateAllTimeAnnualizedRoR,
+  getAnnualizedRoRMethod,
+  calculatePortfolioAnnualizedRoRWithMethod,
+  calculateMonthlyPortfolioAnnualizedRoR,
+  calculateYearlyPortfolioAnnualizedRoR,
+  calculateActiveTradingDays,
+  calculateYearlyAnnualizedRoRWithActiveMonths,
   updateTransactionPandL,
   calculateChainPnL,
   calculateChainCollateral,
@@ -2388,6 +2398,445 @@ describe('calculatePortfolioAnnualizedRoR', () => {
         const colorClasses = getRoRColorClasses(ror, annualizedRoR);
         expect(colorClasses).toBe('text-red-600 dark:text-red-400');
       });
+    });
+  });
+
+  // =============================================================================
+  // TIME-PERIOD BASED ANNUALIZED ROR TESTS
+  // =============================================================================
+
+  describe('calculateTimeBasedAnnualizedRoR', () => {
+    it('should calculate annualized RoR for monthly period', () => {
+      const monthlyRoR = 4; // 4% monthly return
+      const result = calculateTimeBasedAnnualizedRoR(monthlyRoR, 30);
+      expect(result).toBeCloseTo(48.67, 1); // (4 * 365) / 30 = 48.67%
+    });
+
+    it('should calculate annualized RoR for yearly period', () => {
+      const yearlyRoR = 12; // 12% yearly return
+      const result = calculateTimeBasedAnnualizedRoR(yearlyRoR, 365);
+      expect(result).toBeCloseTo(12, 1); // (12 * 365) / 365 = 12%
+    });
+
+    it('should calculate annualized RoR for custom period', () => {
+      const ror = 8; // 8% return over 180 days
+      const result = calculateTimeBasedAnnualizedRoR(ror, 180);
+      expect(result).toBeCloseTo(16.22, 1); // (8 * 365) / 180 = 16.22%
+    });
+
+    it('should return 0 for zero or negative days', () => {
+      expect(calculateTimeBasedAnnualizedRoR(5, 0)).toBe(0);
+      expect(calculateTimeBasedAnnualizedRoR(5, -10)).toBe(0);
+    });
+
+    it('should return 0 for non-finite RoR', () => {
+      expect(calculateTimeBasedAnnualizedRoR(NaN, 30)).toBe(0);
+      expect(calculateTimeBasedAnnualizedRoR(Infinity, 30)).toBe(0);
+      expect(calculateTimeBasedAnnualizedRoR(-Infinity, 30)).toBe(0);
+    });
+
+    it('should handle negative RoR correctly', () => {
+      const negativeRoR = -5; // -5% return over 30 days
+      const result = calculateTimeBasedAnnualizedRoR(negativeRoR, 30);
+      expect(result).toBeCloseTo(-60.83, 1); // (-5 * 365) / 30 = -60.83%
+    });
+  });
+
+  describe('calculateMonthlyAnnualizedRoR', () => {
+    it('should calculate monthly annualized RoR using 30-day period', () => {
+      const monthlyRoR = 3; // 3% monthly return
+      const result = calculateMonthlyAnnualizedRoR(monthlyRoR);
+      expect(result).toBeCloseTo(36.5, 1); // (3 * 365) / 30 = 36.5%
+    });
+
+    it('should handle zero monthly RoR', () => {
+      expect(calculateMonthlyAnnualizedRoR(0)).toBe(0);
+    });
+
+    it('should handle negative monthly RoR', () => {
+      const negativeRoR = -2; // -2% monthly return
+      const result = calculateMonthlyAnnualizedRoR(negativeRoR);
+      expect(result).toBeCloseTo(-24.33, 1); // (-2 * 365) / 30 = -24.33%
+    });
+  });
+
+  describe('calculateYearlyAnnualizedRoR', () => {
+    it('should return the same value for yearly RoR', () => {
+      const yearlyRoR = 15; // 15% yearly return
+      const result = calculateYearlyAnnualizedRoR(yearlyRoR);
+      expect(result).toBe(15); // (15 * 365) / 365 = 15%
+    });
+
+    it('should handle zero yearly RoR', () => {
+      expect(calculateYearlyAnnualizedRoR(0)).toBe(0);
+    });
+
+    it('should handle negative yearly RoR', () => {
+      const negativeRoR = -8; // -8% yearly return
+      const result = calculateYearlyAnnualizedRoR(negativeRoR);
+      expect(result).toBe(-8); // (-8 * 365) / 365 = -8%
+    });
+  });
+
+  describe('calculateAllTimeAnnualizedRoR', () => {
+    it('should calculate all-time annualized RoR based on portfolio start date', () => {
+      const totalRoR = 20; // 20% total return
+      const startDate = new Date(Date.now() - (400 * 24 * 60 * 60 * 1000)); // 400 days ago
+      const result = calculateAllTimeAnnualizedRoR(totalRoR, startDate);
+      expect(result).toBeCloseTo(18.25, 1); // (20 * 365) / 400 = 18.25%
+    });
+
+    it('should handle portfolio started today', () => {
+      const totalRoR = 5; // 5% total return
+      const startDate = new Date(); // Today
+      const result = calculateAllTimeAnnualizedRoR(totalRoR, startDate);
+      expect(result).toBeCloseTo(1825, 0); // (5 * 365) / 1 = 1825% (minimum 1 day)
+    });
+
+    it('should handle portfolio started in the future (edge case)', () => {
+      const totalRoR = 10; // 10% total return
+      const startDate = new Date(Date.now() + (10 * 24 * 60 * 60 * 1000)); // 10 days in future
+      const result = calculateAllTimeAnnualizedRoR(totalRoR, startDate);
+      expect(result).toBeCloseTo(3650, 0); // Uses minimum 1 day: (10 * 365) / 1 = 3650%
+    });
+
+    it('should handle zero total RoR', () => {
+      const startDate = new Date(Date.now() - (200 * 24 * 60 * 60 * 1000)); // 200 days ago
+      expect(calculateAllTimeAnnualizedRoR(0, startDate)).toBe(0);
+    });
+
+    it('should handle negative total RoR', () => {
+      const totalRoR = -15; // -15% total return
+      const startDate = new Date(Date.now() - (300 * 24 * 60 * 60 * 1000)); // 300 days ago
+      const result = calculateAllTimeAnnualizedRoR(totalRoR, startDate);
+      expect(result).toBeCloseTo(-18.25, 1); // (-15 * 365) / 300 = -18.25%
+    });
+  });
+
+  describe('getAnnualizedRoRMethod', () => {
+    const originalEnv = process.env.ANN_ROR_TYPE;
+
+    afterEach(() => {
+      // Restore original environment variable
+      if (originalEnv !== undefined) {
+        process.env.ANN_ROR_TYPE = originalEnv;
+      } else {
+        delete process.env.ANN_ROR_TYPE;
+      }
+    });
+
+    it('should default to time-period when ANN_ROR_TYPE is not set', () => {
+      delete process.env.ANN_ROR_TYPE;
+      expect(getAnnualizedRoRMethod()).toBe('time-period');
+    });
+
+    it('should return time-period when ANN_ROR_TYPE is set to time-period', () => {
+      process.env.ANN_ROR_TYPE = 'time-period';
+      expect(getAnnualizedRoRMethod()).toBe('time-period');
+    });
+
+    it('should return trade-weighted when ANN_ROR_TYPE is set to trade-weighted', () => {
+      process.env.ANN_ROR_TYPE = 'trade-weighted';
+      expect(getAnnualizedRoRMethod()).toBe('trade-weighted');
+    });
+
+    it('should be case insensitive', () => {
+      process.env.ANN_ROR_TYPE = 'TRADE-WEIGHTED';
+      expect(getAnnualizedRoRMethod()).toBe('trade-weighted');
+
+      process.env.ANN_ROR_TYPE = 'Time-Period';
+      expect(getAnnualizedRoRMethod()).toBe('time-period');
+    });
+
+    it('should default to time-period for invalid values', () => {
+      process.env.ANN_ROR_TYPE = 'invalid-method';
+      expect(getAnnualizedRoRMethod()).toBe('time-period');
+
+      process.env.ANN_ROR_TYPE = '';
+      expect(getAnnualizedRoRMethod()).toBe('time-period');
+    });
+  });
+
+  describe('calculatePortfolioAnnualizedRoRWithMethod', () => {
+    const mockTransactions = [
+      createMockTransaction({ profitLoss: 100, collateral: 2000 }), // 5% RoR
+      createMockTransaction({ profitLoss: 50, collateral: 1000 }),  // 5% RoR
+    ];
+
+    it('should use trade-weighted method when specified', () => {
+      const result = calculatePortfolioAnnualizedRoRWithMethod(mockTransactions, 'trade-weighted');
+      const expectedTradeWeighted = calculatePortfolioAnnualizedRoR(mockTransactions);
+      expect(result).toBeCloseTo(expectedTradeWeighted, 2);
+    });
+
+    it('should use time-period method when specified', () => {
+      const result = calculatePortfolioAnnualizedRoRWithMethod(mockTransactions, 'time-period', 30);
+      const portfolioRoR = calculatePortfolioRoR(mockTransactions);
+      const expectedTimePeriod = calculateTimeBasedAnnualizedRoR(portfolioRoR, 30);
+      expect(result).toBeCloseTo(expectedTimePeriod, 2);
+    });
+
+    it('should default to yearly period when no period specified for time-period method', () => {
+      const result = calculatePortfolioAnnualizedRoRWithMethod(mockTransactions, 'time-period');
+      const portfolioRoR = calculatePortfolioRoR(mockTransactions);
+      const expectedTimePeriod = calculateTimeBasedAnnualizedRoR(portfolioRoR, 365);
+      expect(result).toBeCloseTo(expectedTimePeriod, 2);
+    });
+
+    it('should use environment variable when method not specified', () => {
+      const originalEnv = process.env.ANN_ROR_TYPE;
+
+      // Test with time-period
+      process.env.ANN_ROR_TYPE = 'time-period';
+      const timePeriodResult = calculatePortfolioAnnualizedRoRWithMethod(mockTransactions, undefined, 30);
+      const portfolioRoR = calculatePortfolioRoR(mockTransactions);
+      const expectedTimePeriod = calculateTimeBasedAnnualizedRoR(portfolioRoR, 30);
+      expect(timePeriodResult).toBeCloseTo(expectedTimePeriod, 2);
+
+      // Test with trade-weighted
+      process.env.ANN_ROR_TYPE = 'trade-weighted';
+      const tradeWeightedResult = calculatePortfolioAnnualizedRoRWithMethod(mockTransactions);
+      const expectedTradeWeighted = calculatePortfolioAnnualizedRoR(mockTransactions);
+      expect(tradeWeightedResult).toBeCloseTo(expectedTradeWeighted, 2);
+
+      // Restore original environment
+      if (originalEnv !== undefined) {
+        process.env.ANN_ROR_TYPE = originalEnv;
+      } else {
+        delete process.env.ANN_ROR_TYPE;
+      }
+    });
+  });
+
+  describe('calculateMonthlyPortfolioAnnualizedRoR', () => {
+    const mockTransactions = [
+      createMockTransaction({ profitLoss: 60, collateral: 2000 }), // 3% RoR
+      createMockTransaction({ profitLoss: 30, collateral: 1000 }),  // 3% RoR
+    ];
+    const originalEnv = process.env.ANN_ROR_TYPE;
+
+    afterEach(() => {
+      if (originalEnv !== undefined) {
+        process.env.ANN_ROR_TYPE = originalEnv;
+      } else {
+        delete process.env.ANN_ROR_TYPE;
+      }
+    });
+
+    it('should use time-period method by default', () => {
+      delete process.env.ANN_ROR_TYPE;
+      const result = calculateMonthlyPortfolioAnnualizedRoR(mockTransactions);
+      const monthlyRoR = calculatePortfolioRoR(mockTransactions);
+      const expected = calculateMonthlyAnnualizedRoR(monthlyRoR);
+      expect(result).toBeCloseTo(expected, 2);
+    });
+
+    it('should use trade-weighted method when environment variable is set', () => {
+      process.env.ANN_ROR_TYPE = 'trade-weighted';
+      const result = calculateMonthlyPortfolioAnnualizedRoR(mockTransactions);
+      const expected = calculatePortfolioAnnualizedRoR(mockTransactions);
+      expect(result).toBeCloseTo(expected, 2);
+    });
+
+    it('should use time-period method when environment variable is set to time-period', () => {
+      process.env.ANN_ROR_TYPE = 'time-period';
+      const result = calculateMonthlyPortfolioAnnualizedRoR(mockTransactions);
+      const monthlyRoR = calculatePortfolioRoR(mockTransactions);
+      const expected = calculateMonthlyAnnualizedRoR(monthlyRoR);
+      expect(result).toBeCloseTo(expected, 2);
+  });
+});
+
+describe('calculateActiveTradingDays', () => {
+  it('should calculate active trading days based on unique months', () => {
+    const transactions = [
+      createMockTransaction({ tradeOpenDate: '2025-01-15' }), // January
+      createMockTransaction({ tradeOpenDate: '2025-01-20' }), // January (same month)
+      createMockTransaction({ tradeOpenDate: '2025-03-10' }), // March
+      createMockTransaction({ tradeOpenDate: '2025-03-25' }), // March (same month)
+      createMockTransaction({ tradeOpenDate: '2025-05-05' }), // May
+    ];
+
+    const result = calculateActiveTradingDays(transactions);
+
+    // 3 unique months (Jan, Mar, May) × 30 = 90 days
+    expect(result).toBe(90);
+  });
+
+  it('should return 0 for empty transactions', () => {
+    const result = calculateActiveTradingDays([]);
+    expect(result).toBe(0);
+  });
+
+  it('should handle single month correctly', () => {
+    const transactions = [
+      createMockTransaction({ tradeOpenDate: '2025-01-01' }),
+      createMockTransaction({ tradeOpenDate: '2025-01-15' }),
+      createMockTransaction({ tradeOpenDate: '2025-01-31' }),
+    ];
+
+    const result = calculateActiveTradingDays(transactions);
+
+    // 1 month × 30 = 30 days
+    expect(result).toBe(30);
+  });
+
+  it('should handle transactions across different years', () => {
+    const transactions = [
+      createMockTransaction({ tradeOpenDate: '2024-12-15' }), // December 2024
+      createMockTransaction({ tradeOpenDate: '2025-01-10' }), // January 2025
+      createMockTransaction({ tradeOpenDate: '2025-02-20' }), // February 2025
+    ];
+
+    const result = calculateActiveTradingDays(transactions);
+
+    // 3 unique months × 30 = 90 days
+    expect(result).toBe(90);
+  });
+});
+
+describe('calculateYearlyAnnualizedRoRWithActiveMonths', () => {
+  it('should calculate yearly annualized RoR with active months', () => {
+    const transactions = [
+      createMockTransaction({
+        tradeOpenDate: '2025-01-15',
+        closeDate: '2025-01-20',
+        profitLoss: 100,
+        premium: 200
+      }),
+      createMockTransaction({
+        tradeOpenDate: '2025-03-10',
+        closeDate: '2025-03-15',
+        profitLoss: 50,
+        premium: 150
+      }),
+    ];
+
+    const result = calculateYearlyAnnualizedRoRWithActiveMonths(transactions, 2025);
+
+    // 2 months × 30 = 60 active trading days
+    expect(result.activeTradingDays).toBe(60);
+
+    // Base RoR should be calculated from the transactions
+    expect(result.baseRoR).toBeGreaterThan(0);
+
+    // Annualized RoR = baseRoR × (365 / 60)
+    const expectedAnnualized = result.baseRoR * (365 / 60);
+    expect(result.annualizedRoR).toBeCloseTo(expectedAnnualized, 2);
+  });
+
+  it('should return zeros for empty transactions', () => {
+    const result = calculateYearlyAnnualizedRoRWithActiveMonths([], 2025);
+
+    expect(result.annualizedRoR).toBe(0);
+    expect(result.activeTradingDays).toBe(0);
+    expect(result.baseRoR).toBe(0);
+  });
+
+  it('should filter transactions by year correctly', () => {
+    const transactions = [
+      createMockTransaction({
+        tradeOpenDate: '2024-12-15',
+        closeDate: '2024-12-20',
+        profitLoss: 100,
+        premium: 200
+      }),
+      createMockTransaction({
+        tradeOpenDate: '2025-01-10',
+        closeDate: '2025-01-15',
+        profitLoss: 50,
+        premium: 150
+      }),
+    ];
+
+    const result2025 = calculateYearlyAnnualizedRoRWithActiveMonths(transactions, 2025);
+    const result2024 = calculateYearlyAnnualizedRoRWithActiveMonths(transactions, 2024);
+
+    // 2025 should have 1 month (30 days)
+    expect(result2025.activeTradingDays).toBe(30);
+
+    // 2024 should have 1 month (30 days)
+    expect(result2024.activeTradingDays).toBe(30);
+  });
+
+  it('should use current year when no year specified', () => {
+    const currentYear = new Date().getFullYear();
+    const transactions = [
+      createMockTransaction({
+        tradeOpenDate: `${currentYear}-01-15`,
+        closeDate: `${currentYear}-01-20`,
+        profitLoss: 100,
+        premium: 200
+      }),
+    ];
+
+    const result = calculateYearlyAnnualizedRoRWithActiveMonths(transactions);
+
+    expect(result.activeTradingDays).toBe(30);
+    expect(result.baseRoR).toBeGreaterThan(0);
+  });
+
+  it('should handle high annualized RoR for short periods', () => {
+    const transactions = [
+      createMockTransaction({
+        tradeOpenDate: '2025-01-15',
+        closeDate: '2025-01-20',
+        profitLoss: 100,
+        premium: 1000 // 10% monthly return
+      }),
+    ];
+
+    const result = calculateYearlyAnnualizedRoRWithActiveMonths(transactions, 2025);
+
+    // 1 month = 30 days, so annualized should be baseRoR × (365/30) ≈ baseRoR × 12.17
+    expect(result.activeTradingDays).toBe(30);
+    expect(result.annualizedRoR).toBeGreaterThan(result.baseRoR * 10); // Should be much higher
+  });
+});
+
+describe('calculateYearlyPortfolioAnnualizedRoR', () => {
+    const mockTransactions = [
+      createMockTransaction({ profitLoss: 240, collateral: 2000 }), // 12% RoR
+      createMockTransaction({ profitLoss: 120, collateral: 1000 }),  // 12% RoR
+    ];
+    const originalEnv = process.env.ANN_ROR_TYPE;
+
+    afterEach(() => {
+      if (originalEnv !== undefined) {
+        process.env.ANN_ROR_TYPE = originalEnv;
+      } else {
+        delete process.env.ANN_ROR_TYPE;
+      }
+    });
+
+    it('should use time-period method by default', () => {
+      delete process.env.ANN_ROR_TYPE;
+      const result = calculateYearlyPortfolioAnnualizedRoR(mockTransactions);
+      const yearlyRoR = calculatePortfolioRoR(mockTransactions);
+      const expected = calculateYearlyAnnualizedRoR(yearlyRoR);
+      expect(result).toBeCloseTo(expected, 2);
+    });
+
+    it('should use trade-weighted method when environment variable is set', () => {
+      process.env.ANN_ROR_TYPE = 'trade-weighted';
+      const result = calculateYearlyPortfolioAnnualizedRoR(mockTransactions);
+      const expected = calculatePortfolioAnnualizedRoR(mockTransactions);
+      expect(result).toBeCloseTo(expected, 2);
+    });
+
+    it('should use time-period method when environment variable is set to time-period', () => {
+      process.env.ANN_ROR_TYPE = 'time-period';
+      const result = calculateYearlyPortfolioAnnualizedRoR(mockTransactions);
+      const yearlyRoR = calculatePortfolioRoR(mockTransactions);
+      const expected = calculateYearlyAnnualizedRoR(yearlyRoR);
+      expect(result).toBeCloseTo(expected, 2);
+    });
+
+    it('should return the same value as yearly RoR for time-period method', () => {
+      process.env.ANN_ROR_TYPE = 'time-period';
+      const result = calculateYearlyPortfolioAnnualizedRoR(mockTransactions);
+      const yearlyRoR = calculatePortfolioRoR(mockTransactions);
+      expect(result).toBeCloseTo(yearlyRoR, 2); // Should be the same since (RoR * 365) / 365 = RoR
     });
   });
 });

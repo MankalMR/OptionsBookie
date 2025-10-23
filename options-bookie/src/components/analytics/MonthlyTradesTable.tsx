@@ -1,6 +1,6 @@
 import React from 'react';
 import { OptionsTransaction } from '@/types/options';
-import { calculateRoR, calculateDaysHeld, calculateCollateral, formatPnLCurrency, getRealizedTransactions, calculateStrategyPerformance, calculatePortfolioRoR, calculateAnnualizedRoR, calculatePortfolioAnnualizedRoR, getRoRColorClasses } from '@/utils/optionsCalculations';
+import { calculateRoR, calculateDaysHeld, calculateCollateral, formatPnLCurrency, getRealizedTransactions, calculateStrategyPerformance, calculatePortfolioRoR, calculateAnnualizedRoR, calculateMonthlyPortfolioAnnualizedRoR, getRoRColorClasses } from '@/utils/optionsCalculations';
 import RoRDisplay from '@/components/ui/RoRDisplay';
 import { parseLocalDate } from '@/utils/dateUtils';
 import { formatStrikePrice } from '@/utils/formatUtils';
@@ -13,7 +13,7 @@ interface MonthlyTradesTableProps {
   selectedPortfolioName?: string | null;
 }
 
-export default function MonthlyTradesTable({ transactions, monthName, selectedPortfolioName }: MonthlyTradesTableProps) {
+export default function MonthlyTradesTable({ transactions }: MonthlyTradesTableProps) {
   const isMobile = useIsMobile();
 
   // Calculate month-specific metrics for Quick Stats
@@ -224,7 +224,7 @@ export default function MonthlyTradesTable({ transactions, monthName, selectedPo
                     const totalCollateral = transactions.reduce((sum, t) => sum + calculateCollateral(t), 0);
                     return totalCollateral > 0 ? (totalPnL / totalCollateral * 100) : 0;
                   })()}
-                  annualizedRoR={calculatePortfolioAnnualizedRoR(transactions)}
+                  annualizedRoR={calculateMonthlyPortfolioAnnualizedRoR(transactions)}
                   size="base"
                   showLabel={true}
                 />
