@@ -21,6 +21,7 @@ import QuickStatsCard from './analytics/QuickStatsCard';
 import StrategyPerformanceCard from './analytics/StrategyPerformanceCard';
 import YearlyPerformanceCard from './analytics/YearlyPerformanceCard';
 import AllTimePortfolioAnalytics from './analytics/AllTimePortfolioAnalytics';
+import BenchmarkComparisonChart from './analytics/BenchmarkComparisonChart';
 
 interface SummaryViewProps {
   transactions: OptionsTransaction[];
@@ -429,6 +430,11 @@ export default function SummaryView({ transactions, selectedPortfolioName }: Sum
         transactions={transactions}
         selectedPortfolioName={selectedPortfolioName}
         mobileOnly={false}
+      />
+
+      <BenchmarkComparisonChart
+        months={24}
+        className="w-full"
       />
     </div>
   );

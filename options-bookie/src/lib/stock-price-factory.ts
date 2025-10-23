@@ -1,6 +1,7 @@
 // Factory pattern for stock price services
 import { cachedStockService, CachedStockService } from './stock-price-cached';
 import { finnhubStockService, FinnhubStockService } from './stock-price-finnhub';
+import { alphaVantageStockService, AlphaVantageStockService } from './stock-price-alphavantage';
 
 export interface StockPriceResponse {
   symbol: string;
@@ -22,7 +23,7 @@ export interface StockPriceService {
   };
 }
 
-export type StockPriceProvider = 'finnhub' | 'cached' | 'none';
+export type StockPriceProvider = 'alphavantage' | 'finnhub' | 'cached' | 'none';
 
 export class StockPriceFactory {
   private static instance: StockPriceService | null = null;
@@ -35,6 +36,9 @@ export class StockPriceFactory {
     this.provider = provider;
 
     switch (provider) {
+      case 'alphavantage':
+        this.instance = alphaVantageStockService;
+        break;
       case 'finnhub':
         this.instance = finnhubStockService;
         break;
@@ -72,6 +76,8 @@ export class StockPriceFactory {
    */
   static isProviderAvailable(provider: StockPriceProvider): boolean {
     switch (provider) {
+      case 'alphavantage':
+        return !!process.env.ALPHA_VANTAGE_KEY;
       case 'finnhub':
         return !!process.env.FINNHUB_API_KEY;
       case 'cached':
@@ -91,6 +97,10 @@ export class StockPriceFactory {
 
     if (this.isProviderAvailable('cached')) {
       providers.push('cached');
+    }
+
+    if (this.isProviderAvailable('alphavantage')) {
+      providers.push('alphavantage');
     }
 
     if (this.isProviderAvailable('finnhub')) {

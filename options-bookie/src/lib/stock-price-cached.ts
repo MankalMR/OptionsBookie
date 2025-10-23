@@ -1,6 +1,6 @@
-// Stock price service with shared caching (works with Finnhub data)
+// Stock price service with shared caching (works with Alpha Vantage data)
 import { sharedStockPriceCache } from './stock-price-cache';
-import { finnhubStockService } from './stock-price-finnhub';
+import { alphaVantageStockService } from './stock-price-alphavantage';
 
 interface StockPriceResponse {
   symbol: string;
@@ -43,11 +43,11 @@ export class CachedStockService {
       }
       console.log(`❌ No cached price found for ${symbol}`);
 
-      // If not cached and Finnhub is available, try to fetch from Finnhub
-      if (process.env.FINNHUB_API_KEY) {
-        console.log(`Fetching fresh price for ${symbol} from Finnhub`);
+      // If not cached and Alpha Vantage is available, try to fetch from Alpha Vantage
+      if (process.env.ALPHA_VANTAGE_KEY) {
+        console.log(`Fetching fresh price for ${symbol} from Alpha Vantage`);
         try {
-          const priceData = await finnhubStockService.getStockPrice(symbol);
+          const priceData = await alphaVantageStockService.getStockPrice(symbol);
 
           if (priceData) {
             // Cache the result in shared cache
@@ -56,10 +56,10 @@ export class CachedStockService {
             return priceData;
           }
         } catch (error) {
-          console.log(`Finnhub failed for ${symbol}, returning null:`, error);
+          console.log(`Alpha Vantage failed for ${symbol}, returning null:`, error);
         }
       } else {
-        console.log(`FINNHUB_API_KEY not available, returning null for ${symbol}`);
+        console.log(`ALPHA_VANTAGE_KEY not available, returning null for ${symbol}`);
       }
 
       return null;
@@ -91,21 +91,21 @@ export class CachedStockService {
       }
     });
 
-    console.log(`🔄 Need to fetch ${symbolsToFetch.length} symbols from Finnhub: ${symbolsToFetch.join(', ')}`);
+    console.log(`🔄 Need to fetch ${symbolsToFetch.length} symbols from Alpha Vantage: ${symbolsToFetch.join(', ')}`);
 
-    // Fetch uncached symbols from Finnhub if available
+    // Fetch uncached symbols from Alpha Vantage if available
     if (symbolsToFetch.length > 0) {
-      if (process.env.FINNHUB_API_KEY) {
-        console.log(`Fetching fresh prices for: ${symbolsToFetch.join(', ')} from Finnhub`);
+      if (process.env.ALPHA_VANTAGE_KEY) {
+        console.log(`Fetching fresh prices for: ${symbolsToFetch.join(', ')} from Alpha Vantage`);
         try {
-          const finnhubResults = await finnhubStockService.getMultipleStockPrices(symbolsToFetch);
+          const alphaVantageResults = await alphaVantageStockService.getMultipleStockPrices(symbolsToFetch);
 
           // Cache and return results
           const pricesToCache: Record<string, StockPriceResponse | null> = {};
           symbolsToFetch.forEach(symbol => {
-            results[symbol] = finnhubResults[symbol];
-            if (finnhubResults[symbol]) {
-              pricesToCache[symbol] = finnhubResults[symbol];
+            results[symbol] = alphaVantageResults[symbol];
+            if (alphaVantageResults[symbol]) {
+              pricesToCache[symbol] = alphaVantageResults[symbol];
             }
           });
 
@@ -114,13 +114,13 @@ export class CachedStockService {
             await sharedStockPriceCache.cacheMultiplePrices(symbolsToFetch, pricesToCache);
           }
         } catch (error) {
-          console.log(`Finnhub failed for symbols: ${symbolsToFetch.join(', ')}, returning null:`, error);
+          console.log(`Alpha Vantage failed for symbols: ${symbolsToFetch.join(', ')}, returning null:`, error);
           symbolsToFetch.forEach(symbol => {
             results[symbol] = null;
           });
         }
       } else {
-        console.log(`FINNHUB_API_KEY not available, returning null for uncached symbols: ${symbolsToFetch.join(', ')}`);
+        console.log(`ALPHA_VANTAGE_KEY not available, returning null for uncached symbols: ${symbolsToFetch.join(', ')}`);
         symbolsToFetch.forEach(symbol => {
           results[symbol] = null;
         });

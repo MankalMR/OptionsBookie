@@ -15,11 +15,12 @@ export async function GET(request: NextRequest) {
 
     const symbolList = symbols.split(',').map(s => s.trim().toUpperCase());
 
-    // Debug: Check if FINNHUB_API_KEY is available
+    // Debug: Check if API keys are available
+    console.log('ALPHA_VANTAGE_KEY available:', !!process.env.ALPHA_VANTAGE_KEY);
     console.log('FINNHUB_API_KEY available:', !!process.env.FINNHUB_API_KEY);
     console.log('Available providers:', StockPriceFactory.getAvailableProviders());
 
-    // Try cached first (which will fall back to Finnhub if cache miss), then pure Finnhub as last resort
+    // Try cached first (which will fall back to Alpha Vantage if cache miss)
     let stockService = StockPriceFactory.initialize('cached');
 
     let result;
@@ -88,7 +89,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Use cached service (which falls back to Finnhub internally)
+    // Use cached service (which falls back to Alpha Vantage internally)
     const stockService = StockPriceFactory.initialize('cached');
     const prices = await stockService.getMultipleStockPrices(symbols);
     return NextResponse.json(prices);
