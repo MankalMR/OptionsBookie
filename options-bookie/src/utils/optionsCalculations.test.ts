@@ -1674,7 +1674,7 @@ describe('optionsCalculations', () => {
         updatedAt: new Date('2025-01-15T12:00:00Z'),
       };
 
-      const profitLoss = calculateNewTradeProfitLoss(transaction);
+      const profitLoss = calculateNewTradeProfitLoss();
       expect(profitLoss).toBe(0); // New trades have 0 P&L until closed
     });
   });
@@ -1873,7 +1873,7 @@ describe('optionsCalculations', () => {
         updatedAt: new Date('2025-01-15T12:00:00Z'),
       };
 
-      const profitLoss = calculateNewTradeProfitLoss(transaction);
+      const profitLoss = calculateNewTradeProfitLoss();
       expect(profitLoss).toBe(0); // New trades always return 0
     });
 
@@ -2670,9 +2670,9 @@ describe('calculateActiveTradingDays', () => {
 
   it('should handle single month correctly', () => {
     const transactions = [
-      createMockTransaction({ tradeOpenDate: '2025-01-01' }),
-      createMockTransaction({ tradeOpenDate: '2025-01-15' }),
-      createMockTransaction({ tradeOpenDate: '2025-01-31' }),
+      createMockTransaction({ tradeOpenDate: new Date('2025-01-01T12:00:00') }),
+      createMockTransaction({ tradeOpenDate: new Date('2025-01-15T12:00:00') }),
+      createMockTransaction({ tradeOpenDate: new Date('2025-01-31T12:00:00') }),
     ];
 
     const result = calculateActiveTradingDays(transactions);
@@ -2699,14 +2699,16 @@ describe('calculateYearlyAnnualizedRoRWithActiveMonths', () => {
   it('should calculate yearly annualized RoR with active months', () => {
     const transactions = [
       createMockTransaction({
-        tradeOpenDate: '2025-01-15',
-        closeDate: '2025-01-20',
+        tradeOpenDate: new Date('2025-01-15T12:00:00'),
+        closeDate: new Date('2025-01-20T12:00:00'),
+        status: 'Closed',
         profitLoss: 100,
         premium: 200
       }),
       createMockTransaction({
-        tradeOpenDate: '2025-03-10',
-        closeDate: '2025-03-15',
+        tradeOpenDate: new Date('2025-03-10T12:00:00'),
+        closeDate: new Date('2025-03-15T12:00:00'),
+        status: 'Closed',
         profitLoss: 50,
         premium: 150
       }),
@@ -2763,8 +2765,9 @@ describe('calculateYearlyAnnualizedRoRWithActiveMonths', () => {
     const currentYear = new Date().getFullYear();
     const transactions = [
       createMockTransaction({
-        tradeOpenDate: `${currentYear}-01-15`,
-        closeDate: `${currentYear}-01-20`,
+        tradeOpenDate: new Date(`${currentYear}-01-15T12:00:00`),
+        closeDate: new Date(`${currentYear}-01-20T12:00:00`),
+        status: 'Closed',
         profitLoss: 100,
         premium: 200
       }),
@@ -2779,8 +2782,9 @@ describe('calculateYearlyAnnualizedRoRWithActiveMonths', () => {
   it('should handle high annualized RoR for short periods', () => {
     const transactions = [
       createMockTransaction({
-        tradeOpenDate: '2025-01-15',
-        closeDate: '2025-01-20',
+        tradeOpenDate: new Date('2025-01-15T12:00:00'),
+        closeDate: new Date('2025-01-20T12:00:00'),
+        status: 'Closed',
         profitLoss: 100,
         premium: 1000 // 10% monthly return
       }),

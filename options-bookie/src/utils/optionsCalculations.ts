@@ -902,12 +902,13 @@ export const calculateDTE = calculateDaysToExpiry;
  * This provides a standardized way to measure trading activity duration
  */
 export function calculateActiveTradingDays(transactions: OptionsTransaction[]): number {
-  const activeMonths = new Set(
-    transactions.map(t => {
-      const tradeDate = new Date(t.tradeOpenDate);
-      return `${tradeDate.getFullYear()}-${tradeDate.getMonth()}`;
-    })
-  ).size;
+  const monthKeys = transactions.map(t => {
+    const tradeDate = new Date(t.tradeOpenDate);
+    const key = `${tradeDate.getFullYear()}-${tradeDate.getMonth()}`;
+    return key;
+  });
+
+  const activeMonths = new Set(monthKeys).size;
 
   return activeMonths * 30;
 }
