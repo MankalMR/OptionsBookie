@@ -1,20 +1,48 @@
 import React from 'react';
 import { OptionsTransaction } from '@/types/options';
-import { calculateRoR, calculateDaysHeld, calculateCollateral, formatPnLCurrency, getRealizedTransactions, calculateStrategyPerformance, calculatePortfolioRoR, calculateAnnualizedRoR, calculateMonthlyPortfolioAnnualizedRoR, getRoRColorClasses } from '@/utils/optionsCalculations';
+import { calculateRoR, calculateDaysHeld, calculateCollateral, formatPnLCurrency, getRealizedTransactions, calculateStrategyPerformance, calculatePortfolioRoR, calculateAnnualizedRoR, calculateMonthlyPortfolioAnnualizedRoR, getRoRColorClasses, calculateChainPnL } from '@/utils/optionsCalculations';
 import RoRDisplay from '@/components/ui/RoRDisplay';
 import { parseLocalDate } from '@/utils/dateUtils';
 import { formatStrikePrice } from '@/utils/formatUtils';
 import { Badge } from '@/components/ui/badge';
 import { useIsMobile } from '@/hooks/useMediaQuery';
+import { Link } from 'lucide-react';
 
 interface MonthlyTradesTableProps {
   transactions: OptionsTransaction[];
+  chains?: any[]; // Add chains prop for chain-aware P&L calculation
   monthName: string;
   selectedPortfolioName?: string | null;
 }
 
-export default function MonthlyTradesTable({ transactions }: MonthlyTradesTableProps) {
+export default function MonthlyTradesTable({ transactions, chains = [] }: MonthlyTradesTableProps) {
   const isMobile = useIsMobile();
+
+  // Helper function to get chain-aware P&L for display
+  const getDisplayPnL = (transaction: OptionsTransaction): number => {
+    // For chained transactions, show the full chain P&L on the final transaction
+    if (transaction.chainId) {
+      const chain = chains.find((c: any) => c.id === transaction.chainId);
+      if (chain && chain.chainStatus === 'Closed') {
+        return calculateChainPnL(transaction.chainId, transactions);
+      }
+    }
+
+    // For non-chained transactions, show individual P&L
+    return transaction.profitLoss || 0;
+  };
+
+  // Filter out rolled transactions for cleaner display
+  const displayTransactions = transactions.filter(t => t.status !== 'Rolled');
+
+  // Helper function to check if transaction is part of a closed chain
+  const isClosedChainTransaction = (transaction: OptionsTransaction): boolean => {
+    if (transaction.chainId) {
+      const chain = chains.find((c: any) => c.id === transaction.chainId);
+      return chain && chain.chainStatus === 'Closed';
+    }
+    return false;
+  };
 
   // Calculate month-specific metrics for Quick Stats
   const realizedTransactions = getRealizedTransactions(transactions);
@@ -60,8 +88,8 @@ export default function MonthlyTradesTable({ transactions }: MonthlyTradesTableP
     bestStockByRoR: bestStockByRoR ? { ticker: bestStockByRoR.ticker, ror: bestStockByRoR.ror } : null
   };
 
-  // Sort transactions by close date (most recent first)
-  const sortedTransactions = [...transactions].sort((a, b) => {
+  // Sort display transactions by close date (most recent first)
+  const sortedTransactions = [...displayTransactions].sort((a, b) => {
     const dateA = parseLocalDate(a.closeDate!).getTime();
     const dateB = parseLocalDate(b.closeDate!).getTime();
     return dateB - dateA;
@@ -93,13 +121,18 @@ export default function MonthlyTradesTable({ transactions }: MonthlyTradesTableP
               const ror = calculateRoR(transaction);
               const annualizedRoR = calculateAnnualizedRoR(transaction);
               const daysHeld = calculateDaysHeld(transaction.tradeOpenDate, transaction.closeDate!);
-              const pnl = transaction.profitLoss || 0;
+              const pnl = getDisplayPnL(transaction);
 
               return (
                 <tr key={transaction.id} className="border-b border-border/30 hover:bg-muted/20">
                   <td className="py-2 px-3 font-medium text-card-foreground">
                     <div className="flex flex-col space-y-1">
-                      <span className="truncate">{transaction.stockSymbol} ({transaction.numberOfContracts})</span>
+                      <div className="flex items-center space-x-2">
+                        {isClosedChainTransaction(transaction) && (
+                          <Link className="h-4 w-4 text-blue-600 flex-shrink-0" />
+                        )}
+                        <span className="truncate">{transaction.stockSymbol} ({transaction.numberOfContracts})</span>
+                      </div>
                       <Badge
                         variant={transaction.buyOrSell === 'Buy' ? 'outline' : 'default'}
                         className={`text-xs px-1 py-0 w-fit text-xs ${transaction.buyOrSell === 'Buy'

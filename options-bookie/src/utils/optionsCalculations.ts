@@ -98,13 +98,21 @@ export const shouldUpdateTradeStatus = (transaction: OptionsTransaction): boolea
 
 // Centralized utility to get all realized transactions
 // Only truly completed trades count as realized - rolled trades are ongoing strategies
-export const getRealizedTransactions = (transactions: OptionsTransaction[]) => {
-  return transactions.filter(t =>
-    t.status === 'Closed' ||
-    t.status === 'Expired' ||
-    t.status === 'Assigned'
-    // Note: 'Rolled' transactions are NOT realized - they're part of ongoing strategies
-  );
+export const getRealizedTransactions = (transactions: OptionsTransaction[], chains: TradeChain[] = []) => {
+  return transactions.filter(t => {
+    // Include standard realized transactions
+    if (t.status === 'Closed' || t.status === 'Expired' || t.status === 'Assigned') {
+      return true;
+    }
+
+    // Include rolled transactions that are part of closed chains
+    if (t.status === 'Rolled' && t.chainId) {
+      const chain = chains.find(c => c.id === t.chainId);
+      return chain && chain.chainStatus === 'Closed';
+    }
+
+    return false;
+  });
 };
 
 // Centralized utility to calculate total realized P&L
@@ -140,9 +148,8 @@ export const formatPnLWithArrow = (amount: number): { text: string; isPositive: 
 
 // Centralized utility to calculate Chain P&L
 export const calculateChainPnL = (chainId: string, transactions: OptionsTransaction[]): number => {
-  return transactions
-    .filter(t => t.chainId === chainId)
-    .reduce((total, t) => total + (t.profitLoss || 0), 0);
+  const chainTransactions = transactions.filter(t => t.chainId === chainId);
+  return chainTransactions.reduce((total, t) => total + (t.profitLoss || 0), 0);
 };
 
 // Calculate collateral requirement for an options trade
@@ -555,11 +562,11 @@ export const calculateMonthlyChartData = (transactions: OptionsTransaction[]) =>
   return chartData;
 };
 
-// Calculate top tickers by P&L and RoR for each month
-export const calculateMonthlyTopTickers = (transactions: OptionsTransaction[]) => {
-  const realizedTransactions = getRealizedTransactions(transactions);
+// Calculate top tickers by P&L and RoR for each month using chain-aware logic
+export const calculateMonthlyTopTickers = (transactions: OptionsTransaction[], chains: TradeChain[] = []) => {
+  const realizedTransactions = getRealizedTransactions(transactions, chains);
 
-  // Group by month and ticker
+  // Group by month and calculate chain-aware ticker performance
   const monthlyTickerData = new Map<string, Map<string, {
     ticker: string;
     pnl: number;
@@ -567,32 +574,42 @@ export const calculateMonthlyTopTickers = (transactions: OptionsTransaction[]) =
     totalCollateral: number;
   }>>();
 
+  // Group transactions by month using chain-aware effective close dates
+  const monthlyTransactions = new Map<string, OptionsTransaction[]>();
   realizedTransactions.forEach(transaction => {
     if (!transaction.closeDate) return;
 
-    const closeDate = parseLocalDate(transaction.closeDate);
-    const monthKey = `${closeDate.getFullYear()}-${String(closeDate.getMonth() + 1).padStart(2, '0')}`;
-    const ticker = transaction.stockSymbol;
+    const effectiveCloseDate = getEffectiveCloseDate(transaction, realizedTransactions, chains);
+    const monthKey = `${effectiveCloseDate.getFullYear()}-${String(effectiveCloseDate.getMonth() + 1).padStart(2, '0')}`;
 
-    if (!monthlyTickerData.has(monthKey)) {
-      monthlyTickerData.set(monthKey, new Map());
+    if (!monthlyTransactions.has(monthKey)) {
+      monthlyTransactions.set(monthKey, []);
     }
+    monthlyTransactions.get(monthKey)!.push(transaction);
+  });
 
-    const monthData = monthlyTickerData.get(monthKey)!;
+  // Calculate chain-aware performance for each month
+  monthlyTransactions.forEach((transactions, monthKey) => {
+    const stockPerformance = calculateChainAwareStockPerformance(transactions, chains);
 
-    if (!monthData.has(ticker)) {
+
+    const monthData = new Map<string, {
+      ticker: string;
+      pnl: number;
+      trades: number;
+      totalCollateral: number;
+    }>();
+
+    stockPerformance.forEach((data, ticker) => {
       monthData.set(ticker, {
         ticker,
-        pnl: 0,
-        trades: 0,
-        totalCollateral: 0
+        pnl: data.pnl,
+        trades: data.trades,
+        totalCollateral: data.totalCollateral
       });
-    }
+    });
 
-    const tickerData = monthData.get(ticker)!;
-    tickerData.pnl += transaction.profitLoss || 0;
-    tickerData.trades += 1;
-    tickerData.totalCollateral += calculateCollateral(transaction);
+    monthlyTickerData.set(monthKey, monthData);
   });
 
   // Find top tickers by P&L and RoR for each month
@@ -753,6 +770,148 @@ export const calculateUnrealizedPnL = (transactions: OptionsTransaction[], chain
   unrealizedPnL += chainedPnL;
 
   return unrealizedPnL;
+};
+
+/**
+ * Calculate chain-aware monthly P&L attribution
+ * For closed chains: attributes entire chain P&L to the closing month
+ * For individual transactions: uses individual transaction P&L
+ * For rolled transactions: excludes them (they're part of ongoing chains)
+ */
+export const calculateChainAwareMonthlyPnL = (
+  transactions: OptionsTransaction[],
+  chains: TradeChain[] = [],
+  year: number,
+  month: number
+): { totalPnL: number; totalTrades: number; fees: number } => {
+  let totalPnL = 0;
+  let totalTrades = 0;
+  let fees = 0;
+  const processedChains = new Set<string>();
+
+  // Get all transactions for this month using chain-aware effective close dates
+  const monthTransactions = transactions.filter(t => {
+    if (!t.closeDate) return false;
+    const effectiveCloseDate = getEffectiveCloseDate(t, transactions, chains);
+    return effectiveCloseDate.getFullYear() === year && effectiveCloseDate.getMonth() === month;
+  });
+
+  monthTransactions.forEach(transaction => {
+    // Skip rolled transactions - they're part of chains and shouldn't be counted individually
+    if (transaction.status === 'Rolled') {
+      return;
+    }
+
+    if (transaction.chainId && !processedChains.has(transaction.chainId)) {
+      // This is a chained transaction and we haven't processed this chain yet
+      const chain = chains.find(c => c.id === transaction.chainId);
+
+      if (chain && chain.chainStatus === 'Closed') {
+        // For closed chains, attribute the entire chain P&L to this month
+        const chainPnL = calculateChainPnL(transaction.chainId, transactions);
+        const chainTransactions = transactions.filter(t => t.chainId === transaction.chainId);
+        const chainFees = chainTransactions.reduce((sum, t) => sum + (t.fees || 0), 0);
+
+        totalPnL += chainPnL;
+        totalTrades += 1; // Count the chain as one "trade"
+        fees += chainFees;
+        processedChains.add(transaction.chainId);
+      }
+    } else if (!transaction.chainId) {
+      // Non-chained transaction - use individual P&L
+      totalPnL += transaction.profitLoss || 0;
+      totalTrades += 1;
+      fees += transaction.fees || 0;
+    }
+  });
+
+  return { totalPnL, totalTrades, fees };
+};
+
+/**
+ * Get the effective close date for a transaction, using chain close date for chained transactions
+ * This ensures chain P&L is attributed to the month when the chain closes
+ */
+export const getEffectiveCloseDate = (
+  transaction: OptionsTransaction,
+  allTransactions: OptionsTransaction[],
+  chains: TradeChain[] = []
+): Date => {
+  if (!transaction.closeDate) {
+    return new Date(); // Fallback for transactions without close date
+  }
+
+  const baseCloseDate = parseLocalDate(transaction.closeDate);
+
+  // For chained transactions, use the final chain close date
+  if (transaction.chainId) {
+    const chain = chains.find(c => c.id === transaction.chainId);
+    if (chain && chain.chainStatus === 'Closed') {
+      // Find the latest close date in the chain
+      const chainTransactions = allTransactions.filter(t =>
+        t.chainId === transaction.chainId && t.closeDate
+      );
+      if (chainTransactions.length > 0) {
+        const latestCloseDate = chainTransactions
+          .map(t => parseLocalDate(t.closeDate!))
+          .sort((a, b) => b.getTime() - a.getTime())[0];
+        return latestCloseDate;
+      }
+    }
+  }
+
+  return baseCloseDate;
+};
+
+/**
+ * Calculate chain-aware stock performance for a given time period
+ * Properly attributes chain P&L to stocks instead of individual transaction P&L
+ */
+export const calculateChainAwareStockPerformance = (
+  transactions: OptionsTransaction[],
+  chains: TradeChain[] = []
+): Map<string, { pnl: number; trades: number; totalCollateral: number }> => {
+  const stockPerformance = new Map<string, { pnl: number; trades: number; totalCollateral: number }>();
+  const processedChains = new Set<string>();
+
+  transactions.forEach(transaction => {
+    // Skip rolled transactions - they're part of chains
+    if (transaction.status === 'Rolled') {
+      return;
+    }
+
+    const symbol = transaction.stockSymbol;
+
+    if (!stockPerformance.has(symbol)) {
+      stockPerformance.set(symbol, { pnl: 0, trades: 0, totalCollateral: 0 });
+    }
+
+    const perf = stockPerformance.get(symbol)!;
+
+    if (transaction.chainId && !processedChains.has(transaction.chainId)) {
+      // Chain transaction - use entire chain P&L
+      const chain = chains.find(c => c.id === transaction.chainId);
+
+      if (chain && chain.chainStatus === 'Closed') {
+        const chainPnL = calculateChainPnL(transaction.chainId, transactions);
+        const chainTransactions = transactions.filter(t => t.chainId === transaction.chainId);
+        const chainCollateral = chainTransactions.reduce((sum, t) => sum + calculateCollateral(t), 0);
+
+
+        perf.pnl += chainPnL;
+        perf.trades += 1; // Count chain as one trade
+        perf.totalCollateral += chainCollateral;
+        processedChains.add(transaction.chainId);
+      }
+    } else if (!transaction.chainId) {
+      // Non-chained transaction - use individual P&L
+      perf.pnl += transaction.profitLoss || 0;
+      perf.trades += 1;
+      perf.totalCollateral += calculateCollateral(transaction);
+    }
+  });
+
+  return stockPerformance;
 };
 
 /**

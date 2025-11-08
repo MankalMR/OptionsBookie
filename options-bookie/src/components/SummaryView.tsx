@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useMemo, useState } from 'react';
-import { OptionsTransaction } from '@/types/options';
+import { OptionsTransaction, TradeChain } from '@/types/options';
 import {
   calculateDaysHeld,
   getRealizedTransactions,
@@ -11,7 +11,11 @@ import {
   calculatePortfolioRoR,
   calculateMonthlyAnnualizedRoR,
   calculateCollateral,
-  calculateYearlyAnnualizedRoRWithActiveMonths
+  calculateYearlyAnnualizedRoRWithActiveMonths,
+  calculateChainAwareMonthlyPnL,
+  calculateChainPnL,
+  calculateChainAwareStockPerformance,
+  getEffectiveCloseDate
 } from '@/utils/optionsCalculations';
 import { parseLocalDate } from '@/utils/dateUtils';
 import { useIsMobile } from '@/hooks/useMediaQuery';
@@ -26,6 +30,7 @@ import BenchmarkComparisonChart from './analytics/BenchmarkComparisonChart';
 interface SummaryViewProps {
   transactions: OptionsTransaction[];
   selectedPortfolioName?: string | null;
+  chains?: TradeChain[];
 }
 
 interface MonthlySummary {
@@ -51,10 +56,10 @@ export interface YearlySummary {
   monthlyBreakdown: MonthlySummary[];
 }
 
-export default function SummaryView({ transactions, selectedPortfolioName }: SummaryViewProps) {
+export default function SummaryView({ transactions, selectedPortfolioName, chains = [] }: SummaryViewProps) {
   const isMobile = useIsMobile();
   const yearlySummaries = useMemo(() => {
-    const completedTransactions = getRealizedTransactions(transactions).filter(t =>
+    const completedTransactions = getRealizedTransactions(transactions, chains).filter(t =>
       t.closeDate
     );
 
@@ -105,45 +110,70 @@ export default function SummaryView({ transactions, selectedPortfolioName }: Sum
       yearData.averageDaysHeld = yearData.totalTrades > 0 ? yearData.averageDaysHeld / yearData.totalTrades : 0;
     });
 
-    // Calculate monthly breakdowns
+    // Calculate monthly breakdowns using chain-aware P&L attribution
     Object.values(yearlyData).forEach(yearData => {
       const monthlyData: Record<number, MonthlySummary> = {};
 
+      // Get all months that have transactions in this year using effective close dates
+      const monthsWithTransactions = new Set<number>();
       completedTransactions
         .filter(t => {
-          const closeDate = parseLocalDate(t.closeDate!);
-          return closeDate.getFullYear() === yearData.year;
+          const effectiveCloseDate = getEffectiveCloseDate(t, completedTransactions, chains);
+          return effectiveCloseDate.getFullYear() === yearData.year;
         })
         .forEach(transaction => {
-          const closeDate = parseLocalDate(transaction.closeDate!);
-          const month = closeDate.getMonth();
-
-          if (!monthlyData[month]) {
-            monthlyData[month] = {
-              month,
-              monthName: closeDate.toLocaleDateString('en-US', { month: 'long' }),
-              totalPnL: 0,
-              totalTrades: 0,
-              winRate: 0,
-              fees: 0
-            };
-          }
-
-          const pnl = transaction.profitLoss || 0;
-          monthlyData[month].totalPnL += pnl;
-          monthlyData[month].totalTrades += 1;
-          monthlyData[month].fees += transaction.fees || 0;
+          const effectiveCloseDate = getEffectiveCloseDate(transaction, completedTransactions, chains);
+          monthsWithTransactions.add(effectiveCloseDate.getMonth());
         });
+
+      // Calculate chain-aware P&L for each month
+      monthsWithTransactions.forEach(month => {
+        const monthlyPnL = calculateChainAwareMonthlyPnL(transactions, chains, yearData.year, month);
+
+
+        // Create month name from a sample date
+        const sampleDate = new Date(yearData.year, month, 1);
+
+        monthlyData[month] = {
+          month,
+          monthName: sampleDate.toLocaleDateString('en-US', { month: 'long' }),
+          totalPnL: monthlyPnL.totalPnL,
+          totalTrades: monthlyPnL.totalTrades,
+          winRate: 0, // Will be calculated below
+          fees: monthlyPnL.fees
+        };
+      });
 
       yearData.monthlyBreakdown = Object.values(monthlyData).sort((a, b) => a.month - b.month);
 
-      // Calculate win rates for each month
+      // Calculate win rates for each month using chain-aware logic
       yearData.monthlyBreakdown.forEach(monthData => {
         const monthTransactions = completedTransactions.filter(t => {
           const closeDate = parseLocalDate(t.closeDate!);
           return closeDate.getFullYear() === yearData.year && closeDate.getMonth() === monthData.month;
         });
-        const winningTrades = monthTransactions.filter(t => (t.profitLoss || 0) > 0).length;
+
+        let winningTrades = 0;
+        const processedChains = new Set<string>();
+
+        monthTransactions.forEach(transaction => {
+          // Skip rolled transactions
+          if (transaction.status === 'Rolled') return;
+
+          if (transaction.chainId && !processedChains.has(transaction.chainId)) {
+            // Chain transaction - check if entire chain is profitable
+            const chain = chains.find(c => c.id === transaction.chainId);
+            if (chain && chain.chainStatus === 'Closed') {
+              const chainPnL = calculateChainPnL(transaction.chainId, transactions);
+              if (chainPnL > 0) winningTrades++;
+              processedChains.add(transaction.chainId);
+            }
+          } else if (!transaction.chainId) {
+            // Non-chained transaction
+            if ((transaction.profitLoss || 0) > 0) winningTrades++;
+          }
+        });
+
         monthData.winRate = monthData.totalTrades > 0 ? (winningTrades / monthData.totalTrades) * 100 : 0;
       });
 
@@ -184,7 +214,7 @@ export default function SummaryView({ transactions, selectedPortfolioName }: Sum
     });
 
     return Object.values(yearlyData).sort((a, b) => b.year - a.year);
-  }, [transactions]);
+  }, [transactions, chains]);
 
   // Set the most recent year as expanded by default, but respect user interactions
   const mostRecentYear = useMemo(() => {
@@ -203,7 +233,7 @@ export default function SummaryView({ transactions, selectedPortfolioName }: Sum
   }, [mostRecentYear, userHasInteracted]);
 
   const overallStats = useMemo(() => {
-    const realizedTransactions = getRealizedTransactions(transactions);
+    const realizedTransactions = getRealizedTransactions(transactions, chains);
     const totalPnL = calculateTotalRealizedPnL(transactions);
     const totalTrades = realizedTransactions.length;
     const winningTrades = realizedTransactions.filter(t => (t.profitLoss || 0) > 0).length;
@@ -225,8 +255,8 @@ export default function SummaryView({ transactions, selectedPortfolioName }: Sum
   }, [transactions]);
 
   const monthlyTopTickers = useMemo(() => {
-    return calculateMonthlyTopTickers(transactions);
-  }, [transactions]);
+    return calculateMonthlyTopTickers(transactions, chains);
+  }, [transactions, chains]);
 
 
   // Helper functions for child components
@@ -254,39 +284,20 @@ export default function SummaryView({ transactions, selectedPortfolioName }: Sum
   };
 
   const getTop5TickersForYear = (year: number) => {
-    const realizedTransactions = getRealizedTransactions(transactions).filter(t => {
+    const realizedTransactions = getRealizedTransactions(transactions, chains).filter(t => {
       if (!t.closeDate) return false;
       const closeDate = parseLocalDate(t.closeDate);
       return closeDate.getFullYear() === year;
     });
 
-    const yearTickerTotals = new Map<string, {
-      pnl: number;
-      ror: number;
-      trades: number;
-      collateral: number;
-    }>();
-
-    realizedTransactions.forEach(transaction => {
-      const ticker = transaction.stockSymbol;
-      const pnl = transaction.profitLoss || 0;
-      const collateral = calculateCollateral(transaction);
-
-      if (!yearTickerTotals.has(ticker)) {
-        yearTickerTotals.set(ticker, { pnl: 0, ror: 0, trades: 0, collateral: 0 });
-      }
-
-      const tickerData = yearTickerTotals.get(ticker)!;
-      tickerData.pnl += pnl;
-      tickerData.trades += 1;
-      tickerData.collateral += collateral;
-    });
+    // Use chain-aware stock performance calculation
+    const yearTickerTotals = calculateChainAwareStockPerformance(realizedTransactions, chains);
 
     const yearTop5 = Array.from(yearTickerTotals.entries())
       .map(([ticker, data]) => ({
         ticker,
         pnl: Math.round(data.pnl),
-        ror: data.collateral > 0 ? Number((data.pnl / data.collateral * 100).toFixed(1)) : 0,
+        ror: data.totalCollateral > 0 ? Number((data.pnl / data.totalCollateral * 100).toFixed(1)) : 0,
         trades: data.trades
       }))
       .sort((a, b) => b.pnl - a.pnl)
@@ -343,7 +354,15 @@ export default function SummaryView({ transactions, selectedPortfolioName }: Sum
   // Calculate quick stats data
   const preciseAvgRoR = calculatePortfolioRoR(transactions);
 
-  // For all-time annualized RoR, use total calendar days since inception
+  // Use the common function to calculate yearly annualized RoR with active months
+  const yearlyRoRData = calculateYearlyAnnualizedRoRWithActiveMonths(transactions);
+  const activeTradingDays = yearlyRoRData.activeTradingDays;
+
+  // For consistency, use the same active trading days approach for all-time calculation
+  // Since all transactions are from current year, both should be identical
+  const preciseAnnualizedRoR = yearlyRoRData.annualizedRoR;
+
+  // For tooltip context, we still need totalDaysSinceInception for display purposes
   const portfolioStartDate = transactions.length > 0
     ? new Date(Math.min(...transactions.map(t => new Date(t.tradeOpenDate).getTime())))
     : new Date();
@@ -353,12 +372,6 @@ export default function SummaryView({ transactions, selectedPortfolioName }: Sum
     1
   );
 
-  const preciseAnnualizedRoR = preciseAvgRoR * (365 / totalDaysSinceInception);
-
-  // Use the common function to calculate yearly annualized RoR with active months
-  const yearlyRoRData = calculateYearlyAnnualizedRoRWithActiveMonths(transactions);
-  const activeTradingDays = yearlyRoRData.activeTradingDays;
-
   const quickStatsData = {
     totalPnL: overallStats.totalPnL,
     totalTrades: overallStats.totalTrades,
@@ -367,8 +380,8 @@ export default function SummaryView({ transactions, selectedPortfolioName }: Sum
     preciseAvgRoR,
     annualizedRoR: preciseAnnualizedRoR,
     preciseAnnualizedRoR,
-    activeTradingDays, // This is for yearly context tooltip
-    totalDaysSinceInception, // Add this for all-time context tooltip
+    activeTradingDays, // Used for both yearly and all-time context tooltips (consistent calculation)
+    totalDaysSinceInception, // Keep for reference, but both calculations now use activeTradingDays
     bestStrategy: strategyPerformance.filter(s => s.realizedCount > 0).length > 0
       ? { name: strategyPerformance.filter(s => s.realizedCount > 0)[0].strategy, ror: strategyPerformance.filter(s => s.realizedCount > 0)[0].avgRoR }
       : null,
@@ -402,6 +415,7 @@ export default function SummaryView({ transactions, selectedPortfolioName }: Sum
           getTop5TickersForYear={getTop5TickersForYear}
           getTopTickersForMonth={getTopTickersForMonth}
           transactions={transactions}
+          chains={chains}
           selectedPortfolioName={selectedPortfolioName}
           mobileOnly={true}
         />
@@ -428,6 +442,7 @@ export default function SummaryView({ transactions, selectedPortfolioName }: Sum
         getTop5TickersForYear={getTop5TickersForYear}
         getTopTickersForMonth={getTopTickersForMonth}
         transactions={transactions}
+        chains={chains}
         selectedPortfolioName={selectedPortfolioName}
         mobileOnly={false}
       />

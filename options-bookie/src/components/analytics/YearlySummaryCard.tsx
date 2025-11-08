@@ -1,7 +1,7 @@
 'use client';
 
 import { formatPnLCurrency, getRealizedTransactions, calculateStrategyPerformance, calculateCollateral, calculateYearlyAnnualizedRoRWithActiveMonths } from '@/utils/optionsCalculations';
-import { OptionsTransaction } from '@/types/options';
+import { OptionsTransaction, TradeChain } from '@/types/options';
 import { YearlySummary } from '@/components/SummaryView';
 import { parseLocalDate } from '@/utils/dateUtils';
 import MonthlyBreakdownSection from './MonthlyBreakdownSection';
@@ -37,6 +37,7 @@ interface YearlySummaryCardProps {
   yearTop5Tickers: TickerData[];
   getTopTickersForMonth: (year: number, month: number) => TopTickers | undefined;
   transactions: OptionsTransaction[];
+  chains?: TradeChain[];
   selectedPortfolioName?: string | null;
   mobileOnly?: boolean;
 }
@@ -49,6 +50,7 @@ export default function YearlySummaryCard({
   yearTop5Tickers,
   getTopTickersForMonth,
   transactions,
+  chains = [],
   selectedPortfolioName,
   mobileOnly = false
 }: YearlySummaryCardProps) {
@@ -131,6 +133,7 @@ export default function YearlySummaryCard({
               chartData={chartData}
               getTopTickersForMonth={getTopTickersForMonth}
               transactions={transactions}
+              chains={chains}
               selectedPortfolioName={selectedPortfolioName}
             />
           </div>
@@ -165,6 +168,7 @@ export default function YearlySummaryCard({
         chartData={chartData}
         getTopTickersForMonth={getTopTickersForMonth}
         transactions={transactions}
+        chains={chains}
         selectedPortfolioName={selectedPortfolioName}
       />
 

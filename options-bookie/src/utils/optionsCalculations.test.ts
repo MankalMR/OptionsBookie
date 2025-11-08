@@ -47,12 +47,29 @@ import {
   calculateChainRoR,
   calculateTotalDeployedCapital,
   calculatePortfolioRoR,
-  formatPnLNumber
+  formatPnLNumber,
+  calculateChainAwareStockPerformance,
+  calculateChainAwareMonthlyPnL
 } from './optionsCalculations';
 import { OptionsTransaction } from '@/types/options';
 
 describe('optionsCalculations', () => {
   // Test data helpers
+  const createMockChain = (overrides = {}) => ({
+    id: 'test-chain',
+    userId: 'test-user',
+    portfolioId: 'test-portfolio',
+    symbol: 'TEST',
+    chainStatus: 'Active' as 'Active' | 'Closed',
+    optionType: 'Call' as 'Call' | 'Put',
+    originalStrikePrice: 100,
+    originalOpenDate: new Date('2025-01-01'),
+    totalChainPnl: 0,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    ...overrides
+  });
+
   const createMockTransaction = (overrides = {}): OptionsTransaction => ({
     id: 'test-id',
     stockSymbol: 'AAPL',
@@ -968,13 +985,83 @@ describe('optionsCalculations', () => {
       expect(realized.map(t => t.status)).toEqual(['Closed', 'Expired', 'Assigned']);
     });
 
-    it('should exclude open and rolled trades from realized', () => {
+    it('should exclude open and rolled trades from realized when no chains provided', () => {
       const transactions = [
         createMockTransaction({ status: 'Open' }),
         createMockTransaction({ status: 'Rolled' })
       ];
 
       const realized = getRealizedTransactions(transactions);
+
+      expect(realized).toHaveLength(0);
+    });
+
+    it('should include rolled transactions from closed chains', () => {
+      const chainId = 'test-chain-1';
+      const transactions = [
+        createMockTransaction({
+          status: 'Rolled',
+          chainId,
+          profitLoss: 75,
+          stockSymbol: 'TTD'
+        }),
+        createMockTransaction({
+          status: 'Closed',
+          chainId,
+          profitLoss: 264,
+          stockSymbol: 'TTD'
+        }),
+        createMockTransaction({
+          status: 'Rolled',
+          chainId: 'open-chain',
+          profitLoss: 50,
+          stockSymbol: 'AAPL'
+        })
+      ];
+
+      const chains = [
+        createMockChain({ id: chainId, chainStatus: 'Closed', symbol: 'TTD' }),
+        createMockChain({ id: 'open-chain', chainStatus: 'Open', symbol: 'AAPL' })
+      ];
+
+      const realized = getRealizedTransactions(transactions, chains);
+
+      expect(realized).toHaveLength(2); // Rolled from closed chain + Closed transaction
+      expect(realized.some(t => t.status === 'Rolled' && t.chainId === chainId)).toBe(true);
+      expect(realized.some(t => t.status === 'Closed' && t.chainId === chainId)).toBe(true);
+      expect(realized.some(t => t.chainId === 'open-chain')).toBe(false); // Open chain rolled transaction excluded
+    });
+
+    it('should not include rolled transactions from open chains', () => {
+      const transactions = [
+        createMockTransaction({
+          status: 'Rolled',
+          chainId: 'open-chain',
+          profitLoss: 50
+        })
+      ];
+
+      const chains = [
+        createMockChain({ id: 'open-chain', chainStatus: 'Open', symbol: 'AAPL' })
+      ];
+
+      const realized = getRealizedTransactions(transactions, chains);
+
+      expect(realized).toHaveLength(0);
+    });
+
+    it('should handle rolled transactions without chainId', () => {
+      const transactions = [
+        createMockTransaction({
+          status: 'Rolled',
+          chainId: undefined,
+          profitLoss: 50
+        })
+      ];
+
+      const chains: any[] = [];
+
+      const realized = getRealizedTransactions(transactions, chains);
 
       expect(realized).toHaveLength(0);
     });
@@ -1586,12 +1673,49 @@ describe('optionsCalculations', () => {
         })
       ];
 
-      const result = calculateMonthlyTopTickers(transactions);
+      const result = calculateMonthlyTopTickers(transactions, []);
       const januaryData = result.find(r => r.monthKey === '2025-01');
 
       expect(januaryData).toBeDefined();
       expect(januaryData?.topByPnL.ticker).toBe('AAPL'); // Higher P&L
       expect(januaryData?.topByPnL.pnl).toBe(300);
+    });
+
+    it('should use chain-aware P&L for closed chains', () => {
+      const chainId = 'ttd-chain';
+      const transactions = [
+        createMockTransaction({
+          stockSymbol: 'TTD',
+          status: 'Rolled',
+          chainId,
+          closeDate: '2025-01-15T12:00:00',
+          profitLoss: 75
+        }),
+        createMockTransaction({
+          stockSymbol: 'TTD',
+          status: 'Closed',
+          chainId,
+          closeDate: '2025-01-20T12:00:00',
+          profitLoss: 264
+        }),
+        createMockTransaction({
+          stockSymbol: 'AAPL',
+          status: 'Closed',
+          closeDate: '2025-01-25T12:00:00',
+          profitLoss: 200
+        })
+      ];
+
+      const chains = [
+        createMockChain({ id: chainId, chainStatus: 'Closed', symbol: 'TTD' })
+      ];
+
+      const result = calculateMonthlyTopTickers(transactions, chains);
+      const januaryData = result.find(r => r.monthKey === '2025-01');
+
+      expect(januaryData).toBeDefined();
+      expect(januaryData?.topByPnL.ticker).toBe('TTD'); // Chain P&L: 75 + 264 = 339
+      expect(januaryData?.topByPnL.pnl).toBe(339);
     });
   });
 
@@ -1651,6 +1775,185 @@ describe('optionsCalculations', () => {
 
       const unrealizedPnL = calculateUnrealizedPnL(transactions);
       expect(unrealizedPnL).toBe(0);
+    });
+  });
+
+  describe('calculateChainPnL', () => {
+    it('should calculate total P&L for all transactions in a chain', () => {
+      const chainId = 'test-chain';
+      const transactions = [
+        createMockTransaction({
+          chainId,
+          profitLoss: 75,
+          status: 'Rolled'
+        }),
+        createMockTransaction({
+          chainId,
+          profitLoss: 264,
+          status: 'Closed'
+        }),
+        createMockTransaction({
+          chainId: 'other-chain',
+          profitLoss: 100,
+          status: 'Closed'
+        })
+      ];
+
+      const result = calculateChainPnL(chainId, transactions);
+
+      expect(result).toBe(339); // 75 + 264
+    });
+
+    it('should return 0 for non-existent chain', () => {
+      const transactions = [
+        createMockTransaction({
+          chainId: 'other-chain',
+          profitLoss: 100,
+          status: 'Closed'
+        })
+      ];
+
+      const result = calculateChainPnL('non-existent', transactions);
+
+      expect(result).toBe(0);
+    });
+  });
+
+  describe('calculateChainAwareStockPerformance', () => {
+    it('should aggregate individual transactions for non-chained stocks', () => {
+      const transactions = [
+        createMockTransaction({
+          stockSymbol: 'AAPL',
+          status: 'Closed',
+          profitLoss: 100,
+          collateralAmount: 1000
+        }),
+        createMockTransaction({
+          stockSymbol: 'AAPL',
+          status: 'Closed',
+          profitLoss: 50,
+          collateralAmount: 500
+        })
+      ];
+
+      const result = calculateChainAwareStockPerformance(transactions, []);
+
+      expect(result.has('AAPL')).toBe(true);
+      const aaplData = result.get('AAPL')!;
+      expect(aaplData.pnl).toBe(150);
+      expect(aaplData.trades).toBe(2);
+      expect(aaplData.totalCollateral).toBe(1500);
+    });
+
+    it('should use chain P&L for chained transactions', () => {
+      const chainId = 'ttd-chain';
+      const transactions = [
+        createMockTransaction({
+          stockSymbol: 'TTD',
+          status: 'Rolled',
+          chainId,
+          profitLoss: 75,
+          collateralAmount: 2000
+        }),
+        createMockTransaction({
+          stockSymbol: 'TTD',
+          status: 'Closed',
+          chainId,
+          profitLoss: 264,
+          collateralAmount: 3500
+        })
+      ];
+
+      const chains = [
+        createMockChain({ id: chainId, chainStatus: 'Closed', symbol: 'TTD' })
+      ];
+
+      const result = calculateChainAwareStockPerformance(transactions, chains);
+
+      expect(result.has('TTD')).toBe(true);
+      const ttdData = result.get('TTD')!;
+      expect(ttdData.pnl).toBe(339); // Chain P&L: 75 + 264
+      expect(ttdData.trades).toBe(1); // Chain counts as 1 trade
+      expect(ttdData.totalCollateral).toBe(5500); // Sum of all chain collateral
+    });
+
+    it('should skip rolled transactions from open chains', () => {
+      const chainId = 'open-chain';
+      const transactions = [
+        createMockTransaction({
+          stockSymbol: 'AAPL',
+          status: 'Rolled',
+          chainId,
+          profitLoss: 50,
+          collateralAmount: 1000
+        })
+      ];
+
+      const chains = [
+        createMockChain({ id: chainId, chainStatus: 'Open', symbol: 'AAPL' })
+      ];
+
+      const result = calculateChainAwareStockPerformance(transactions, chains);
+
+      expect(result.has('AAPL')).toBe(false);
+    });
+  });
+
+  describe('calculateChainAwareMonthlyPnL', () => {
+    it('should calculate monthly P&L using chain-aware logic', () => {
+      const chainId = 'ttd-chain';
+      const transactions = [
+        createMockTransaction({
+          stockSymbol: 'TTD',
+          status: 'Rolled',
+          chainId,
+          closeDate: '2025-11-15T12:00:00',
+          profitLoss: 75,
+          fees: 1
+        }),
+        createMockTransaction({
+          stockSymbol: 'TTD',
+          status: 'Closed',
+          chainId,
+          closeDate: '2025-11-20T12:00:00',
+          profitLoss: 264,
+          fees: 3
+        }),
+        createMockTransaction({
+          stockSymbol: 'AAPL',
+          status: 'Closed',
+          closeDate: '2025-11-25T12:00:00',
+          profitLoss: 100,
+          fees: 2
+        })
+      ];
+
+      const chains = [
+        createMockChain({ id: chainId, chainStatus: 'Closed', symbol: 'TTD' })
+      ];
+
+      const result = calculateChainAwareMonthlyPnL(transactions, chains, 2025, 10); // November
+
+      expect(result.totalPnL).toBe(439); // Chain P&L (339) + AAPL (100)
+      expect(result.totalTrades).toBe(2); // Chain counts as 1 trade + AAPL
+      expect(result.fees).toBe(6); // All fees: 1 + 3 + 2
+    });
+
+    it('should skip rolled transactions not in closed chains', () => {
+      const transactions = [
+        createMockTransaction({
+          stockSymbol: 'AAPL',
+          status: 'Rolled',
+          closeDate: '2025-11-15T12:00:00',
+          profitLoss: 50
+        })
+      ];
+
+      const result = calculateChainAwareMonthlyPnL(transactions, [], 2025, 10);
+
+      expect(result.totalPnL).toBe(0);
+      expect(result.totalTrades).toBe(0);
+      expect(result.fees).toBe(0);
     });
   });
 
@@ -2795,6 +3098,42 @@ describe('calculateYearlyAnnualizedRoRWithActiveMonths', () => {
     // 1 month = 30 days, so annualized should be baseRoR × (365/30) ≈ baseRoR × 12.17
     expect(result.activeTradingDays).toBe(30);
     expect(result.annualizedRoR).toBeGreaterThan(result.baseRoR * 10); // Should be much higher
+  });
+
+  it('should provide consistent results for All-Time vs Yearly when all transactions are from current year', () => {
+    const currentYear = new Date().getFullYear();
+    const transactions = [
+      createMockTransaction({
+        tradeOpenDate: new Date(`${currentYear}-01-15T12:00:00`),
+        closeDate: new Date(`${currentYear}-01-20T12:00:00`),
+        status: 'Closed',
+        profitLoss: 100,
+        premium: 200
+      }),
+      createMockTransaction({
+        tradeOpenDate: new Date(`${currentYear}-03-10T12:00:00`),
+        closeDate: new Date(`${currentYear}-03-15T12:00:00`),
+        status: 'Closed',
+        profitLoss: 50,
+        premium: 150
+      }),
+    ];
+
+    // Calculate yearly result
+    const yearlyResult = calculateYearlyAnnualizedRoRWithActiveMonths(transactions, currentYear);
+
+    // Calculate all-time result (should be same as yearly when all transactions are from current year)
+    const allTimeResult = calculateYearlyAnnualizedRoRWithActiveMonths(transactions);
+
+    // Both should be identical since all transactions are from current year
+    expect(yearlyResult.annualizedRoR).toBeCloseTo(allTimeResult.annualizedRoR, 3);
+    expect(yearlyResult.activeTradingDays).toBe(allTimeResult.activeTradingDays);
+    expect(yearlyResult.baseRoR).toBeCloseTo(allTimeResult.baseRoR, 3);
+
+    // Verify the calculation is using active trading days approach
+    expect(yearlyResult.activeTradingDays).toBe(60); // 2 months × 30
+    expect(yearlyResult.baseRoR).toBeGreaterThan(0);
+    expect(yearlyResult.annualizedRoR).toBeCloseTo(yearlyResult.baseRoR * (365 / 60), 2);
   });
 });
 

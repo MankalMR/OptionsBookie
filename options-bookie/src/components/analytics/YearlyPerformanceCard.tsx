@@ -1,7 +1,7 @@
 'use client';
 
 import { formatPnLCurrency } from '@/utils/optionsCalculations';
-import { OptionsTransaction } from '@/types/options';
+import { OptionsTransaction, TradeChain } from '@/types/options';
 import { YearlySummary } from '@/components/SummaryView';
 import YearlySummaryCard from './YearlySummaryCard';
 
@@ -32,6 +32,7 @@ interface YearlyPerformanceCardProps {
   getTop5TickersForYear: (year: number) => TickerData[];
   getTopTickersForMonth: (year: number, month: number) => TopTickers | undefined;
   transactions: OptionsTransaction[];
+  chains?: TradeChain[];
   selectedPortfolioName?: string | null;
   mobileOnly?: boolean;
 }
@@ -44,6 +45,7 @@ export default function YearlyPerformanceCard({
   getTop5TickersForYear,
   getTopTickersForMonth,
   transactions,
+  chains = [],
   selectedPortfolioName,
   mobileOnly = false
 }: YearlyPerformanceCardProps) {
@@ -78,6 +80,7 @@ export default function YearlyPerformanceCard({
             yearTop5Tickers={getTop5TickersForYear(yearData.year)}
             getTopTickersForMonth={getTopTickersForMonth}
             transactions={transactions}
+            chains={chains}
             selectedPortfolioName={selectedPortfolioName}
             mobileOnly={true}
           />
@@ -101,6 +104,7 @@ export default function YearlyPerformanceCard({
             yearTop5Tickers={getTop5TickersForYear(yearData.year)}
             getTopTickersForMonth={getTopTickersForMonth}
             transactions={transactions}
+            chains={chains}
             selectedPortfolioName={selectedPortfolioName}
             mobileOnly={false}
           />

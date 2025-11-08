@@ -127,8 +127,8 @@ export function AnnualizedRoRTooltip({
           : `(${baseRoR.toFixed(3)}% × 365) ÷ 365 = ${baseRoR.toFixed(3)}%`;
       case 'all-time':
         return activeDays
-          ? `(${baseRoR.toFixed(3)}% × 365) ÷ ${activeDays} total days since inception`
-          : `(${baseRoR.toFixed(3)}% × 365) ÷ Total Days since inception`;
+          ? `(${baseRoR.toFixed(3)}% × 365) ÷ ${activeDays} active trading days`
+          : `(${baseRoR.toFixed(3)}% × 365) ÷ Active trading days`;
       default:
         return `(${baseRoR.toFixed(3)}% × 365) ÷ 365`;
     }

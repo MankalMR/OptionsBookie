@@ -75,17 +75,19 @@ export default function Home() {
     // Filter by statuses (multiple selection)
     if (selectedStatuses.length > 0) {
       filtered = filtered.filter(t => {
-        // For chained transactions, also check if the chain is active
-        if (t.chainId) {
+        // Apply normal status filtering first
+        const statusMatches = selectedStatuses.includes(t.status);
+
+        // For chained transactions, only exclude closed chains if user hasn't selected 'Closed' status
+        if (t.chainId && statusMatches) {
           const chain = chains.find(c => c.id === t.chainId);
-          // If chain is closed, exclude all its transactions from active view
-          if (chain && chain.chainStatus === 'Closed') {
+          // If chain is closed, only exclude if user hasn't explicitly selected 'Closed' status
+          if (chain && chain.chainStatus === 'Closed' && !selectedStatuses.includes('Closed')) {
             return false;
           }
         }
 
-        // Apply normal status filtering
-        return selectedStatuses.includes(t.status);
+        return statusMatches;
       });
     }
 
@@ -101,16 +103,24 @@ export default function Home() {
       filtered = filtered.filter(t => t.portfolioId === selectedPortfolioId);
     }
 
-    // For analytics, only include concluded transactions (Closed, Assigned, Expired)
-    // Exclude Open and Rolled as they are ongoing positions
-    filtered = filtered.filter(t =>
-      t.status === 'Closed' ||
-      t.status === 'Expired' ||
-      t.status === 'Assigned'
-    );
+    // For analytics, include concluded transactions (Closed, Assigned, Expired)
+    // Also include Rolled transactions that are part of closed chains (needed for chain P&L calculations)
+    filtered = filtered.filter(t => {
+      if (t.status === 'Closed' || t.status === 'Expired' || t.status === 'Assigned') {
+        return true;
+      }
+
+      // Include rolled transactions that are part of closed chains
+      if (t.status === 'Rolled' && t.chainId) {
+        const chain = chains.find(c => c.id === t.chainId);
+        return chain && chain.chainStatus === 'Closed';
+      }
+
+      return false;
+    });
 
     setPortfolioFilteredTransactions(filtered);
-  }, [transactions, selectedPortfolioId]);
+  }, [transactions, selectedPortfolioId, chains]);
 
   // Filter transactions for Portfolio Overview (portfolio only, all statuses)
   const portfolioOverviewTransactions = useMemo(() => {
@@ -699,6 +709,7 @@ export default function Home() {
           <SummaryView
             transactions={portfolioFilteredTransactions}
             selectedPortfolioName={selectedPortfolioId ? portfolios.find(p => p.id === selectedPortfolioId)?.name : null}
+            chains={chains}
           />
         )}
         </main>

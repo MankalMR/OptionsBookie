@@ -1,11 +1,11 @@
 'use client';
 
 import React, { useState } from 'react';
-import { formatPnLCurrency, getRealizedTransactions, calculateCollateral, calculateDaysHeld, calculateStrategyPerformance, calculatePortfolioRoR, calculateMonthlyPortfolioAnnualizedRoR } from '@/utils/optionsCalculations';
+import { formatPnLCurrency, getRealizedTransactions, calculateCollateral, calculateDaysHeld, calculateStrategyPerformance, calculatePortfolioRoR, calculateMonthlyPortfolioAnnualizedRoR, getEffectiveCloseDate } from '@/utils/optionsCalculations';
 import { RegularRoRTooltip, AnnualizedRoRTooltip } from '@/components/ui/RoRTooltip';
 import { ResponsiveContainer, ComposedChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend, Bar } from 'recharts';
 import { ChevronDown, ChevronRight, Plus, Minus } from 'lucide-react';
-import { OptionsTransaction } from '@/types/options';
+import { OptionsTransaction, TradeChain } from '@/types/options';
 import MonthlyTradesTable from './MonthlyTradesTable';
 import { parseLocalDate } from '@/utils/dateUtils';
 import { useIsMobile } from '@/hooks/useMediaQuery';
@@ -38,6 +38,7 @@ interface MonthlyBreakdownSectionProps {
   chartData: ChartDataPoint[];
   getTopTickersForMonth: (year: number, month: number) => TopTickers | undefined;
   transactions: OptionsTransaction[]; // Add transactions for drill-down
+  chains?: TradeChain[]; // Add chains for chain-aware filtering
   selectedPortfolioName?: string | null;
 }
 
@@ -46,6 +47,7 @@ export default function MonthlyBreakdownSection({
   chartData,
   getTopTickersForMonth,
   transactions,
+  chains = [],
   selectedPortfolioName
 }: MonthlyBreakdownSectionProps) {
   const isMobile = useIsMobile();
@@ -66,13 +68,13 @@ export default function MonthlyBreakdownSection({
     setExpandedMonths(newExpanded);
   };
 
-  // Get transactions for a specific month
+  // Get transactions for a specific month using chain-aware filtering and effective close dates
   const getMonthTransactions = (month: number): OptionsTransaction[] => {
-    const realizedTransactions = getRealizedTransactions(transactions).filter(t => t.closeDate);
+    const realizedTransactions = getRealizedTransactions(transactions, chains).filter(t => t.closeDate);
 
     const monthTransactions = realizedTransactions.filter(t => {
-      const closeDate = parseLocalDate(t.closeDate!);
-      return closeDate.getFullYear() === yearData.year && closeDate.getMonth() === month;
+      const effectiveCloseDate = getEffectiveCloseDate(t, realizedTransactions, chains);
+      return effectiveCloseDate.getFullYear() === yearData.year && effectiveCloseDate.getMonth() === month;
     });
 
 
@@ -333,6 +335,7 @@ export default function MonthlyBreakdownSection({
                       <td colSpan={isMobile ? 3 : 9} className="p-0">
                         <MonthlyTradesTable
                           transactions={monthTransactions}
+                          chains={chains}
                           monthName={month.monthName}
                           selectedPortfolioName={selectedPortfolioName}
                         />

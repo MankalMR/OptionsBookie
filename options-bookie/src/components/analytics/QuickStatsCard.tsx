@@ -93,7 +93,7 @@ export default function QuickStatsCard({
                 preciseValue={preciseAnnualizedRoR || annualizedRoR}
                 baseRoR={preciseAvgRoR || avgRoR}
                 context="all-time"
-                activeDays={totalDaysSinceInception}
+                activeDays={activeTradingDays}
                 size="lg"
               />
               <div className="text-xs text-muted-foreground">
