@@ -251,8 +251,8 @@ export default function SummaryView({ transactions, selectedPortfolioName, chain
   }, [transactions]);
 
   const strategyPerformance = useMemo(() => {
-    return calculateStrategyPerformance(transactions);
-  }, [transactions]);
+    return calculateStrategyPerformance(transactions, chains);
+  }, [transactions, chains]);
 
   const monthlyTopTickers = useMemo(() => {
     return calculateMonthlyTopTickers(transactions, chains);

@@ -1208,7 +1208,7 @@ describe('optionsCalculations', () => {
         })
       ];
 
-      const result = calculateStrategyPerformance(transactions);
+      const result = calculateStrategyPerformance(transactions, []);
 
       expect(result).toHaveLength(2); // Cash-Secured Put and Covered Call
 
@@ -1258,7 +1258,7 @@ describe('optionsCalculations', () => {
         })
       ];
 
-      const result = calculateStrategyPerformance(transactions);
+      const result = calculateStrategyPerformance(transactions, []);
       const cashSecuredPut = result.find(r => r.strategy === 'Cash-Secured Put');
 
       // avgRoR should only be calculated from the realized trade
@@ -1281,7 +1281,7 @@ describe('optionsCalculations', () => {
         })
       ];
 
-      const result = calculateStrategyPerformance(transactions);
+      const result = calculateStrategyPerformance(transactions, []);
       const cashSecuredPut = result.find(r => r.strategy === 'Cash-Secured Put');
 
       expect(cashSecuredPut?.tradeCount).toBe(1);
@@ -1322,7 +1322,7 @@ describe('optionsCalculations', () => {
         })
       ];
 
-      const result = calculateStrategyPerformance(transactions);
+      const result = calculateStrategyPerformance(transactions, []);
 
       // Covered Call should come first (higher RoR)
       expect(result[0].strategy).toBe('Covered Call');

@@ -427,7 +427,7 @@ export const getStrategyType = (transaction: OptionsTransaction): string => {
 };
 
 // Calculate strategy performance analytics
-export const calculateStrategyPerformance = (transactions: OptionsTransaction[]) => {
+export const calculateStrategyPerformance = (transactions: OptionsTransaction[], chains: TradeChain[] = []) => {
   const strategies = new Map<string, {
     trades: OptionsTransaction[];
     totalPnL: number;
@@ -461,10 +461,12 @@ export const calculateStrategyPerformance = (transactions: OptionsTransaction[])
   strategies.forEach((strategy) => {
     const { trades } = strategy;
 
-    // Only include realized trades for most metrics
-    const realizedTrades = getRealizedTransactions(trades);
+    // Only include realized trades for most metrics (now chain-aware)
+    const realizedTrades = getRealizedTransactions(trades, chains);
 
-    strategy.totalPnL = realizedTrades.reduce((sum, t) => sum + (t.profitLoss || 0), 0);
+    // Calculate chain-aware total P&L for this strategy
+    const stockPerformance = calculateChainAwareStockPerformance(trades, chains);
+    strategy.totalPnL = Array.from(stockPerformance.values()).reduce((sum, stock) => sum + stock.pnl, 0);
 
     // Calculate average collateral (use max historical for realized trades)
     strategy.totalCollateral = trades

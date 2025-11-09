@@ -238,7 +238,7 @@ export default function MonthlyBreakdownSection({
               const avgDays = realizedMonthTransactions.length > 0
                 ? realizedMonthTransactions.reduce((sum, t) => sum + calculateDaysHeld(t.tradeOpenDate, t.closeDate!), 0) / realizedMonthTransactions.length
                 : 0;
-              const monthStrategyPerformance = calculateStrategyPerformance(realizedMonthTransactions);
+              const monthStrategyPerformance = calculateStrategyPerformance(realizedMonthTransactions, chains);
               const bestStrategy = monthStrategyPerformance.filter(s => s.realizedCount > 0).length > 0
                 ? monthStrategyPerformance.filter(s => s.realizedCount > 0)[0]
                 : null;
@@ -271,7 +271,7 @@ export default function MonthlyBreakdownSection({
                       <td className="px-4 py-2 text-sm">
                         {bestStrategy ? (
                           <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 dark:bg-blue-950/30 text-blue-800 dark:text-blue-200">
-                            {bestStrategy.strategy}
+                            {bestStrategy.strategy} ({bestStrategy.avgRoR.toFixed(1)}%)
                           </span>
                         ) : (
                           <span className="text-muted-foreground text-xs">-</span>

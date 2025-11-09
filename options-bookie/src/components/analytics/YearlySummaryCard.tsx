@@ -70,7 +70,7 @@ export default function YearlySummaryCard({
   const winRate = realizedTransactions.length > 0 ? (winningTrades.length / realizedTransactions.length) * 100 : 0;
 
   // Calculate year-specific strategy performance
-  const yearStrategyPerformance = calculateStrategyPerformance(yearTransactions);
+  const yearStrategyPerformance = calculateStrategyPerformance(yearTransactions, chains);
 
   // Calculate best stock by P&L and RoR for this year
   const stockPerformance = new Map<string, { pnl: number; trades: number; totalCollateral: number }>();

@@ -1,6 +1,6 @@
 import React from 'react';
-import { OptionsTransaction } from '@/types/options';
-import { calculateRoR, calculateDaysHeld, calculateCollateral, formatPnLCurrency, getRealizedTransactions, calculateStrategyPerformance, calculatePortfolioRoR, calculateAnnualizedRoR, calculateMonthlyPortfolioAnnualizedRoR, getRoRColorClasses, calculateChainPnL } from '@/utils/optionsCalculations';
+import { OptionsTransaction, TradeChain } from '@/types/options';
+import { calculateRoR, calculateDaysHeld, calculateCollateral, formatPnLCurrency, getRealizedTransactions, calculateStrategyPerformance, calculatePortfolioRoR, calculateAnnualizedRoR, calculateMonthlyPortfolioAnnualizedRoR, getRoRColorClasses, calculateChainPnL, calculateChainAwareStockPerformance } from '@/utils/optionsCalculations';
 import RoRDisplay from '@/components/ui/RoRDisplay';
 import { parseLocalDate } from '@/utils/dateUtils';
 import { formatStrikePrice } from '@/utils/formatUtils';
@@ -10,7 +10,7 @@ import { Link } from 'lucide-react';
 
 interface MonthlyTradesTableProps {
   transactions: OptionsTransaction[];
-  chains?: any[]; // Add chains prop for chain-aware P&L calculation
+  chains?: TradeChain[]; // Add chains prop for chain-aware P&L calculation
   monthName: string;
   selectedPortfolioName?: string | null;
 }
@@ -22,7 +22,7 @@ export default function MonthlyTradesTable({ transactions, chains = [] }: Monthl
   const getDisplayPnL = (transaction: OptionsTransaction): number => {
     // For chained transactions, show the full chain P&L on the final transaction
     if (transaction.chainId) {
-      const chain = chains.find((c: any) => c.id === transaction.chainId);
+      const chain = chains.find((c: TradeChain) => c.id === transaction.chainId);
       if (chain && chain.chainStatus === 'Closed') {
         return calculateChainPnL(transaction.chainId, transactions);
       }
@@ -38,33 +38,23 @@ export default function MonthlyTradesTable({ transactions, chains = [] }: Monthl
   // Helper function to check if transaction is part of a closed chain
   const isClosedChainTransaction = (transaction: OptionsTransaction): boolean => {
     if (transaction.chainId) {
-      const chain = chains.find((c: any) => c.id === transaction.chainId);
-      return chain && chain.chainStatus === 'Closed';
+      const chain = chains.find((c: TradeChain) => c.id === transaction.chainId);
+      return Boolean(chain && chain.chainStatus === 'Closed');
     }
     return false;
   };
 
   // Calculate month-specific metrics for Quick Stats
-  const realizedTransactions = getRealizedTransactions(transactions);
+  const realizedTransactions = getRealizedTransactions(transactions, chains);
   const totalPnL = realizedTransactions.reduce((sum, t) => sum + (t.profitLoss || 0), 0);
   const winningTrades = realizedTransactions.filter(t => (t.profitLoss || 0) > 0);
   const winRate = realizedTransactions.length > 0 ? (winningTrades.length / realizedTransactions.length) * 100 : 0;
 
   // Calculate month-specific strategy performance
-  const monthStrategyPerformance = calculateStrategyPerformance(transactions);
+  const monthStrategyPerformance = calculateStrategyPerformance(transactions, chains);
 
-  // Calculate best stock by P&L and RoR for this month
-  const stockPerformance = new Map<string, { pnl: number; trades: number; totalCollateral: number }>();
-  realizedTransactions.forEach(t => {
-    const symbol = t.stockSymbol;
-    if (!stockPerformance.has(symbol)) {
-      stockPerformance.set(symbol, { pnl: 0, trades: 0, totalCollateral: 0 });
-    }
-    const perf = stockPerformance.get(symbol)!;
-    perf.pnl += t.profitLoss || 0;
-    perf.trades += 1;
-    perf.totalCollateral += calculateCollateral(t);
-  });
+  // Calculate best stock by P&L and RoR for this month using chain-aware logic
+  const stockPerformance = calculateChainAwareStockPerformance(transactions, chains);
 
   const bestStockByPnL = Array.from(stockPerformance.entries())
     .sort((a, b) => b[1].pnl - a[1].pnl)[0];
