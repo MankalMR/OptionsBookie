@@ -283,7 +283,7 @@ export default function SummaryView({ transactions, selectedPortfolioName, chain
     });
   };
 
-  const getTop5TickersForYear = (year: number) => {
+  const getAllTickersForYear = (year: number) => {
     const realizedTransactions = getRealizedTransactions(transactions, chains).filter(t => {
       if (!t.closeDate) return false;
       const closeDate = parseLocalDate(t.closeDate);
@@ -293,17 +293,20 @@ export default function SummaryView({ transactions, selectedPortfolioName, chain
     // Use chain-aware stock performance calculation
     const yearTickerTotals = calculateChainAwareStockPerformance(realizedTransactions, chains);
 
-    const yearTop5 = Array.from(yearTickerTotals.entries())
+    const allTickers = Array.from(yearTickerTotals.entries())
       .map(([ticker, data]) => ({
         ticker,
         pnl: Math.round(data.pnl),
         ror: data.totalCollateral > 0 ? Number((data.pnl / data.totalCollateral * 100).toFixed(1)) : 0,
         trades: data.trades
       }))
-      .sort((a, b) => b.pnl - a.pnl)
-      .slice(0, 5);
+      .sort((a, b) => b.pnl - a.pnl);
 
-    return yearTop5;
+    return allTickers;
+  };
+
+  const getTop5TickersForYear = (year: number) => {
+    return getAllTickersForYear(year).slice(0, 5);
   };
 
   const getTopTickersForMonth = (year: number, month: number) => {
@@ -413,6 +416,7 @@ export default function SummaryView({ transactions, selectedPortfolioName, chain
           }}
           getChartDataForYear={getChartDataForYear}
           getTop5TickersForYear={getTop5TickersForYear}
+          getAllTickersForYear={getAllTickersForYear}
           getTopTickersForMonth={getTopTickersForMonth}
           transactions={transactions}
           chains={chains}
@@ -440,6 +444,7 @@ export default function SummaryView({ transactions, selectedPortfolioName, chain
         }}
         getChartDataForYear={getChartDataForYear}
         getTop5TickersForYear={getTop5TickersForYear}
+        getAllTickersForYear={getAllTickersForYear}
         getTopTickersForMonth={getTopTickersForMonth}
         transactions={transactions}
         chains={chains}

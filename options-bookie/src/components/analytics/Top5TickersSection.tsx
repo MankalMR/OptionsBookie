@@ -14,9 +14,10 @@ interface TickerData {
 
 interface Top5TickersSectionProps {
   yearTop5Tickers: TickerData[];
+  yearAllTickers: TickerData[];
 }
 
-export default function Top5TickersSection({ yearTop5Tickers }: Top5TickersSectionProps) {
+export default function Top5TickersSection({ yearTop5Tickers, yearAllTickers }: Top5TickersSectionProps) {
   const formatCurrency = formatPnLCurrency;
   const [isExpanded, setIsExpanded] = useState(false);
 
@@ -24,10 +25,13 @@ export default function Top5TickersSection({ yearTop5Tickers }: Top5TickersSecti
     return null;
   }
 
+  // Determine which tickers to display: collapsed = top 5, expanded = all
+  const tickersToDisplay = isExpanded ? yearAllTickers : yearTop5Tickers;
+
   return (
     <div className="bg-muted/20 rounded-lg border p-6">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-medium text-card-foreground">Top 5 Tickers</h3>
+        <h3 className="text-lg font-medium text-card-foreground">Top Stocks</h3>
         <button
           onClick={() => setIsExpanded(!isExpanded)}
           className="flex items-center gap-1 text-sky-600 dark:text-sky-400 hover:text-sky-800 dark:hover:text-sky-300 text-sm font-medium"
@@ -35,12 +39,12 @@ export default function Top5TickersSection({ yearTop5Tickers }: Top5TickersSecti
           {isExpanded ? (
             <>
               <ChevronDown className="h-4 w-4" />
-              Hide Details
+              Show Top 5
             </>
           ) : (
             <>
               <ChevronRight className="h-4 w-4" />
-              Show Details
+              {yearAllTickers.length > 5 ? `Show All (${yearAllTickers.length})` : 'Show Details'}
             </>
           )}
         </button>
@@ -71,7 +75,7 @@ export default function Top5TickersSection({ yearTop5Tickers }: Top5TickersSecti
           <div>
             <ResponsiveContainer width="100%" height={300}>
               <ComposedChart
-                data={yearTop5Tickers.map((tickerData, index) => ({
+                data={tickersToDisplay.map((tickerData, index) => ({
                   ticker: tickerData.ticker,
                   pnl: tickerData.pnl,
                   ror: tickerData.ror,
@@ -152,7 +156,7 @@ export default function Top5TickersSection({ yearTop5Tickers }: Top5TickersSecti
                 </tr>
               </thead>
               <tbody className="bg-card divide-y divide-border">
-                {yearTop5Tickers.map((tickerData, index) => (
+                {tickersToDisplay.map((tickerData, index) => (
                   <tr key={tickerData.ticker}>
                     <td className="px-4 py-2 text-sm font-medium text-card-foreground">#{index + 1}</td>
                     <td className="px-4 py-2 text-sm">

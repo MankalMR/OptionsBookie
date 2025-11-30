@@ -30,6 +30,7 @@ interface YearlyPerformanceCardProps {
   setSelectedYear: (year: number | null) => void;
   getChartDataForYear: (year: number) => ChartDataPoint[];
   getTop5TickersForYear: (year: number) => TickerData[];
+  getAllTickersForYear: (year: number) => TickerData[];
   getTopTickersForMonth: (year: number, month: number) => TopTickers | undefined;
   transactions: OptionsTransaction[];
   chains?: TradeChain[];
@@ -43,6 +44,7 @@ export default function YearlyPerformanceCard({
   setSelectedYear,
   getChartDataForYear,
   getTop5TickersForYear,
+  getAllTickersForYear,
   getTopTickersForMonth,
   transactions,
   chains = [],
@@ -78,6 +80,7 @@ export default function YearlyPerformanceCard({
             onToggleYear={handleToggleYear}
             chartData={getChartDataForYear(yearData.year)}
             yearTop5Tickers={getTop5TickersForYear(yearData.year)}
+            yearAllTickers={getAllTickersForYear(yearData.year)}
             getTopTickersForMonth={getTopTickersForMonth}
             transactions={transactions}
             chains={chains}
@@ -102,6 +105,7 @@ export default function YearlyPerformanceCard({
             onToggleYear={handleToggleYear}
             chartData={getChartDataForYear(yearData.year)}
             yearTop5Tickers={getTop5TickersForYear(yearData.year)}
+            yearAllTickers={getAllTickersForYear(yearData.year)}
             getTopTickersForMonth={getTopTickersForMonth}
             transactions={transactions}
             chains={chains}

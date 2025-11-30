@@ -35,6 +35,7 @@ interface YearlySummaryCardProps {
   onToggleYear: (year: number) => void;
   chartData: ChartDataPoint[];
   yearTop5Tickers: TickerData[];
+  yearAllTickers: TickerData[];
   getTopTickersForMonth: (year: number, month: number) => TopTickers | undefined;
   transactions: OptionsTransaction[];
   chains?: TradeChain[];
@@ -48,6 +49,7 @@ export default function YearlySummaryCard({
   onToggleYear,
   chartData,
   yearTop5Tickers,
+  yearAllTickers,
   getTopTickersForMonth,
   transactions,
   chains = [],
@@ -159,8 +161,8 @@ export default function YearlySummaryCard({
       <QuickStatsCard {...quickStatsData} />
       <StrategyPerformanceCard strategyPerformance={yearStrategyPerformance} />
 
-      {/* Top 5 Tickers for the Year */}
-      <Top5TickersSection yearTop5Tickers={yearTop5Tickers} />
+      {/* Top Stocks for the Year */}
+      <Top5TickersSection yearTop5Tickers={yearTop5Tickers} yearAllTickers={yearAllTickers} />
 
       {/* Monthly Breakdown for the Year */}
       <MonthlyBreakdownSection

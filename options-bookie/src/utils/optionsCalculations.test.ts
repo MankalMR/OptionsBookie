@@ -1717,6 +1717,47 @@ describe('optionsCalculations', () => {
       expect(januaryData?.topByPnL.ticker).toBe('TTD'); // Chain P&L: 75 + 264 = 339
       expect(januaryData?.topByPnL.pnl).toBe(339);
     });
+
+    it('should find the highest individual RoR, not aggregated RoR', () => {
+      const transactions = [
+        createMockTransaction({
+          stockSymbol: 'SOFI',
+          status: 'Closed',
+          closeDate: '2025-01-05',
+          profitLoss: 11,
+          premium: 0.37,
+          strikePrice: 34,
+          numberOfContracts: 1 // Collateral: 3400
+        }),
+        createMockTransaction({
+          stockSymbol: 'SOFI',
+          status: 'Closed',
+          closeDate: '2025-01-10',
+          profitLoss: 300,
+          premium: 1.00,
+          strikePrice: 20,
+          numberOfContracts: 1 // Collateral: 2000, RoR: 300/2000 = 15%
+        }),
+        createMockTransaction({
+          stockSymbol: 'RANI',
+          status: 'Closed',
+          closeDate: '2025-01-15',
+          profitLoss: 14,
+          premium: 0.15,
+          strikePrice: 15,
+          numberOfContracts: 1 // Collateral: 1500, RoR: 14/1500 = 0.93%
+        })
+      ];
+
+      const result = calculateMonthlyTopTickers(transactions, []);
+      const januaryData = result.find(r => r.monthKey === '2025-01');
+
+      expect(januaryData).toBeDefined();
+      expect(januaryData?.topByPnL.ticker).toBe('SOFI'); // Highest aggregated P&L: 311
+      expect(januaryData?.topByPnL.pnl).toBe(311);
+      expect(januaryData?.topByRoR.ticker).toBe('SOFI'); // Highest individual RoR: 15%
+      expect(januaryData?.topByRoR.ror).toBeGreaterThan(10);
+    });
   });
 
   describe('calculateTop5TickersYearlyPerformance', () => {

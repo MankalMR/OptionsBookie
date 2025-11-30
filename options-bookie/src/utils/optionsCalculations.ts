@@ -568,14 +568,6 @@ export const calculateMonthlyChartData = (transactions: OptionsTransaction[]) =>
 export const calculateMonthlyTopTickers = (transactions: OptionsTransaction[], chains: TradeChain[] = []) => {
   const realizedTransactions = getRealizedTransactions(transactions, chains);
 
-  // Group by month and calculate chain-aware ticker performance
-  const monthlyTickerData = new Map<string, Map<string, {
-    ticker: string;
-    pnl: number;
-    trades: number;
-    totalCollateral: number;
-  }>>();
-
   // Group transactions by month using chain-aware effective close dates
   const monthlyTransactions = new Map<string, OptionsTransaction[]>();
   realizedTransactions.forEach(transaction => {
@@ -591,45 +583,60 @@ export const calculateMonthlyTopTickers = (transactions: OptionsTransaction[], c
   });
 
   // Calculate chain-aware performance for each month
-  monthlyTransactions.forEach((transactions, monthKey) => {
-    const stockPerformance = calculateChainAwareStockPerformance(transactions, chains);
+  return Array.from(monthlyTransactions.entries())
+    .map(([monthKey, transactions]) => {
+      // For P&L: aggregate by ticker using chain-aware logic
+      const stockPerformance = calculateChainAwareStockPerformance(transactions, chains);
 
+      const topByPnL = Array.from(stockPerformance.entries())
+        .map(([ticker, data]) => ({
+          ticker,
+          pnl: data.pnl,
+          ror: data.totalCollateral > 0 ?
+            Number((data.pnl / data.totalCollateral * 100).toFixed(1)) : 0
+        }))
+        .reduce((best, current) => current.pnl > best.pnl ? current : best);
 
-    const monthData = new Map<string, {
-      ticker: string;
-      pnl: number;
-      trades: number;
-      totalCollateral: number;
-    }>();
+      // For RoR: find the single trade/chain with the highest individual RoR
+      const processedChains = new Set<string>();
+      const individualRoRs: Array<{ ticker: string; pnl: number; ror: number }> = [];
 
-    stockPerformance.forEach((data, ticker) => {
-      monthData.set(ticker, {
-        ticker,
-        pnl: data.pnl,
-        trades: data.trades,
-        totalCollateral: data.totalCollateral
+      transactions.forEach(transaction => {
+        // Skip rolled transactions
+        if (transaction.status === 'Rolled') return;
+
+        const ticker = transaction.stockSymbol;
+        let pnl: number;
+        let collateral: number;
+
+        if (transaction.chainId && !processedChains.has(transaction.chainId)) {
+          // For chains, use total chain P&L and collateral
+          const chain = chains.find(c => c.id === transaction.chainId);
+          if (chain && chain.chainStatus === 'Closed') {
+            pnl = calculateChainPnL(transaction.chainId, transactions);
+            const chainTransactions = transactions.filter(t => t.chainId === transaction.chainId);
+            collateral = chainTransactions.reduce((sum, t) => sum + calculateCollateral(t), 0);
+            processedChains.add(transaction.chainId);
+          } else {
+            return;
+          }
+        } else if (!transaction.chainId) {
+          // For independent trades, use individual P&L and collateral
+          pnl = transaction.profitLoss || 0;
+          collateral = calculateCollateral(transaction);
+        } else {
+          // Skip if chain already processed
+          return;
+        }
+
+        const ror = collateral > 0 ? Number((pnl / collateral * 100).toFixed(1)) : 0;
+        individualRoRs.push({ ticker, pnl, ror });
       });
-    });
 
-    monthlyTickerData.set(monthKey, monthData);
-  });
-
-  // Find top tickers by P&L and RoR for each month
-  return Array.from(monthlyTickerData.entries())
-    .map(([monthKey, tickerMap]) => {
-      const tickers = Array.from(tickerMap.values()).map(ticker => ({
-        ...ticker,
-        ror: ticker.totalCollateral > 0 ?
-          Number((ticker.pnl / ticker.totalCollateral * 100).toFixed(1)) : 0
-      }));
-
-      const topByPnL = tickers.reduce((best, current) =>
-        current.pnl > best.pnl ? current : best
-      );
-
-      const topByRoR = tickers.reduce((best, current) =>
-        current.ror > best.ror ? current : best
-      );
+      // Find the trade with the highest RoR
+      const topByRoR = individualRoRs.length > 0
+        ? individualRoRs.reduce((best, current) => current.ror > best.ror ? current : best)
+        : { ticker: topByPnL.ticker, pnl: topByPnL.pnl, ror: topByPnL.ror };
 
       return {
         monthKey,
