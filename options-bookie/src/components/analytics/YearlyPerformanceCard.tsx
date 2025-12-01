@@ -11,6 +11,8 @@ interface TickerData {
   pnl: number;
   ror: number;
   trades: number;
+  totalCollateral: number;
+  annualizedRoR: number;
 }
 
 interface TopTickers {
