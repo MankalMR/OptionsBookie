@@ -1915,7 +1915,7 @@ describe('optionsCalculations', () => {
       const ttdData = result.get('TTD')!;
       expect(ttdData.pnl).toBe(339); // Chain P&L: 75 + 264
       expect(ttdData.trades).toBe(1); // Chain counts as 1 trade
-      expect(ttdData.totalCollateral).toBe(5500); // Sum of all chain collateral
+      expect(ttdData.totalCollateral).toBe(2750); // Average of chain collateral: (2000 + 3500) / 2
     });
 
     it('should skip rolled transactions from open chains', () => {

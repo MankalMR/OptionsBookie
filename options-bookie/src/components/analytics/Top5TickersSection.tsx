@@ -1,25 +1,33 @@
 'use client';
 
 import React, { useState } from 'react';
-import { formatPnLCurrency } from '@/utils/optionsCalculations';
+import { formatPnLCurrency, calculateCollateral } from '@/utils/optionsCalculations';
 import { ResponsiveContainer, ComposedChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend, Bar } from 'recharts';
-import { ChevronDown, ChevronRight } from 'lucide-react';
+import { ChevronDown, ChevronRight, Plus, Minus } from 'lucide-react';
+import { OptionsTransaction, TradeChain } from '@/types/options';
+import TransactionsTable from './TransactionsTable';
+import { RegularRoRTooltip, AnnualizedRoRTooltip } from '@/components/ui/RoRTooltip';
 
 interface TickerData {
   ticker: string;
   pnl: number;
   ror: number;
   trades: number;
+  totalCollateral: number;
+  annualizedRoR: number;
 }
 
 interface Top5TickersSectionProps {
   yearTop5Tickers: TickerData[];
   yearAllTickers: TickerData[];
+  yearTransactions: OptionsTransaction[];
+  chains: TradeChain[];
 }
 
-export default function Top5TickersSection({ yearTop5Tickers, yearAllTickers }: Top5TickersSectionProps) {
+export default function Top5TickersSection({ yearTop5Tickers, yearAllTickers, yearTransactions, chains }: Top5TickersSectionProps) {
   const formatCurrency = formatPnLCurrency;
   const [isExpanded, setIsExpanded] = useState(false);
+  const [expandedTickers, setExpandedTickers] = useState<Set<string>>(new Set());
 
   if (yearTop5Tickers.length === 0) {
     return null;
@@ -27,6 +35,19 @@ export default function Top5TickersSection({ yearTop5Tickers, yearAllTickers }: 
 
   // Determine which tickers to display: collapsed = top 5, expanded = all
   const tickersToDisplay = isExpanded ? yearAllTickers : yearTop5Tickers;
+
+  // Toggle ticker expansion
+  const toggleTicker = (ticker: string) => {
+    setExpandedTickers(prev => {
+      const next = new Set(prev);
+      if (next.has(ticker)) {
+        next.delete(ticker);
+      } else {
+        next.add(ticker);
+      }
+      return next;
+    });
+  };
 
   return (
     <div className="bg-muted/20 rounded-lg border p-6">
@@ -148,42 +169,87 @@ export default function Top5TickersSection({ yearTop5Tickers, yearAllTickers }: 
             <table className="min-w-full divide-y divide-border">
               <thead className="bg-muted">
                 <tr>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase w-12"></th>
                   <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Rank</th>
                   <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Ticker</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">P&L</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">RoR</th>
                   <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Trades</th>
+                  <th className="px-4 py-2 text-right text-xs font-medium text-muted-foreground uppercase">P&L / Capital<br />RoR / Ann. RoR</th>
                 </tr>
               </thead>
               <tbody className="bg-card divide-y divide-border">
                 {tickersToDisplay.map((tickerData, index) => (
-                  <tr key={tickerData.ticker}>
-                    <td className="px-4 py-2 text-sm font-medium text-card-foreground">#{index + 1}</td>
-                    <td className="px-4 py-2 text-sm">
-                      <span
-                        className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium"
-                        style={{
-                          backgroundColor: `hsl(${(index * 72) % 360} 60% 85%)`,
-                          color: `hsl(${(index * 72) % 360} 70% 25%)`
-                        }}
-                      >
-                        {tickerData.ticker}
-                      </span>
-                    </td>
-                    <td className={`px-4 py-2 text-sm font-medium ${
-                      tickerData.pnl >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'
-                    }`}>
-                      {formatCurrency(tickerData.pnl)}
-                    </td>
-                    <td className={`px-4 py-2 text-sm font-medium ${
-                      tickerData.ror >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'
-                    }`}>
-                      {tickerData.ror.toFixed(1)}%
-                    </td>
-                    <td className="px-4 py-2 text-sm text-card-foreground">
-                      {tickerData.trades}
-                    </td>
-                  </tr>
+                  <React.Fragment key={tickerData.ticker}>
+                    <tr className="hover:bg-muted/30 cursor-pointer" onClick={() => toggleTicker(tickerData.ticker)}>
+                      <td className="px-4 py-2 text-center">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleTicker(tickerData.ticker);
+                          }}
+                          className="inline-flex items-center justify-center w-6 h-6 rounded hover:bg-muted transition-colors"
+                        >
+                          {expandedTickers.has(tickerData.ticker) ? (
+                            <Minus className="h-3 w-3 text-muted-foreground" />
+                          ) : (
+                            <Plus className="h-3 w-3 text-muted-foreground" />
+                          )}
+                        </button>
+                      </td>
+                      <td className="px-4 py-2 text-sm font-medium text-card-foreground">#{index + 1}</td>
+                      <td className="px-4 py-2 text-sm">
+                        <span
+                          className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium"
+                          style={{
+                            backgroundColor: `hsl(${(index * 72) % 360} 60% 85%)`,
+                            color: `hsl(${(index * 72) % 360} 70% 25%)`
+                          }}
+                        >
+                          {tickerData.ticker}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2 text-sm text-card-foreground">
+                        {tickerData.trades}
+                      </td>
+                      <td className="px-4 py-2 text-sm">
+                        <div className="flex flex-col space-y-1 items-end">
+                          <span className="text-xs">
+                            <span className={`${tickerData.pnl >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
+                              {formatCurrency(tickerData.pnl)}
+                            </span>
+                            <span className="text-muted-foreground"> / </span>
+                            <span className="text-red-600 dark:text-red-400">
+                              {formatCurrency(tickerData.totalCollateral)}
+                            </span>
+                          </span>
+                          <span className="text-xs flex items-center space-x-1">
+                            <RegularRoRTooltip
+                              displayValue={tickerData.ror}
+                              preciseValue={tickerData.ror}
+                              size="sm"
+                            />
+                            <span className="text-muted-foreground"> / </span>
+                            <AnnualizedRoRTooltip
+                              displayValue={tickerData.annualizedRoR}
+                              preciseValue={tickerData.annualizedRoR}
+                              baseRoR={tickerData.ror}
+                              context="yearly"
+                              size="sm"
+                            />
+                          </span>
+                        </div>
+                      </td>
+                    </tr>
+                    {expandedTickers.has(tickerData.ticker) && (
+                      <tr>
+                        <td colSpan={5} className="p-0 bg-muted/10 border-l-4 border-sky-500/30">
+                          <TransactionsTable
+                            transactions={yearTransactions.filter(t => t.stockSymbol === tickerData.ticker)}
+                            chains={chains}
+                          />
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
                 ))}
               </tbody>
             </table>

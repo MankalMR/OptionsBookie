@@ -1,12 +1,12 @@
 'use client';
 
 import React, { useState } from 'react';
-import { formatPnLCurrency, getRealizedTransactions, calculateCollateral, calculateDaysHeld, calculateStrategyPerformance, calculatePortfolioRoR, calculateMonthlyPortfolioAnnualizedRoR, getEffectiveCloseDate } from '@/utils/optionsCalculations';
+import { formatPnLCurrency, getRealizedTransactions, calculateCollateral, calculateDaysHeld, calculateStrategyPerformance, calculateMonthlyAnnualizedRoR, getEffectiveCloseDate } from '@/utils/optionsCalculations';
 import { RegularRoRTooltip, AnnualizedRoRTooltip } from '@/components/ui/RoRTooltip';
 import { ResponsiveContainer, ComposedChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend, Bar } from 'recharts';
 import { ChevronDown, ChevronRight, Plus, Minus } from 'lucide-react';
 import { OptionsTransaction, TradeChain } from '@/types/options';
-import MonthlyTradesTable from './MonthlyTradesTable';
+import TransactionsTable from './TransactionsTable';
 import { parseLocalDate } from '@/utils/dateUtils';
 import { useIsMobile } from '@/hooks/useMediaQuery';
 
@@ -212,6 +212,7 @@ export default function MonthlyBreakdownSection({
               {!isMobile && <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Top Strategy</th>}
               <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Top by P&L</th>
               <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Top by RoR</th>
+              {!isMobile && <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Fees</th>}
               {!isMobile && (
                 <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">
                   <div className="flex flex-col">
@@ -220,7 +221,6 @@ export default function MonthlyBreakdownSection({
                   </div>
                 </th>
               )}
-              {!isMobile && <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Fees</th>}
             </tr>
           </thead>
           <tbody className="bg-card">
@@ -231,14 +231,38 @@ export default function MonthlyBreakdownSection({
               const hasTransactions = monthTransactions.length > 0;
 
               // Calculate additional metrics for this month
-              const realizedMonthTransactions = getRealizedTransactions(monthTransactions);
-              const totalCollateral = realizedMonthTransactions.reduce((sum, t) => sum + calculateCollateral(t), 0);
-              const avgRoR = calculatePortfolioRoR(monthTransactions);
-              const avgAnnualizedRoR = calculateMonthlyPortfolioAnnualizedRoR(monthTransactions);
-              const avgDays = realizedMonthTransactions.length > 0
-                ? realizedMonthTransactions.reduce((sum, t) => sum + calculateDaysHeld(t.tradeOpenDate, t.closeDate!), 0) / realizedMonthTransactions.length
+              // monthTransactions is already chain-aware and realized from getMonthTransactions
+              // Calculate chain-aware collateral (skip rolled transactions, average for chains)
+              let totalCollateral = 0;
+              const processedChains = new Set<string>();
+
+              monthTransactions.forEach(t => {
+                // Skip rolled transactions
+                if (t.status === 'Rolled') return;
+
+                if (t.chainId && !processedChains.has(t.chainId)) {
+                  // For chains, calculate average collateral
+                  const chain = chains.find(c => c.id === t.chainId);
+                  if (chain && chain.chainStatus === 'Closed') {
+                    const chainTransactions = monthTransactions.filter(ct => ct.chainId === t.chainId);
+                    const chainCollateralSum = chainTransactions.reduce((sum, ct) => sum + calculateCollateral(ct), 0);
+                    const avgChainCollateral = chainCollateralSum / chainTransactions.length;
+                    totalCollateral += avgChainCollateral;
+                    processedChains.add(t.chainId);
+                  }
+                } else if (!t.chainId) {
+                  // For independent trades, add collateral directly
+                  totalCollateral += calculateCollateral(t);
+                }
+              });
+
+              const totalPnL = monthTransactions.reduce((sum, t) => sum + (t.profitLoss || 0), 0);
+              const avgRoR = totalCollateral > 0 ? (totalPnL / totalCollateral * 100) : 0;
+              const avgAnnualizedRoR = calculateMonthlyAnnualizedRoR(avgRoR);
+              const avgDays = monthTransactions.length > 0
+                ? monthTransactions.reduce((sum, t) => sum + calculateDaysHeld(t.tradeOpenDate, t.closeDate!), 0) / monthTransactions.length
                 : 0;
-              const monthStrategyPerformance = calculateStrategyPerformance(realizedMonthTransactions, chains);
+              const monthStrategyPerformance = calculateStrategyPerformance(monthTransactions, chains);
               const bestStrategy = monthStrategyPerformance.filter(s => s.realizedCount > 0).length > 0
                 ? monthStrategyPerformance.filter(s => s.realizedCount > 0)[0]
                 : null;
@@ -296,6 +320,7 @@ export default function MonthlyBreakdownSection({
                         <span className="text-muted-foreground text-xs">-</span>
                       )}
                     </td>
+                    {!isMobile && <td className="px-4 py-2 text-sm text-red-600 dark:text-red-400">{formatCurrency(month.fees)}</td>}
                     {!isMobile && (
                       <td className="px-4 py-2 text-sm">
                         <div className="flex flex-col space-y-1">
@@ -326,14 +351,13 @@ export default function MonthlyBreakdownSection({
                         </div>
                       </td>
                     )}
-                    {!isMobile && <td className="px-4 py-2 text-sm text-red-600 dark:text-red-400">{formatCurrency(month.fees)}</td>}
                   </tr>
 
                   {/* Expanded trades table */}
                   {isExpanded && hasTransactions && (
                     <tr>
                       <td colSpan={isMobile ? 3 : 9} className="p-0">
-                        <MonthlyTradesTable
+                        <TransactionsTable
                           transactions={monthTransactions}
                           chains={chains}
                           monthName={month.monthName}

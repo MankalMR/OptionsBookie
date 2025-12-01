@@ -904,12 +904,14 @@ export const calculateChainAwareStockPerformance = (
       if (chain && chain.chainStatus === 'Closed') {
         const chainPnL = calculateChainPnL(transaction.chainId, transactions);
         const chainTransactions = transactions.filter(t => t.chainId === transaction.chainId);
-        const chainCollateral = chainTransactions.reduce((sum, t) => sum + calculateCollateral(t), 0);
 
+        // For chains (rolled positions), use AVERAGE collateral since it's the same capital being redeployed
+        const totalChainCollateral = chainTransactions.reduce((sum, t) => sum + calculateCollateral(t), 0);
+        const avgChainCollateral = chainTransactions.length > 0 ? totalChainCollateral / chainTransactions.length : 0;
 
         perf.pnl += chainPnL;
         perf.trades += 1; // Count chain as one trade
-        perf.totalCollateral += chainCollateral;
+        perf.totalCollateral += avgChainCollateral; // Use average, not sum
         processedChains.add(transaction.chainId);
       }
     } else if (!transaction.chainId) {

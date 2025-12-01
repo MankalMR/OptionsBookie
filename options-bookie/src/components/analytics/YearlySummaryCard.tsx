@@ -16,6 +16,8 @@ interface TickerData {
   pnl: number;
   ror: number;
   trades: number;
+  totalCollateral: number;
+  annualizedRoR: number;
 }
 
 interface TopTickers {
@@ -162,7 +164,12 @@ export default function YearlySummaryCard({
       <StrategyPerformanceCard strategyPerformance={yearStrategyPerformance} />
 
       {/* Top Stocks for the Year */}
-      <Top5TickersSection yearTop5Tickers={yearTop5Tickers} yearAllTickers={yearAllTickers} />
+      <Top5TickersSection
+        yearTop5Tickers={yearTop5Tickers}
+        yearAllTickers={yearAllTickers}
+        yearTransactions={yearTransactions}
+        chains={chains}
+      />
 
       {/* Monthly Breakdown for the Year */}
       <MonthlyBreakdownSection

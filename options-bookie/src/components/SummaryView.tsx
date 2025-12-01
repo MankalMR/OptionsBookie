@@ -179,15 +179,40 @@ export default function SummaryView({ transactions, selectedPortfolioName, chain
 
       // Find best and worst months with enhanced metrics
       if (yearData.monthlyBreakdown.length > 0) {
-        // Calculate enhanced metrics for each month
+        // Calculate enhanced metrics for each month using the SAME logic as MonthlyBreakdownSection
         const monthsWithMetrics = yearData.monthlyBreakdown.map(monthData => {
+          // Use effective close dates to filter transactions (consistent with monthly breakdown)
           const monthTransactions = completedTransactions.filter(t => {
-            const closeDate = parseLocalDate(t.closeDate!);
-            return closeDate.getFullYear() === yearData.year && closeDate.getMonth() === monthData.month;
+            const effectiveCloseDate = getEffectiveCloseDate(t, completedTransactions, chains);
+            return effectiveCloseDate.getFullYear() === yearData.year && effectiveCloseDate.getMonth() === monthData.month;
           });
 
-          const totalCollateral = monthTransactions.reduce((sum, t) => sum + calculateCollateral(t), 0);
-          const ror = calculatePortfolioRoR(monthTransactions);
+          // Calculate chain-aware collateral (skip rolled transactions, average for chains)
+          let totalCollateral = 0;
+          const processedChains = new Set<string>();
+
+          monthTransactions.forEach(t => {
+            // Skip rolled transactions
+            if (t.status === 'Rolled') return;
+
+            if (t.chainId && !processedChains.has(t.chainId)) {
+              // For chains, calculate average collateral
+              const chain = chains.find(c => c.id === t.chainId);
+              if (chain && chain.chainStatus === 'Closed') {
+                const chainTransactions = monthTransactions.filter(ct => ct.chainId === t.chainId);
+                const chainCollateralSum = chainTransactions.reduce((sum, ct) => sum + calculateCollateral(ct), 0);
+                const avgChainCollateral = chainCollateralSum / chainTransactions.length;
+                totalCollateral += avgChainCollateral;
+                processedChains.add(t.chainId);
+              }
+            } else if (!t.chainId) {
+              // For independent trades, add collateral directly
+              totalCollateral += calculateCollateral(t);
+            }
+          });
+
+          const totalPnL = monthTransactions.reduce((sum, t) => sum + (t.profitLoss || 0), 0);
+          const ror = totalCollateral > 0 ? (totalPnL / totalCollateral * 100) : 0;
           const annualizedRoR = calculateMonthlyAnnualizedRoR(ror);
 
           return {
@@ -248,7 +273,7 @@ export default function SummaryView({ transactions, selectedPortfolioName, chain
         ? realizedTransactions.reduce((sum, t) => sum + calculateDaysHeld(t.tradeOpenDate, t.closeDate || new Date()), 0) / realizedTransactions.length
         : 0
     };
-  }, [transactions]);
+  }, [transactions, chains]);
 
   const strategyPerformance = useMemo(() => {
     return calculateStrategyPerformance(transactions, chains);
@@ -298,7 +323,9 @@ export default function SummaryView({ transactions, selectedPortfolioName, chain
         ticker,
         pnl: Math.round(data.pnl),
         ror: data.totalCollateral > 0 ? Number((data.pnl / data.totalCollateral * 100).toFixed(1)) : 0,
-        trades: data.trades
+        trades: data.trades,
+        totalCollateral: data.totalCollateral,
+        annualizedRoR: data.totalCollateral > 0 ? Number(((data.pnl / data.totalCollateral) * (365 / 30) * 100).toFixed(1)) : 0
       }))
       .sort((a, b) => b.pnl - a.pnl);
 

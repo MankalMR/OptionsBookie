@@ -8,14 +8,14 @@ import { Badge } from '@/components/ui/badge';
 import { useIsMobile } from '@/hooks/useMediaQuery';
 import { Link } from 'lucide-react';
 
-interface MonthlyTradesTableProps {
+interface TransactionsTableProps {
   transactions: OptionsTransaction[];
-  chains?: TradeChain[]; // Add chains prop for chain-aware P&L calculation
-  monthName: string;
+  chains?: TradeChain[];
+  monthName?: string;
   selectedPortfolioName?: string | null;
 }
 
-export default function MonthlyTradesTable({ transactions, chains = [] }: MonthlyTradesTableProps) {
+export default function TransactionsTable({ transactions, chains = [] }: TransactionsTableProps) {
   const isMobile = useIsMobile();
 
   // Helper function to get chain-aware P&L for display
