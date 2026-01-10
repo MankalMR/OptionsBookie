@@ -48,6 +48,7 @@ import {
   calculateTotalDeployedCapital,
   calculatePortfolioRoR,
   formatPnLNumber,
+  calculateSmartCapital,
   calculateChainAwareStockPerformance,
   calculateChainAwareMonthlyPnL
 } from './optionsCalculations';
@@ -3221,6 +3222,231 @@ describe('calculateYearlyPortfolioAnnualizedRoR', () => {
       const result = calculateYearlyPortfolioAnnualizedRoR(mockTransactions);
       const yearlyRoR = calculatePortfolioRoR(mockTransactions);
       expect(result).toBeCloseTo(yearlyRoR, 2); // Should be the same since (RoR * 365) / 365 = RoR
+    });
+  });
+
+  describe('calculateSmartCapital', () => {
+    it('should count sequential trades only once', () => {
+      const transactions = [
+        createMockTransaction({
+          id: 'rgti1',
+          stockSymbol: 'RGTI',
+          tradeOpenDate: '2025-09-15T04:00:00.000Z',
+          closeDate: '2025-10-20T04:00:00.000Z',
+          status: 'Closed',
+          profitLoss: 100,
+          collateralAmount: 3950
+        }),
+        createMockTransaction({
+          id: 'rgti2',
+          stockSymbol: 'RGTI',
+          tradeOpenDate: '2025-10-22T04:00:00.000Z',
+          closeDate: '2025-11-15T05:00:00.000Z',
+          status: 'Closed',
+          profitLoss: 100,
+          collateralAmount: 3950
+        }),
+        createMockTransaction({
+          id: 'rgti3',
+          stockSymbol: 'RGTI',
+          tradeOpenDate: '2025-11-18T05:00:00.000Z',
+          closeDate: '2025-12-01T05:00:00.000Z',
+          status: 'Closed',
+          profitLoss: 100,
+          collateralAmount: 3950
+        })
+      ];
+
+      const result = calculateSmartCapital(transactions, []);
+
+      expect(result.totalCapital).toBe(3950); // Count once, not 3 times
+      expect(result.capitalEfficiency).toBeDefined();
+      expect(result.capitalEfficiency!.totalTrades).toBe(3);
+      expect(result.capitalEfficiency!.capitalReused).toBe(2); // Reused 2 times
+      expect(result.capitalEfficiency!.hasOverlaps).toBe(false);
+
+      expect(result.breakdown).toHaveLength(1);
+      expect(result.breakdown[0].stock).toBe('RGTI');
+      expect(result.breakdown[0].capital).toBe(3950);
+      expect(result.breakdown[0].sequential).toBe(true);
+    });
+
+    it('should sum collateral for overlapping trades', () => {
+      const transactions = [
+        createMockTransaction({
+          id: 'rgti1',
+          stockSymbol: 'RGTI',
+          tradeOpenDate: '2025-09-15T04:00:00.000Z',
+          closeDate: '2025-10-20T04:00:00.000Z',
+          status: 'Closed',
+          profitLoss: 100,
+          collateralAmount: 3950
+        }),
+        createMockTransaction({
+          id: 'rgti2',
+          stockSymbol: 'RGTI',
+          tradeOpenDate: '2025-10-18T04:00:00.000Z', // Overlaps by 2 days
+          closeDate: '2025-11-15T05:00:00.000Z',
+          status: 'Closed',
+          profitLoss: 100,
+          collateralAmount: 3950
+        })
+      ];
+
+      const result = calculateSmartCapital(transactions, []);
+
+      expect(result.totalCapital).toBe(7900); // Sum both (concurrent positions)
+      expect(result.capitalEfficiency!.hasOverlaps).toBe(true);
+      expect(result.breakdown[0].sequential).toBe(false);
+    });
+
+    it('should use average collateral for chains', () => {
+      const chainId = 'ttd-chain';
+      const transactions = [
+        createMockTransaction({
+          id: 'ttd1',
+          stockSymbol: 'TTD',
+          tradeOpenDate: '2025-08-21T04:00:00.000Z',
+          closeDate: '2025-09-16T04:00:00.000Z',
+          status: 'Rolled',
+          chainId,
+          profitLoss: 75,
+          collateralAmount: 5750
+        }),
+        createMockTransaction({
+          id: 'ttd2',
+          stockSymbol: 'TTD',
+          tradeOpenDate: '2025-09-16T04:00:00.000Z',
+          closeDate: '2025-11-07T05:00:00.000Z',
+          status: 'Closed',
+          chainId,
+          profitLoss: 264,
+          collateralAmount: 5500
+        })
+      ];
+
+      const chains = [
+        createMockChain({ id: chainId, chainStatus: 'Closed', symbol: 'TTD' })
+      ];
+
+      const result = calculateSmartCapital(transactions, chains);
+
+      expect(result.totalCapital).toBe(5625); // Average: (5750 + 5500) / 2
+      expect(result.capitalEfficiency!.totalTrades).toBe(1); // Chain counts as 1
+    });
+
+    it('should handle mixed chains, sequential, and overlapping trades', () => {
+      const chainId = 'crm-chain';
+      const transactions = [
+        // CRM Chain
+        createMockTransaction({
+          id: 'crm1',
+          stockSymbol: 'CRM',
+          tradeOpenDate: '2025-09-15T04:00:00.000Z',
+          closeDate: '2025-10-15T04:00:00.000Z',
+          status: 'Rolled',
+          chainId,
+          profitLoss: 200,
+          collateralAmount: 25000
+        }),
+        createMockTransaction({
+          id: 'crm2',
+          stockSymbol: 'CRM',
+          tradeOpenDate: '2025-10-15T04:00:00.000Z',
+          closeDate: '2025-11-15T05:00:00.000Z',
+          status: 'Closed',
+          chainId,
+          profitLoss: 621,
+          collateralAmount: 25500
+        }),
+        // RGTI Sequential
+        createMockTransaction({
+          id: 'rgti1',
+          stockSymbol: 'RGTI',
+          tradeOpenDate: '2025-09-15T04:00:00.000Z',
+          closeDate: '2025-10-20T04:00:00.000Z',
+          status: 'Closed',
+          profitLoss: 100,
+          collateralAmount: 3950
+        }),
+        createMockTransaction({
+          id: 'rgti2',
+          stockSymbol: 'RGTI',
+          tradeOpenDate: '2025-10-22T04:00:00.000Z',
+          closeDate: '2025-11-15T05:00:00.000Z',
+          status: 'Closed',
+          profitLoss: 100,
+          collateralAmount: 3950
+        }),
+        // SOFI Overlapping
+        createMockTransaction({
+          id: 'sofi1',
+          stockSymbol: 'SOFI',
+          tradeOpenDate: '2025-09-15T04:00:00.000Z',
+          closeDate: '2025-10-20T04:00:00.000Z',
+          status: 'Closed',
+          profitLoss: 50,
+          collateralAmount: 1060
+        }),
+        createMockTransaction({
+          id: 'sofi2',
+          stockSymbol: 'SOFI',
+          tradeOpenDate: '2025-10-18T04:00:00.000Z', // Overlaps
+          closeDate: '2025-11-15T05:00:00.000Z',
+          status: 'Closed',
+          profitLoss: 50,
+          collateralAmount: 1060
+        })
+      ];
+
+      const chains = [
+        createMockChain({ id: chainId, chainStatus: 'Closed', symbol: 'CRM' })
+      ];
+
+      const result = calculateSmartCapital(transactions, chains);
+
+      // CRM: (25000 + 25500) / 2 = 25250
+      // RGTI: 3950 (sequential, count once)
+      // SOFI: 1060 + 1060 = 2120 (overlapping, sum both)
+      expect(result.totalCapital).toBe(31320);
+      expect(result.capitalEfficiency!.totalTrades).toBe(5); // 1 chain + 2 RGTI + 2 SOFI
+      expect(result.capitalEfficiency!.capitalReused).toBe(1); // RGTI reused once
+      expect(result.capitalEfficiency!.hasOverlaps).toBe(true); // SOFI has overlaps
+
+      expect(result.breakdown).toHaveLength(3);
+    });
+
+    it('should handle empty array', () => {
+      const result = calculateSmartCapital([], []);
+
+      expect(result.totalCapital).toBe(0);
+      expect(result.capitalEfficiency).toBeUndefined();
+      expect(result.breakdown).toHaveLength(0);
+    });
+
+    it('should filter out rolled transactions from open chains', () => {
+      const chainId = 'open-chain';
+      const transactions = [
+        createMockTransaction({
+          id: 'trade1',
+          stockSymbol: 'AAPL',
+          tradeOpenDate: '2025-09-15T04:00:00.000Z',
+          closeDate: '2025-10-15T04:00:00.000Z',
+          status: 'Rolled',
+          chainId,
+          profitLoss: 100,
+          collateralAmount: 10000
+        })
+      ];
+
+      const chains = [
+        createMockChain({ id: chainId, chainStatus: 'Open', symbol: 'AAPL' })
+      ];
+
+      const result = calculateSmartCapital(transactions, chains);
+
+      expect(result.totalCapital).toBe(0);
+      expect(result.breakdown).toHaveLength(0);
     });
   });
 });

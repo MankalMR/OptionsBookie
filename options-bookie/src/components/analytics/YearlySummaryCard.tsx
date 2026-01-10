@@ -1,6 +1,6 @@
 'use client';
 
-import { formatPnLCurrency, getRealizedTransactions, calculateStrategyPerformance, calculateCollateral, calculateYearlyAnnualizedRoRWithActiveMonths } from '@/utils/optionsCalculations';
+import { formatPnLCurrency, getRealizedTransactions, calculateStrategyPerformance, calculateCollateral, calculateYearlyAnnualizedRoRWithActiveMonths, getEffectiveCloseDate } from '@/utils/optionsCalculations';
 import { OptionsTransaction, TradeChain } from '@/types/options';
 import { YearlySummary } from '@/components/SummaryView';
 import { parseLocalDate } from '@/utils/dateUtils';
@@ -60,18 +60,29 @@ export default function YearlySummaryCard({
 }: YearlySummaryCardProps) {
   const formatCurrency = formatPnLCurrency;
 
-  // Filter transactions for this specific year
+  // Filter transactions for this specific year using effective close date logic
+  // This matches the MonthlyBreakdownSection logic
   const yearTransactions = transactions.filter(transaction => {
     if (!transaction.closeDate) return false;
-    const closeDate = parseLocalDate(transaction.closeDate);
-    return closeDate.getFullYear() === yearData.year;
+    // We need to check if this transaction belongs to this year based on effective close date
+    // But we need the context of all realized transactions to determine effective date
+    // This is slightly inefficient but necessary for correctness
+    const allRealized = getRealizedTransactions(transactions, chains);
+    // Only process if it's a realized transaction
+    if (!allRealized.find(t => t.id === transaction.id)) return false;
+
+    const effectiveCloseDate = getEffectiveCloseDate(transaction, allRealized, chains);
+    return effectiveCloseDate.getFullYear() === yearData.year;
   });
 
-  // Calculate year-specific metrics for Quick Stats
-  const realizedTransactions = getRealizedTransactions(yearTransactions);
-  const totalPnL = realizedTransactions.reduce((sum, t) => sum + (t.profitLoss || 0), 0);
-  const winningTrades = realizedTransactions.filter(t => (t.profitLoss || 0) > 0);
-  const winRate = realizedTransactions.length > 0 ? (winningTrades.length / realizedTransactions.length) * 100 : 0;
+  // Use yearData values which are calculated from monthly breakdown (source of truth)
+  // This ensures perfect consistency between yearly display and monthly sum
+  const totalPnL = yearData.totalPnL;
+  const totalTrades = yearData.totalTrades;
+
+  // Calculate win rate from realized transactions for this year
+  const realizedTransactions = getRealizedTransactions(yearTransactions, chains);
+  const winRate = yearData.winRate;
 
   // Calculate year-specific strategy performance
   const yearStrategyPerformance = calculateStrategyPerformance(yearTransactions, chains);
@@ -100,11 +111,11 @@ export default function YearlySummaryCard({
     .sort((a, b) => b.ror - a.ror)[0];
 
   // Use the common function to calculate yearly annualized RoR with active months
-  const yearlyRoRData = calculateYearlyAnnualizedRoRWithActiveMonths(yearTransactions, yearData.year);
+  const yearlyRoRData = calculateYearlyAnnualizedRoRWithActiveMonths(yearTransactions, chains, yearData.year);
 
   const quickStatsData = {
     totalPnL,
-    totalTrades: realizedTransactions.length,
+    totalTrades,
     winRate,
     avgRoR: yearlyRoRData.baseRoR,
     annualizedRoR: yearlyRoRData.annualizedRoR,

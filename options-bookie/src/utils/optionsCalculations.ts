@@ -1,5 +1,6 @@
 import { OptionsTransaction, TradeChain } from '@/types/options';
 import { parseLocalDate } from '@/utils/dateUtils';
+import { detectOverlapsByStock } from './timeOverlapDetection';
 
 export const calculateProfitLoss = (transaction: OptionsTransaction, exitPrice?: number): number => {
   // Universal P&L calculation: always deduct fees for consistency
@@ -21,14 +22,14 @@ export const calculateProfitLoss = (transaction: OptionsTransaction, exitPrice?:
       profitLoss = (premium - exitPrice) * contracts * 100;
     }
   } else {
-  // For open trades, show premium received/paid as P&L
-  if (transaction.buyOrSell === 'Buy') {
-    // If you bought the option, you paid the premium (negative P&L until closed)
-    profitLoss = -premium * contracts * 100;
-  } else {
-    // If you sold the option, you received the premium (positive P&L until closed)
-    profitLoss = premium * contracts * 100;
-  }
+    // For open trades, show premium received/paid as P&L
+    if (transaction.buyOrSell === 'Buy') {
+      // If you bought the option, you paid the premium (negative P&L until closed)
+      profitLoss = -premium * contracts * 100;
+    } else {
+      // If you sold the option, you received the premium (positive P&L until closed)
+      profitLoss = premium * contracts * 100;
+    }
   }
 
   // Universal rule: always deduct fees from P&L
@@ -105,20 +106,45 @@ export const getRealizedTransactions = (transactions: OptionsTransaction[], chai
       return true;
     }
 
-    // Include rolled transactions that are part of closed chains
-    if (t.status === 'Rolled' && t.chainId) {
+    // Include ALL transactions that are part of closed chains (Rolled, Open, etc.)
+    // If the chain is closed, the trade is effectively part of a realized strategy history
+    if (t.chainId) {
       const chain = chains.find(c => c.id === t.chainId);
-      return chain && chain.chainStatus === 'Closed';
+      if (chain && chain.chainStatus === 'Closed') {
+        return true;
+      }
     }
 
     return false;
   });
 };
 
-// Centralized utility to calculate total realized P&L
-export const calculateTotalRealizedPnL = (transactions: OptionsTransaction[]): number => {
-  const realizedTransactions = getRealizedTransactions(transactions);
-  return realizedTransactions.reduce((sum, t) => sum + (t.profitLoss || 0), 0);
+// Centralized utility to calculate total realized P&L (chain-aware)
+export const calculateTotalRealizedPnL = (transactions: OptionsTransaction[], chains: TradeChain[] = []): number => {
+  const realizedTransactions = getRealizedTransactions(transactions, chains);
+  const processedChains = new Set<string>();
+  let totalPnL = 0;
+
+  realizedTransactions.forEach(t => {
+    // Skip rolled transactions - they're part of chains
+    if (t.status === 'Rolled') {
+      return;
+    }
+
+    if (t.chainId && !processedChains.has(t.chainId)) {
+      const chain = chains.find(c => c.id === t.chainId);
+      if (chain && chain.chainStatus === 'Closed') {
+        // For closed chains, use total chain P&L
+        totalPnL += calculateChainPnL(t.chainId, transactions);
+        processedChains.add(t.chainId);
+      }
+    } else if (!t.chainId) {
+      // Non-chained transaction - use individual P&L
+      totalPnL += t.profitLoss || 0;
+    }
+  });
+
+  return totalPnL;
 };
 
 // Centralized utility to format P&L as currency (rounded to whole numbers)
@@ -468,27 +494,58 @@ export const calculateStrategyPerformance = (transactions: OptionsTransaction[],
     const stockPerformance = calculateChainAwareStockPerformance(trades, chains);
     strategy.totalPnL = Array.from(stockPerformance.values()).reduce((sum, stock) => sum + stock.pnl, 0);
 
-    // Calculate average collateral (use max historical for realized trades)
-    strategy.totalCollateral = trades
-      .filter(t => t.status === 'Open')
-      .reduce((sum, t) => sum + calculateCollateral(t), 0);
+    // Calculate Smart Capital (Capital Efficiency Aware)
+    // This represents the Peak Capital Required to run this strategy, accounting for reuse.
+    const capitalResult = calculateSmartCapital(realizedTrades, chains);
+    strategy.totalCollateral = capitalResult.totalCapital;
 
-    // If no open trades, use average historical collateral
-    if (strategy.totalCollateral === 0 && realizedTrades.length > 0) {
-      strategy.totalCollateral = realizedTrades.reduce((sum, t) => sum + calculateCollateral(t), 0) / realizedTrades.length;
-    }
-
-    // Calculate average RoR (only for realized trades)
-    const rorValues = realizedTrades.map(t => calculateRoR(t)).filter(ror => !isNaN(ror) && isFinite(ror));
-    strategy.avgRoR = rorValues.length > 0 ? rorValues.reduce((sum, ror) => sum + ror, 0) / rorValues.length : 0;
+    // Calculate RoR based on Smart Capital (Total PnL / Peak Capital Required)
+    // This replaces the naive "Average of RoRs" with a true "Return on Capital" for the strategy
+    strategy.avgRoR = strategy.totalCollateral > 0
+      ? (strategy.totalPnL / strategy.totalCollateral * 100)
+      : 0;
 
     // Calculate average annualized RoR (only for realized trades)
-    const annualizedRorValues = realizedTrades.map(t => calculateAnnualizedRoR(t)).filter(ror => !isNaN(ror) && isFinite(ror));
-    strategy.avgAnnualizedRoR = annualizedRorValues.length > 0 ? annualizedRorValues.reduce((sum, ror) => sum + ror, 0) / annualizedRorValues.length : 0;
+    // Note: Standard annualization per trade might need review, but sticking to aggregation for now.
+    // Ideally we'd use (RoR * 365 / ActiveDays) but active days per trade vs strategy is complex.
+    // Keeping existing per-trade avg for annualized to avoid drift, or we can use the same logic as yearly.
+    // Let's stick to the existing naive average for Annualized RoR for now as "Strategy Annualized" is tricky without time-weighting.
+    // OR: We can use calculateYearlyAnnualizedRoRWithActiveMonths logic if we treat the strategy as a mini-portfolio.
+    // Let's try to be consistent: Use Smart logic if possible.
+    const activeDays = calculateActiveTradingDays(realizedTrades); // Reuse existing function
+    strategy.avgAnnualizedRoR = activeDays > 0
+      ? strategy.avgRoR * (365 / activeDays)
+      : 0;
 
     // Calculate win rate
-    const winningTrades = realizedTrades.filter(t => (t.profitLoss || 0) > 0);
-    strategy.winRate = realizedTrades.length > 0 ? (winningTrades.length / realizedTrades.length) * 100 : 0;
+    let winningTrades = 0;
+    const processedChains = new Set<string>();
+
+    realizedTrades.forEach(t => {
+      // Chain-aware win counting (simplified, should match SummaryView logic ideally)
+      // Actually SummaryView logic is robust. Let's replicate or assume getRealizedTransactions chain handling?
+      // getRealizedTransactions returns individual transactions.
+      // We need to count CHAINS as single unit.
+      if (t.chainId) {
+        if (!processedChains.has(t.chainId)) {
+          const chainPnL = calculateChainPnL(t.chainId, trades);
+          if (chainPnL > 0) winningTrades++;
+          processedChains.add(t.chainId);
+        }
+      } else {
+        if ((t.profitLoss || 0) > 0) winningTrades++;
+      }
+    });
+
+    // Count distinct trade units for denominator
+    // If we have 10 trades in 1 chain, that's 1 unit.
+    // realizedTrades has 10 items.
+    // We need to count unique chains + independent trades.
+    const uniqueChains = new Set(realizedTrades.filter(t => t.chainId).map(t => t.chainId));
+    const independentCount = realizedTrades.filter(t => !t.chainId).length;
+    const totalTradeUnits = uniqueChains.size + independentCount;
+
+    strategy.winRate = totalTradeUnits > 0 ? (winningTrades / totalTradeUnits) * 100 : 0;
 
     // Calculate average days held
     strategy.avgDaysHeld = realizedTrades.length > 0
@@ -497,7 +554,7 @@ export const calculateStrategyPerformance = (transactions: OptionsTransaction[],
   });
 
   return Array.from(strategies.entries()).map(([strategyType, metrics]) => {
-    const realizedCount = getRealizedTransactions(metrics.trades).length;
+    const realizedCount = getRealizedTransactions(metrics.trades, chains).length; // Pass chains!
     const openCount = metrics.trades.filter(t => t.status === 'Open').length;
     const rolledCount = metrics.trades.filter(t => t.status === 'Rolled').length;
 
@@ -668,7 +725,7 @@ export const calculateTop5TickersYearlyPerformance = (transactions: OptionsTrans
 
   // Get top 5 tickers by total P&L
   const top5Tickers = Array.from(tickerTotals.entries())
-    .sort(([,a], [,b]) => b - a)
+    .sort(([, a], [, b]) => b - a)
     .slice(0, 5)
     .map(([ticker]) => ticker);
 
@@ -926,6 +983,225 @@ export const calculateChainAwareStockPerformance = (
 };
 
 /**
+ * Calculate smart capital with overlap detection
+ *
+ * This function detects if trades on the same stock overlap in time:
+ * - If trades overlap (concurrent positions): Sum collateral (different capital pools)
+ * - If trades are sequential (no overlap): Count collateral once (same capital reused)
+ * - For chains (rolled positions): Use average collateral (same position redeployed)
+ *
+ * @param transactions - Transactions to calculate capital for
+ * @param chains - Trade chains for handling rolled positions
+ * @returns Object with totalCapital, efficiency metrics, and breakdown by stock
+ */
+export interface SmartCapitalResult {
+  totalCapital: number;
+  capitalEfficiency?: {
+    totalTrades: number;
+    capitalReused: number;
+    hasOverlaps: boolean;
+  };
+  breakdown: {
+    stock: string;
+    capital: number;
+    trades: number;
+    sequential: boolean;
+  }[];
+}
+
+export const calculateSmartCapital = (
+  transactions: OptionsTransaction[],
+  chains: TradeChain[] = []
+): SmartCapitalResult => {
+  let totalCapital = 0;
+  let totalTrades = 0;
+  let totalCapitalReused = 0;
+  let hasAnyOverlaps = false;
+  const breakdown: SmartCapitalResult['breakdown'] = [];
+  const processedChains = new Set<string>();
+
+  // Group transactions by stock
+  const byStock = new Map<string, OptionsTransaction[]>();
+  transactions.forEach(t => {
+    if (!byStock.has(t.stockSymbol)) {
+      byStock.set(t.stockSymbol, []);
+    }
+    byStock.get(t.stockSymbol)!.push(t);
+  });
+
+  // Process each stock independently
+  for (const [stock, stockTransactions] of byStock.entries()) {
+    let stockCapital = 0;
+    let stockTradeCount = 0;
+    let stockIsSequential = true;
+
+    // PREPARE FOR OVERLAP DETECTION:
+    // Collapse chains into single synthetic transactions to ensure "Chain as One Trade" logic
+    // handles gaps correctly (e.g. rolled late).
+    const transactionsForDetection: OptionsTransaction[] = [];
+    const processedChainIdsForDetection = new Set<string>();
+
+    // 1. Add independent trades
+    stockTransactions.forEach(t => {
+      if (!t.chainId) {
+        transactionsForDetection.push(t);
+      } else if (!processedChainIdsForDetection.has(t.chainId)) {
+        // 2. Synthesize chain
+        const chainLegs = stockTransactions.filter(l => l.chainId === t.chainId);
+        if (chainLegs.length > 0) {
+          // Find min Open and max Close
+          // Sort by open date
+          const sortedLegs = [...chainLegs].sort((a, b) =>
+            new Date(a.tradeOpenDate).getTime() - new Date(b.tradeOpenDate).getTime()
+          );
+          const firstOpen = sortedLegs[0].tradeOpenDate;
+          // Find last close date. If any leg is Open, the chain is effectively Open until Now (or indefinitely)
+          // But for overlap detection against *other* trades, we should use the max known close date
+          // or if it's open, treat it as open.
+          // Simplified: Use the last leg's close date, or if open/missing, keep it undefined (active).
+          const lastLeg = sortedLegs[sortedLegs.length - 1];
+
+          // Determine the effective close date for the synthetic chain
+          // If any leg is still open (closeDate is undefined), the chain is considered open.
+          // Otherwise, it's the latest close date among all legs.
+          const hasOpenLeg = chainLegs.some(leg => !leg.closeDate);
+          const syntheticCloseDate = hasOpenLeg
+            ? undefined
+            : chainLegs
+              .filter(leg => leg.closeDate)
+              .map(leg => parseLocalDate(leg.closeDate!))
+              .sort((a, b) => b.getTime() - a.getTime())[0]?.toISOString().split('T')[0]; // Get latest close date as YYYY-MM-DD string
+
+          // Create synthetic transaction. We need a valid object structure for the detector.
+          // The detector only cares about: id, tradeOpenDate, closeDate, stockSymbol.
+          const syntheticTrade: OptionsTransaction = {
+            ...t, // copy base props
+            id: `chain_${t.chainId}`,
+            tradeOpenDate: firstOpen,
+            closeDate: syntheticCloseDate,
+            // If any leg is Open, the whole chain is Open? 
+            // For detection purposes, if closeDate is missing, it's treated as active.
+            // If the chain is successfully CLOSED, the last leg should have a close date.
+            // If it's Rolled, the last leg MIGHT be the new open one?
+            // Actually, stockTransactions filters for realized logic? No, this function takes ALL transactions.
+          };
+
+          transactionsForDetection.push(syntheticTrade);
+          processedChainIdsForDetection.add(t.chainId!);
+        }
+      }
+    });
+
+    // Check overlaps using the synthetic list
+    const overlapResults = detectOverlapsByStock(transactionsForDetection);
+    const stockOverlapResult = overlapResults.get(stock);
+
+    // Filter relevant trades for CAPITAL CALCULATION (keep original logic)
+    const chainTrades = stockTransactions.filter(t => t.chainId);
+    const independentTrades = stockTransactions.filter(t => !t.chainId && t.status !== 'Rolled');
+
+    // Calculate capital for each component
+    const chainCapitals: number[] = [];
+    const independentCapitals: number[] = [];
+
+    // Process chains (Average Capital)
+    for (const t of chainTrades) {
+      if (t.chainId && !processedChains.has(t.chainId) && t.status !== 'Rolled') {
+        const chain = chains.find(c => c.id === t.chainId);
+        if (chain && chain.chainStatus === 'Closed') {
+          const chainTransactions = transactions.filter(x => x.chainId === t.chainId);
+          const totalChainCollateral = chainTransactions.reduce((sum, ct) => sum + calculateCollateral(ct), 0);
+          const avgChainCollateral = chainTransactions.length > 0 ? totalChainCollateral / chainTransactions.length : 0;
+
+          chainCapitals.push(avgChainCollateral);
+          stockTradeCount += 1; // Count chain as 1 trade unit for capital efficiency
+          processedChains.add(t.chainId);
+        }
+      }
+    }
+
+    // Process independent trades
+    for (const t of independentTrades) {
+      independentCapitals.push(calculateCollateral(t));
+      stockTradeCount += 1;
+    }
+
+    // Determine total stock capital based on overlap status
+    // If there are NO overlaps across ALL trades (chains + independent), we reuse capital -> take MAX
+    if (!stockOverlapResult?.hasOverlap && transactionsForDetection.length > 1) {
+      // Sequential trades
+      const maxChainCapital = chainCapitals.length > 0 ? Math.max(...chainCapitals) : 0;
+      const maxIndepCapital = independentCapitals.length > 0 ? Math.max(...independentCapitals) : 0;
+
+      stockCapital = Math.max(maxChainCapital, maxIndepCapital);
+
+      // Count how many times capital was reused (total items - 1)
+      totalCapitalReused += Math.max(0, (chainCapitals.length + independentCapitals.length) - 1);
+    } else {
+      // Has overlaps OR single trade - sum all capital
+      const totalChainCapital = chainCapitals.reduce((sum, c) => sum + c, 0);
+      const totalIndepCapital = independentCapitals.reduce((sum, c) => sum + c, 0);
+      stockCapital = totalChainCapital + totalIndepCapital;
+
+      if (stockOverlapResult?.hasOverlap) {
+        stockIsSequential = false;
+        hasAnyOverlaps = true;
+      }
+    }
+
+    if (stockCapital > 0) {
+      //   console.log(`[DEBUG] ${stock}: capital=${stockCapital}, trades=${stockTradeCount}, sequential=${stockIsSequential && transactionsForDetection.length > 1}, hasOverlap=${stockOverlapResult?.hasOverlap}`);
+      breakdown.push({
+        stock,
+        capital: stockCapital,
+        trades: stockTradeCount,
+        sequential: stockIsSequential && transactionsForDetection.length > 1
+      });
+    }
+
+    totalCapital += stockCapital;
+    totalTrades += stockTradeCount;
+  }
+
+  // console.log(`[DEBUG] Final totalCapital: ${totalCapital}`);
+
+  return {
+    totalCapital,
+    capitalEfficiency: totalTrades > 0 ? {
+      totalTrades,
+      capitalReused: totalCapitalReused,
+      hasOverlaps: hasAnyOverlaps
+    } : undefined,
+    breakdown
+  };
+};
+
+/**
+ * Calculates Portfolio RoR using "Smart Capital" logic
+ * Denominator: Smart Capital (accounts for reuse/chains)
+ * Numerator: Total Realized PnL (chain-aware)
+ */
+export const calculateSmartPortfolioRoR = (
+  transactions: OptionsTransaction[],
+  chains: TradeChain[] = []
+): number => {
+  const realizedTransactions = getRealizedTransactions(transactions, chains);
+
+  // Numerator: Chain-aware PnL
+  const totalPnL = calculateTotalRealizedPnL(realizedTransactions, chains);
+
+  // Denominator: Smart Capital
+  // Note: We use ALL transactions for capital calculation to capture the capital usage,
+  // even if some are open (since they tie up capital). 
+  // Wait, RoR is usually Realized PnL / Realized Capital Usage? 
+  // Or Realized PnL / Avg Capital Deployed?
+  // Let's use realizedTransactions for consistency with the numerator's scope.
+  const { totalCapital } = calculateSmartCapital(realizedTransactions, chains);
+
+  return totalCapital > 0 ? (totalPnL / totalCapital * 100) : 0;
+};
+
+/**
  * Calculate days held from trade open date to current date (or close date for closed trades)
  * @param openDate - The date the trade was opened
  * @param closeDate - Optional close date for closed trades, defaults to current date
@@ -1067,20 +1343,36 @@ export const calculateDH = calculateDaysHeld;
  */
 export const calculateDTE = calculateDaysToExpiry;
 
+
+
 /**
- * Calculate active trading days based on unique months with trades × 30
- * This provides a standardized way to measure trading activity duration
+ * Calculate effective days held for a set of transactions
+ * Identifies active trading days (days where capital was deployed)
  */
 export function calculateActiveTradingDays(transactions: OptionsTransaction[]): number {
-  const monthKeys = transactions.map(t => {
-    const tradeDate = new Date(t.tradeOpenDate);
-    const key = `${tradeDate.getFullYear()}-${tradeDate.getMonth()}`;
-    return key;
+  if (transactions.length === 0) return 0;
+
+  // Create a set of all active days
+  const activeDays = new Set<string>();
+
+  transactions.forEach(t => {
+    if (!t.tradeOpenDate) return;
+
+    // Start date
+    const startDate = parseLocalDate(t.tradeOpenDate);
+
+    // End date (or today if open)
+    const endDate = t.closeDate ? parseLocalDate(t.closeDate) : new Date();
+
+    // Iterate from start to end and add to set
+    const current = new Date(startDate);
+    while (current <= endDate) {
+      activeDays.add(current.toISOString().split('T')[0]);
+      current.setDate(current.getDate() + 1);
+    }
   });
 
-  const activeMonths = new Set(monthKeys).size;
-
-  return activeMonths * 30;
+  return activeDays.size;
 }
 
 /**
@@ -1090,8 +1382,9 @@ export function calculateActiveTradingDays(transactions: OptionsTransaction[]): 
  */
 export function calculateYearlyAnnualizedRoRWithActiveMonths(
   transactions: OptionsTransaction[],
+  chains: TradeChain[] = [],
   year?: number
-): { annualizedRoR: number; activeTradingDays: number; baseRoR: number } {
+) {
   const targetYear = year || new Date().getFullYear();
 
   // Filter transactions for the target year
@@ -1104,7 +1397,9 @@ export function calculateYearlyAnnualizedRoRWithActiveMonths(
     return { annualizedRoR: 0, activeTradingDays: 0, baseRoR: 0 };
   }
 
-  const baseRoR = calculatePortfolioRoR(yearTransactions);
+  // Use Smart Portfolio RoR for the base calculation
+  const baseRoR = calculateSmartPortfolioRoR(yearTransactions, chains);
+
   const activeTradingDays = calculateActiveTradingDays(yearTransactions);
   const annualizedRoR = activeTradingDays > 0 ? baseRoR * (365 / activeTradingDays) : baseRoR;
 

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { formatPnLCurrency, getRealizedTransactions, calculateCollateral, calculateDaysHeld, calculateStrategyPerformance, calculateMonthlyAnnualizedRoR, getEffectiveCloseDate } from '@/utils/optionsCalculations';
+import { formatPnLCurrency, getRealizedTransactions, calculateCollateral, calculateDaysHeld, calculateStrategyPerformance, calculateMonthlyAnnualizedRoR, getEffectiveCloseDate, calculateSmartCapital } from '@/utils/optionsCalculations';
 import { RegularRoRTooltip, AnnualizedRoRTooltip } from '@/components/ui/RoRTooltip';
 import { ResponsiveContainer, ComposedChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend, Bar } from 'recharts';
 import { ChevronDown, ChevronRight, Plus, Minus } from 'lucide-react';
@@ -232,29 +232,9 @@ export default function MonthlyBreakdownSection({
 
               // Calculate additional metrics for this month
               // monthTransactions is already chain-aware and realized from getMonthTransactions
-              // Calculate chain-aware collateral (skip rolled transactions, average for chains)
-              let totalCollateral = 0;
-              const processedChains = new Set<string>();
-
-              monthTransactions.forEach(t => {
-                // Skip rolled transactions
-                if (t.status === 'Rolled') return;
-
-                if (t.chainId && !processedChains.has(t.chainId)) {
-                  // For chains, calculate average collateral
-                  const chain = chains.find(c => c.id === t.chainId);
-                  if (chain && chain.chainStatus === 'Closed') {
-                    const chainTransactions = monthTransactions.filter(ct => ct.chainId === t.chainId);
-                    const chainCollateralSum = chainTransactions.reduce((sum, ct) => sum + calculateCollateral(ct), 0);
-                    const avgChainCollateral = chainCollateralSum / chainTransactions.length;
-                    totalCollateral += avgChainCollateral;
-                    processedChains.add(t.chainId);
-                  }
-                } else if (!t.chainId) {
-                  // For independent trades, add collateral directly
-                  totalCollateral += calculateCollateral(t);
-                }
-              });
+              // Use smart capital calculation (overlap-aware) for monthly views
+              const capitalResult = calculateSmartCapital(monthTransactions, chains);
+              const totalCollateral = capitalResult.totalCapital;
 
               const totalPnL = monthTransactions.reduce((sum, t) => sum + (t.profitLoss || 0), 0);
               const avgRoR = totalCollateral > 0 ? (totalPnL / totalCollateral * 100) : 0;

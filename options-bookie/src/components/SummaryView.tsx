@@ -15,7 +15,9 @@ import {
   calculateChainAwareMonthlyPnL,
   calculateChainPnL,
   calculateChainAwareStockPerformance,
-  getEffectiveCloseDate
+  getEffectiveCloseDate,
+  calculateSmartCapital,
+  calculateSmartPortfolioRoR
 } from '@/utils/optionsCalculations';
 import { parseLocalDate } from '@/utils/dateUtils';
 import { useIsMobile } from '@/hooks/useMediaQuery';
@@ -66,49 +68,30 @@ export default function SummaryView({ transactions, selectedPortfolioName, chain
 
     const yearlyData: Record<number, YearlySummary> = {};
 
+    // Initialize yearly data structures based on effective close dates
     completedTransactions.forEach(transaction => {
-      const closeDate = transaction.closeDate
-        ? parseLocalDate(transaction.closeDate)
-        : new Date();
-      const year = closeDate.getFullYear();
+      const effectiveCloseDate = getEffectiveCloseDate(transaction, completedTransactions, chains);
+      const year = effectiveCloseDate.getFullYear();
 
       if (!yearlyData[year]) {
         yearlyData[year] = {
           year,
-          totalPnL: 0,
-          totalTrades: 0,
+          totalPnL: 0, // Will be calculated from monthly breakdown
+          totalTrades: 0, // Will be calculated from monthly breakdown
           winningTrades: 0,
           losingTrades: 0,
           winRate: 0,
-          totalFees: 0,
+          totalFees: 0, // Will be calculated from monthly breakdown
           averageDaysHeld: 0,
           bestMonth: { month: '', pnl: -Infinity, ror: 0, preciseRoR: 0, annualizedRoR: 0, preciseAnnualizedRoR: 0, capitalDeployed: 0, trades: 0 },
           worstMonth: { month: '', pnl: Infinity, ror: 0, preciseRoR: 0, annualizedRoR: 0, preciseAnnualizedRoR: 0, capitalDeployed: 0, trades: 0 },
           monthlyBreakdown: []
         };
       }
-
-      const pnl = transaction.profitLoss || 0;
-      const fees = transaction.fees || 0;
-      const daysHeld = calculateDaysHeld(transaction.tradeOpenDate, transaction.closeDate || new Date());
-
-      yearlyData[year].totalPnL += pnl;
-      yearlyData[year].totalTrades += 1;
-      yearlyData[year].totalFees += fees;
-      yearlyData[year].averageDaysHeld += daysHeld;
-
-      if (pnl > 0) {
-        yearlyData[year].winningTrades += 1;
-      } else if (pnl < 0) {
-        yearlyData[year].losingTrades += 1;
-      }
     });
 
-    // Calculate win rates and averages
-    Object.values(yearlyData).forEach(yearData => {
-      yearData.winRate = yearData.totalTrades > 0 ? (yearData.winningTrades / yearData.totalTrades) * 100 : 0;
-      yearData.averageDaysHeld = yearData.totalTrades > 0 ? yearData.averageDaysHeld / yearData.totalTrades : 0;
-    });
+    // Note: totalPnL, totalTrades, and totalFees will be calculated from monthly breakdown below
+    // This ensures perfect consistency between yearly and monthly sums
 
     // Calculate monthly breakdowns using chain-aware P&L attribution
     Object.values(yearlyData).forEach(yearData => {
@@ -146,7 +129,15 @@ export default function SummaryView({ transactions, selectedPortfolioName, chain
 
       yearData.monthlyBreakdown = Object.values(monthlyData).sort((a, b) => a.month - b.month);
 
+      // IMPORTANT: Use monthly breakdown as source of truth for yearly totals
+      // This ensures perfect consistency between yearly and monthly sums
+      yearData.totalPnL = yearData.monthlyBreakdown.reduce((sum, month) => sum + month.totalPnL, 0);
+      yearData.totalTrades = yearData.monthlyBreakdown.reduce((sum, month) => sum + month.totalTrades, 0);
+      yearData.totalFees = yearData.monthlyBreakdown.reduce((sum, month) => sum + month.fees, 0);
+
       // Calculate win rates for each month using chain-aware logic
+      let yearlyWinningTrades = 0;
+
       yearData.monthlyBreakdown.forEach(monthData => {
         const monthTransactions = completedTransactions.filter(t => {
           const closeDate = parseLocalDate(t.closeDate!);
@@ -175,7 +166,12 @@ export default function SummaryView({ transactions, selectedPortfolioName, chain
         });
 
         monthData.winRate = monthData.totalTrades > 0 ? (winningTrades / monthData.totalTrades) * 100 : 0;
+        yearlyWinningTrades += winningTrades;
       });
+
+      // Calculate yearly win rate hierarchically using the sum of winning trades
+      yearData.winningTrades = yearlyWinningTrades;
+      yearData.winRate = yearData.totalTrades > 0 ? (yearData.winningTrades / yearData.totalTrades) * 100 : 0;
 
       // Find best and worst months with enhanced metrics
       if (yearData.monthlyBreakdown.length > 0) {
@@ -187,29 +183,9 @@ export default function SummaryView({ transactions, selectedPortfolioName, chain
             return effectiveCloseDate.getFullYear() === yearData.year && effectiveCloseDate.getMonth() === monthData.month;
           });
 
-          // Calculate chain-aware collateral (skip rolled transactions, average for chains)
-          let totalCollateral = 0;
-          const processedChains = new Set<string>();
-
-          monthTransactions.forEach(t => {
-            // Skip rolled transactions
-            if (t.status === 'Rolled') return;
-
-            if (t.chainId && !processedChains.has(t.chainId)) {
-              // For chains, calculate average collateral
-              const chain = chains.find(c => c.id === t.chainId);
-              if (chain && chain.chainStatus === 'Closed') {
-                const chainTransactions = monthTransactions.filter(ct => ct.chainId === t.chainId);
-                const chainCollateralSum = chainTransactions.reduce((sum, ct) => sum + calculateCollateral(ct), 0);
-                const avgChainCollateral = chainCollateralSum / chainTransactions.length;
-                totalCollateral += avgChainCollateral;
-                processedChains.add(t.chainId);
-              }
-            } else if (!t.chainId) {
-              // For independent trades, add collateral directly
-              totalCollateral += calculateCollateral(t);
-            }
-          });
+          // Use smart capital calculation (overlap-aware) for monthly views
+          const capitalResult = calculateSmartCapital(monthTransactions, chains);
+          const totalCollateral = capitalResult.totalCapital;
 
           const totalPnL = monthTransactions.reduce((sum, t) => sum + (t.profitLoss || 0), 0);
           const ror = totalCollateral > 0 ? (totalPnL / totalCollateral * 100) : 0;
@@ -259,21 +235,25 @@ export default function SummaryView({ transactions, selectedPortfolioName, chain
 
   const overallStats = useMemo(() => {
     const realizedTransactions = getRealizedTransactions(transactions, chains);
-    const totalPnL = calculateTotalRealizedPnL(transactions);
-    const totalTrades = realizedTransactions.length;
-    const winningTrades = realizedTransactions.filter(t => (t.profitLoss || 0) > 0).length;
-    const totalFees = realizedTransactions.reduce((sum, t) => sum + (t.fees || 0), 0);
+
+    // Calculate all-time P&L by summing yearly totals (which are sums of monthly breakdowns)
+    // This ensures perfect consistency: Monthly -> Yearly -> All-Time
+    const totalPnL = yearlySummaries.reduce((sum, year) => sum + year.totalPnL, 0);
+
+    const totalTrades = yearlySummaries.reduce((sum, year) => sum + year.totalTrades, 0);
+    const totalWinningTrades = yearlySummaries.reduce((sum, year) => sum + (year.winningTrades || 0), 0);
+    const totalFees = yearlySummaries.reduce((sum, year) => sum + year.totalFees, 0);
 
     return {
       totalPnL,
       totalTrades,
-      winRate: totalTrades > 0 ? (winningTrades / totalTrades) * 100 : 0,
+      winRate: totalTrades > 0 ? (totalWinningTrades / totalTrades) * 100 : 0,
       totalFees,
       averageDaysHeld: realizedTransactions.length > 0
         ? realizedTransactions.reduce((sum, t) => sum + calculateDaysHeld(t.tradeOpenDate, t.closeDate || new Date()), 0) / realizedTransactions.length
         : 0
     };
-  }, [transactions, chains]);
+  }, [transactions, chains, yearlySummaries]);
 
   const strategyPerformance = useMemo(() => {
     return calculateStrategyPerformance(transactions, chains);
@@ -291,13 +271,16 @@ export default function SummaryView({ transactions, selectedPortfolioName, chain
 
     return yearSummary.monthlyBreakdown.map(month => {
       // Calculate RoR for this month by getting all transactions for this month
-      const monthTransactions = getRealizedTransactions(transactions).filter(t => {
+      const monthTransactions = getRealizedTransactions(transactions, chains).filter(t => {
         if (!t.closeDate) return false;
-        const closeDate = parseLocalDate(t.closeDate);
-        return closeDate.getFullYear() === year && closeDate.getMonth() === month.month;
+        const effectiveCloseDate = getEffectiveCloseDate(t, getRealizedTransactions(transactions, chains), chains);
+        return effectiveCloseDate.getFullYear() === year && effectiveCloseDate.getMonth() === month.month;
       });
 
-      const totalCollateral = monthTransactions.reduce((sum, t) => sum + calculateCollateral(t), 0);
+      // Use smart capital calculation (overlap-aware) for monthly chart data
+      const capitalResult = calculateSmartCapital(monthTransactions, chains);
+      const totalCollateral = capitalResult.totalCapital;
+
       const ror = totalCollateral > 0 ? (month.totalPnL / totalCollateral * 100) : 0;
 
       return {
@@ -315,18 +298,29 @@ export default function SummaryView({ transactions, selectedPortfolioName, chain
       return closeDate.getFullYear() === year;
     });
 
-    // Use chain-aware stock performance calculation
+    // For YEARLY stock views, we CAN use overlap detection because all trades
+    // opened and closed within the same year, so date ranges are meaningful
     const yearTickerTotals = calculateChainAwareStockPerformance(realizedTransactions, chains);
+    const capitalResult = calculateSmartCapital(realizedTransactions, chains);
+
+    // Create a map of stock to capital from the breakdown
+    const stockCapitalMap = new Map<string, number>();
+    capitalResult.breakdown.forEach(item => {
+      stockCapitalMap.set(item.stock, item.capital);
+    });
 
     const allTickers = Array.from(yearTickerTotals.entries())
-      .map(([ticker, data]) => ({
-        ticker,
-        pnl: Math.round(data.pnl),
-        ror: data.totalCollateral > 0 ? Number((data.pnl / data.totalCollateral * 100).toFixed(1)) : 0,
-        trades: data.trades,
-        totalCollateral: data.totalCollateral,
-        annualizedRoR: data.totalCollateral > 0 ? Number(((data.pnl / data.totalCollateral) * (365 / 30) * 100).toFixed(1)) : 0
-      }))
+      .map(([ticker, data]) => {
+        const capital = stockCapitalMap.get(ticker) || data.totalCollateral;
+        return {
+          ticker,
+          pnl: Math.round(data.pnl),
+          ror: capital > 0 ? Number((data.pnl / capital * 100).toFixed(1)) : 0,
+          trades: data.trades,
+          totalCollateral: capital,
+          annualizedRoR: capital > 0 ? Number(((data.pnl / capital) * (365 / 30) * 100).toFixed(1)) : 0
+        };
+      })
       .sort((a, b) => b.pnl - a.pnl);
 
     return allTickers;
@@ -382,10 +376,10 @@ export default function SummaryView({ transactions, selectedPortfolioName, chain
   }, [transactions]);
 
   // Calculate quick stats data
-  const preciseAvgRoR = calculatePortfolioRoR(transactions);
+  const preciseAvgRoR = calculateSmartPortfolioRoR(transactions, chains);
 
   // Use the common function to calculate yearly annualized RoR with active months
-  const yearlyRoRData = calculateYearlyAnnualizedRoRWithActiveMonths(transactions);
+  const yearlyRoRData = calculateYearlyAnnualizedRoRWithActiveMonths(transactions, chains);
   const activeTradingDays = yearlyRoRData.activeTradingDays;
 
   // For consistency, use the same active trading days approach for all-time calculation
