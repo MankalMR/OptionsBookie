@@ -2256,294 +2256,6 @@ describe('optionsCalculations', () => {
   describe('calculateAnnualizedRoR', () => {
     it('should calculate annualized RoR correctly for normal trades', () => {
       const transaction = createMockTransaction({
-      stockSymbol: 'AAPL',
-      callOrPut: 'Put',
-      buyOrSell: 'Sell',
-      strikePrice: 150,
-      premium: 2.00,
-      numberOfContracts: 1,
-      fees: 1.32,
-      status: 'Closed',
-      tradeOpenDate: '2025-01-01',
-      closeDate: '2025-01-31', // 30 days
-      profitLoss: 200 - 1.32 // $198.68 profit
-    });
-
-    const annualizedRoR = calculateAnnualizedRoR(transaction);
-    const expectedRoR = calculateRoR(transaction); // ~1.32%
-    const expectedAnnualizedRoR = (expectedRoR * 365) / 30; // ~16.1%
-
-    expect(annualizedRoR).toBeCloseTo(expectedAnnualizedRoR, 1);
-    expect(annualizedRoR).toBeGreaterThan(expectedRoR); // Should be higher than regular RoR
-  });
-
-  it('should handle same-day trades with 0.5 day minimum', () => {
-    const transaction = createMockTransaction({
-      stockSymbol: 'AAPL',
-      callOrPut: 'Put',
-      buyOrSell: 'Sell',
-      strikePrice: 150,
-      premium: 2.00,
-      numberOfContracts: 1,
-      fees: 1.32,
-      status: 'Closed',
-      tradeOpenDate: '2025-01-01',
-      closeDate: '2025-01-01', // Same day = 0 days held
-      profitLoss: 100 - 1.32
-    });
-
-    const annualizedRoR = calculateAnnualizedRoR(transaction);
-    const expectedRoR = calculateRoR(transaction);
-    const expectedAnnualizedRoR = (expectedRoR * 365) / 0.5; // Use 0.5 days for same-day trades
-
-    expect(annualizedRoR).toBeCloseTo(expectedAnnualizedRoR, 1);
-    expect(annualizedRoR).toBeGreaterThan(expectedRoR * 700); // Should be very high (730x)
-  });
-
-  it('should return NaN for invalid negative days held', () => {
-    const transaction = createMockTransaction({
-      stockSymbol: 'AAPL',
-      status: 'Closed',
-      tradeOpenDate: '2025-01-31',
-      closeDate: '2025-01-01', // Close before open = negative days
-      profitLoss: 100
-    });
-
-    const annualizedRoR = calculateAnnualizedRoR(transaction);
-    expect(annualizedRoR).toBeNaN();
-  });
-
-  it('should return 0 for zero RoR trades', () => {
-    const transaction = createMockTransaction({
-      stockSymbol: 'AAPL',
-      status: 'Closed',
-      tradeOpenDate: '2025-01-01',
-      closeDate: '2025-01-15',
-      profitLoss: 0 // Zero profit/loss
-    });
-
-    const annualizedRoR = calculateAnnualizedRoR(transaction);
-    expect(annualizedRoR).toBe(0);
-  });
-
-  it('should return 0 for open trades (no close date)', () => {
-    const transaction = createMockTransaction({
-      stockSymbol: 'AAPL',
-      status: 'Open',
-      closeDate: null,
-      profitLoss: 0
-    });
-
-    const annualizedRoR = calculateAnnualizedRoR(transaction);
-    expect(annualizedRoR).toBe(0);
-  });
-
-  it('should handle negative RoR correctly', () => {
-    const transaction = createMockTransaction({
-      stockSymbol: 'AAPL',
-      callOrPut: 'Put',
-      buyOrSell: 'Sell',
-      strikePrice: 150,
-      premium: 2.00,
-      numberOfContracts: 1,
-      fees: 1.32,
-      status: 'Closed',
-      tradeOpenDate: '2025-01-01',
-      closeDate: '2025-01-08', // 7 days
-      profitLoss: -300 - 1.32 // Loss
-    });
-
-    const annualizedRoR = calculateAnnualizedRoR(transaction);
-    const expectedRoR = calculateRoR(transaction); // Negative
-    const expectedAnnualizedRoR = (expectedRoR * 365) / 7;
-
-    expect(annualizedRoR).toBeCloseTo(expectedAnnualizedRoR, 1);
-    expect(annualizedRoR).toBeLessThan(0); // Should be negative
-  });
-
-  it('should scale correctly with different time periods', () => {
-    const baseTransaction = {
-      stockSymbol: 'AAPL',
-      callOrPut: 'Put' as const,
-      buyOrSell: 'Sell' as const,
-      strikePrice: 150,
-      premium: 2.00,
-      numberOfContracts: 1,
-      fees: 1.32,
-      status: 'Closed' as const,
-      tradeOpenDate: '2025-01-01',
-      profitLoss: 200 - 1.32
-    };
-
-    // 1 day trade
-    const oneDayTrade = createMockTransaction({
-      ...baseTransaction,
-      closeDate: '2025-01-02'
-    });
-
-    // 365 day trade (1 year)
-    const oneYearTrade = createMockTransaction({
-      ...baseTransaction,
-      closeDate: '2025-12-31'
-    });
-
-    const oneDayAnnualized = calculateAnnualizedRoR(oneDayTrade);
-    const oneYearAnnualized = calculateAnnualizedRoR(oneYearTrade);
-    const regularRoR = calculateRoR(oneYearTrade);
-
-    // 1-day trade should have much higher annualized return
-    expect(oneDayAnnualized).toBeGreaterThan(oneYearAnnualized * 300);
-
-    // 1-year trade annualized RoR should equal regular RoR
-    expect(oneYearAnnualized).toBeCloseTo(regularRoR, 1);
-  });
-});
-
-describe('calculatePortfolioAnnualizedRoR', () => {
-  it('should calculate weighted average annualized RoR correctly', () => {
-    const transactions = [
-      // Small trade with high annualized return (short duration)
-      createMockTransaction({
-        stockSymbol: 'AAPL',
-        callOrPut: 'Put',
-        buyOrSell: 'Sell',
-        strikePrice: 100, // Lower collateral
-        premium: 1.00,
-        numberOfContracts: 1,
-        fees: 1.32,
-        status: 'Closed',
-        tradeOpenDate: '2025-01-01',
-        closeDate: '2025-01-02', // 1 day
-        profitLoss: 100 - 1.32
-      }),
-      // Large trade with lower annualized return (longer duration)
-      createMockTransaction({
-        stockSymbol: 'MSFT',
-        callOrPut: 'Put',
-        buyOrSell: 'Sell',
-        strikePrice: 500, // Higher collateral
-        premium: 5.00,
-        numberOfContracts: 2,
-        fees: 1.32,
-        status: 'Closed',
-        tradeOpenDate: '2025-01-01',
-        closeDate: '2025-02-01', // 31 days
-        profitLoss: 200 - 1.32
-      })
-    ];
-
-    const portfolioAnnualizedRoR = calculatePortfolioAnnualizedRoR(transactions);
-
-    // Should be weighted by capital, so closer to the larger trade's annualized RoR
-    const largeTradeAnnualizedRoR = calculateAnnualizedRoR(transactions[1]);
-    const smallTradeAnnualizedRoR = calculateAnnualizedRoR(transactions[0]);
-
-    expect(portfolioAnnualizedRoR).toBeGreaterThan(0);
-    expect(portfolioAnnualizedRoR).toBeLessThan(smallTradeAnnualizedRoR); // Should be less than the high short-term return
-
-    // Portfolio should be closer to large trade due to capital weighting
-    // But since the small trade has extremely high annualized return (1-day),
-    // the portfolio will be somewhere between them, weighted by capital
-    expect(portfolioAnnualizedRoR).toBeGreaterThan(largeTradeAnnualizedRoR); // Will be higher due to small trade influence
-    expect(portfolioAnnualizedRoR).toBeLessThan(smallTradeAnnualizedRoR * 0.5); // But much less than small trade
-  });
-
-  it('should only include realized transactions', () => {
-    const transactions = [
-      // Open trade (should be excluded)
-      createMockTransaction({
-        stockSymbol: 'AAPL',
-        status: 'Open',
-        profitLoss: 0
-      }),
-      // Closed trade (should be included)
-      createMockTransaction({
-        stockSymbol: 'MSFT',
-        callOrPut: 'Put',
-        buyOrSell: 'Sell',
-        strikePrice: 200,
-        premium: 3.00,
-        numberOfContracts: 1,
-        fees: 1.32,
-        status: 'Closed',
-        tradeOpenDate: '2025-01-01',
-        closeDate: '2025-01-15',
-        profitLoss: 300 - 1.32
-      })
-    ];
-
-    const portfolioAnnualizedRoR = calculatePortfolioAnnualizedRoR(transactions);
-    const closedTradeAnnualizedRoR = calculateAnnualizedRoR(transactions[1]);
-
-    // Should equal the single closed trade's annualized RoR
-    expect(portfolioAnnualizedRoR).toBeCloseTo(closedTradeAnnualizedRoR, 2);
-  });
-
-  it('should return 0 for empty transactions', () => {
-    const portfolioAnnualizedRoR = calculatePortfolioAnnualizedRoR([]);
-    expect(portfolioAnnualizedRoR).toBe(0);
-  });
-
-  it('should return 0 when no realized transactions exist', () => {
-    const transactions = [
-      createMockTransaction({
-        stockSymbol: 'AAPL',
-        status: 'Open',
-        profitLoss: 0
-      }),
-      createMockTransaction({
-        stockSymbol: 'MSFT',
-        status: 'Rolled',
-        profitLoss: 100
-      })
-    ];
-
-    const portfolioAnnualizedRoR = calculatePortfolioAnnualizedRoR(transactions);
-    expect(portfolioAnnualizedRoR).toBe(0);
-  });
-
-  it('should handle zero collateral trades gracefully', () => {
-    const transactions = [
-      // Zero collateral trade (long call with zero premium)
-      createMockTransaction({
-        stockSymbol: 'AAPL',
-        callOrPut: 'Call',
-        buyOrSell: 'Buy',
-        strikePrice: 150,
-        premium: 0, // Zero premium = zero collateral
-        numberOfContracts: 1,
-        fees: 1.32,
-        status: 'Closed',
-        tradeOpenDate: '2025-01-01',
-        closeDate: '2025-01-15',
-        profitLoss: 100
-      }),
-      // Normal trade
-      createMockTransaction({
-        stockSymbol: 'MSFT',
-        callOrPut: 'Put',
-        buyOrSell: 'Sell',
-        strikePrice: 200,
-        premium: 3.00,
-        numberOfContracts: 1,
-        fees: 1.32,
-        status: 'Closed',
-        tradeOpenDate: '2025-01-01',
-        closeDate: '2025-01-15',
-        profitLoss: 200 - 1.32
-      })
-    ];
-
-    const portfolioAnnualizedRoR = calculatePortfolioAnnualizedRoR(transactions);
-    const normalTradeAnnualizedRoR = calculateAnnualizedRoR(transactions[1]);
-
-    // Should equal the normal trade's annualized RoR (zero collateral trade excluded)
-    expect(portfolioAnnualizedRoR).toBeCloseTo(normalTradeAnnualizedRoR, 2);
-  });
-
-  it('should handle infinite annualized RoR gracefully', () => {
-    const transactions = [
-      createMockTransaction({
         stockSymbol: 'AAPL',
         callOrPut: 'Put',
         buyOrSell: 'Sell',
@@ -2553,21 +2265,20 @@ describe('calculatePortfolioAnnualizedRoR', () => {
         fees: 1.32,
         status: 'Closed',
         tradeOpenDate: '2025-01-01',
-        closeDate: '2025-01-01', // Same day - will use 0.5 days
-        profitLoss: 200 - 1.32
-      })
-    ];
+        closeDate: '2025-01-31', // 30 days
+        profitLoss: 200 - 1.32 // $198.68 profit
+      });
 
-    const portfolioAnnualizedRoR = calculatePortfolioAnnualizedRoR(transactions);
+      const annualizedRoR = calculateAnnualizedRoR(transaction);
+      const expectedRoR = calculateRoR(transaction); // ~1.32%
+      const expectedAnnualizedRoR = (expectedRoR * 365) / 30; // ~16.1%
 
-    // Should be finite (using 0.5 days for same-day trades)
-    expect(isFinite(portfolioAnnualizedRoR)).toBe(true);
-    expect(portfolioAnnualizedRoR).toBeGreaterThan(0);
-  });
+      expect(annualizedRoR).toBeCloseTo(expectedAnnualizedRoR, 1);
+      expect(annualizedRoR).toBeGreaterThan(expectedRoR); // Should be higher than regular RoR
+    });
 
-  it('should handle negative portfolio annualized RoR correctly', () => {
-    const transactions = [
-      createMockTransaction({
+    it('should handle same-day trades with 0.5 day minimum', () => {
+      const transaction = createMockTransaction({
         stockSymbol: 'AAPL',
         callOrPut: 'Put',
         buyOrSell: 'Sell',
@@ -2577,57 +2288,346 @@ describe('calculatePortfolioAnnualizedRoR', () => {
         fees: 1.32,
         status: 'Closed',
         tradeOpenDate: '2025-01-01',
+        closeDate: '2025-01-01', // Same day = 0 days held
+        profitLoss: 100 - 1.32
+      });
+
+      const annualizedRoR = calculateAnnualizedRoR(transaction);
+      const expectedRoR = calculateRoR(transaction);
+      const expectedAnnualizedRoR = (expectedRoR * 365) / 0.5; // Use 0.5 days for same-day trades
+
+      expect(annualizedRoR).toBeCloseTo(expectedAnnualizedRoR, 1);
+      expect(annualizedRoR).toBeGreaterThan(expectedRoR * 700); // Should be very high (730x)
+    });
+
+    it('should return NaN for invalid negative days held', () => {
+      const transaction = createMockTransaction({
+        stockSymbol: 'AAPL',
+        status: 'Closed',
+        tradeOpenDate: '2025-01-31',
+        closeDate: '2025-01-01', // Close before open = negative days
+        profitLoss: 100
+      });
+
+      const annualizedRoR = calculateAnnualizedRoR(transaction);
+      expect(annualizedRoR).toBeNaN();
+    });
+
+    it('should return 0 for zero RoR trades', () => {
+      const transaction = createMockTransaction({
+        stockSymbol: 'AAPL',
+        status: 'Closed',
+        tradeOpenDate: '2025-01-01',
         closeDate: '2025-01-15',
-        profitLoss: -500 - 1.32 // Large loss
-      })
-    ];
+        profitLoss: 0 // Zero profit/loss
+      });
 
-    const portfolioAnnualizedRoR = calculatePortfolioAnnualizedRoR(transactions);
-    const individualAnnualizedRoR = calculateAnnualizedRoR(transactions[0]);
+      const annualizedRoR = calculateAnnualizedRoR(transaction);
+      expect(annualizedRoR).toBe(0);
+    });
 
-    expect(portfolioAnnualizedRoR).toBeLessThan(0);
-    expect(portfolioAnnualizedRoR).toBeCloseTo(individualAnnualizedRoR, 2);
-  });
+    it('should return 0 for open trades (no close date)', () => {
+      const transaction = createMockTransaction({
+        stockSymbol: 'AAPL',
+        status: 'Open',
+        closeDate: null,
+        profitLoss: 0
+      });
 
-  it('should weight by capital deployment correctly', () => {
-    const transactions = [
-      // Small capital, high annualized return
-      createMockTransaction({
+      const annualizedRoR = calculateAnnualizedRoR(transaction);
+      expect(annualizedRoR).toBe(0);
+    });
+
+    it('should handle negative RoR correctly', () => {
+      const transaction = createMockTransaction({
         stockSymbol: 'AAPL',
         callOrPut: 'Put',
         buyOrSell: 'Sell',
-        strikePrice: 50, // Low collateral: $5,000
-        premium: 1.00,
+        strikePrice: 150,
+        premium: 2.00,
         numberOfContracts: 1,
         fees: 1.32,
         status: 'Closed',
         tradeOpenDate: '2025-01-01',
-        closeDate: '2025-01-02', // 1 day - very high annualized return
-        profitLoss: 100 - 1.32
-      }),
-      // Large capital, moderate annualized return
-      createMockTransaction({
-        stockSymbol: 'MSFT',
-        callOrPut: 'Put',
-        buyOrSell: 'Sell',
-        strikePrice: 400, // High collateral: $40,000
-        premium: 4.00,
+        closeDate: '2025-01-08', // 7 days
+        profitLoss: -300 - 1.32 // Loss
+      });
+
+      const annualizedRoR = calculateAnnualizedRoR(transaction);
+      const expectedRoR = calculateRoR(transaction); // Negative
+      const expectedAnnualizedRoR = (expectedRoR * 365) / 7;
+
+      expect(annualizedRoR).toBeCloseTo(expectedAnnualizedRoR, 1);
+      expect(annualizedRoR).toBeLessThan(0); // Should be negative
+    });
+
+    it('should scale correctly with different time periods', () => {
+      const baseTransaction = {
+        stockSymbol: 'AAPL',
+        callOrPut: 'Put' as const,
+        buyOrSell: 'Sell' as const,
+        strikePrice: 150,
+        premium: 2.00,
         numberOfContracts: 1,
         fees: 1.32,
-        status: 'Closed',
+        status: 'Closed' as const,
         tradeOpenDate: '2025-01-01',
-        closeDate: '2025-01-31', // 30 days - moderate annualized return
         profitLoss: 200 - 1.32
-      })
-    ];
+      };
 
-    const portfolioAnnualizedRoR = calculatePortfolioAnnualizedRoR(transactions);
-    const smallTradeAnnualizedRoR = calculateAnnualizedRoR(transactions[0]);
-    const largeTradeAnnualizedRoR = calculateAnnualizedRoR(transactions[1]);
+      // 1 day trade
+      const oneDayTrade = createMockTransaction({
+        ...baseTransaction,
+        closeDate: '2025-01-02'
+      });
 
-    // Portfolio should be closer to large trade due to capital weighting
-    expect(Math.abs(portfolioAnnualizedRoR - largeTradeAnnualizedRoR))
-      .toBeLessThan(Math.abs(portfolioAnnualizedRoR - smallTradeAnnualizedRoR));
+      // 365 day trade (1 year)
+      const oneYearTrade = createMockTransaction({
+        ...baseTransaction,
+        closeDate: '2025-12-31'
+      });
+
+      const oneDayAnnualized = calculateAnnualizedRoR(oneDayTrade);
+      const oneYearAnnualized = calculateAnnualizedRoR(oneYearTrade);
+      const regularRoR = calculateRoR(oneYearTrade);
+
+      // 1-day trade should have much higher annualized return
+      expect(oneDayAnnualized).toBeGreaterThan(oneYearAnnualized * 300);
+
+      // 1-year trade annualized RoR should equal regular RoR
+      expect(oneYearAnnualized).toBeCloseTo(regularRoR, 1);
+    });
+  });
+
+  describe('calculatePortfolioAnnualizedRoR', () => {
+    it('should calculate weighted average annualized RoR correctly', () => {
+      const transactions = [
+        // Small trade with high annualized return (short duration)
+        createMockTransaction({
+          stockSymbol: 'AAPL',
+          callOrPut: 'Put',
+          buyOrSell: 'Sell',
+          strikePrice: 100, // Lower collateral
+          premium: 1.00,
+          numberOfContracts: 1,
+          fees: 1.32,
+          status: 'Closed',
+          tradeOpenDate: '2025-01-01',
+          closeDate: '2025-01-02', // 1 day
+          profitLoss: 100 - 1.32
+        }),
+        // Large trade with lower annualized return (longer duration)
+        createMockTransaction({
+          stockSymbol: 'MSFT',
+          callOrPut: 'Put',
+          buyOrSell: 'Sell',
+          strikePrice: 500, // Higher collateral
+          premium: 5.00,
+          numberOfContracts: 2,
+          fees: 1.32,
+          status: 'Closed',
+          tradeOpenDate: '2025-01-01',
+          closeDate: '2025-02-01', // 31 days
+          profitLoss: 200 - 1.32
+        })
+      ];
+
+      const portfolioAnnualizedRoR = calculatePortfolioAnnualizedRoR(transactions);
+
+      // Should be weighted by capital, so closer to the larger trade's annualized RoR
+      const largeTradeAnnualizedRoR = calculateAnnualizedRoR(transactions[1]);
+      const smallTradeAnnualizedRoR = calculateAnnualizedRoR(transactions[0]);
+
+      expect(portfolioAnnualizedRoR).toBeGreaterThan(0);
+      expect(portfolioAnnualizedRoR).toBeLessThan(smallTradeAnnualizedRoR); // Should be less than the high short-term return
+
+      // Portfolio should be closer to large trade due to capital weighting
+      // But since the small trade has extremely high annualized return (1-day),
+      // the portfolio will be somewhere between them, weighted by capital
+      expect(portfolioAnnualizedRoR).toBeGreaterThan(largeTradeAnnualizedRoR); // Will be higher due to small trade influence
+      expect(portfolioAnnualizedRoR).toBeLessThan(smallTradeAnnualizedRoR * 0.5); // But much less than small trade
+    });
+
+    it('should only include realized transactions', () => {
+      const transactions = [
+        // Open trade (should be excluded)
+        createMockTransaction({
+          stockSymbol: 'AAPL',
+          status: 'Open',
+          profitLoss: 0
+        }),
+        // Closed trade (should be included)
+        createMockTransaction({
+          stockSymbol: 'MSFT',
+          callOrPut: 'Put',
+          buyOrSell: 'Sell',
+          strikePrice: 200,
+          premium: 3.00,
+          numberOfContracts: 1,
+          fees: 1.32,
+          status: 'Closed',
+          tradeOpenDate: '2025-01-01',
+          closeDate: '2025-01-15',
+          profitLoss: 300 - 1.32
+        })
+      ];
+
+      const portfolioAnnualizedRoR = calculatePortfolioAnnualizedRoR(transactions);
+      const closedTradeAnnualizedRoR = calculateAnnualizedRoR(transactions[1]);
+
+      // Should equal the single closed trade's annualized RoR
+      expect(portfolioAnnualizedRoR).toBeCloseTo(closedTradeAnnualizedRoR, 2);
+    });
+
+    it('should return 0 for empty transactions', () => {
+      const portfolioAnnualizedRoR = calculatePortfolioAnnualizedRoR([]);
+      expect(portfolioAnnualizedRoR).toBe(0);
+    });
+
+    it('should return 0 when no realized transactions exist', () => {
+      const transactions = [
+        createMockTransaction({
+          stockSymbol: 'AAPL',
+          status: 'Open',
+          profitLoss: 0
+        }),
+        createMockTransaction({
+          stockSymbol: 'MSFT',
+          status: 'Rolled',
+          profitLoss: 100
+        })
+      ];
+
+      const portfolioAnnualizedRoR = calculatePortfolioAnnualizedRoR(transactions);
+      expect(portfolioAnnualizedRoR).toBe(0);
+    });
+
+    it('should handle zero collateral trades gracefully', () => {
+      const transactions = [
+        // Zero collateral trade (long call with zero premium)
+        createMockTransaction({
+          stockSymbol: 'AAPL',
+          callOrPut: 'Call',
+          buyOrSell: 'Buy',
+          strikePrice: 150,
+          premium: 0, // Zero premium = zero collateral
+          numberOfContracts: 1,
+          fees: 1.32,
+          status: 'Closed',
+          tradeOpenDate: '2025-01-01',
+          closeDate: '2025-01-15',
+          profitLoss: 100
+        }),
+        // Normal trade
+        createMockTransaction({
+          stockSymbol: 'MSFT',
+          callOrPut: 'Put',
+          buyOrSell: 'Sell',
+          strikePrice: 200,
+          premium: 3.00,
+          numberOfContracts: 1,
+          fees: 1.32,
+          status: 'Closed',
+          tradeOpenDate: '2025-01-01',
+          closeDate: '2025-01-15',
+          profitLoss: 200 - 1.32
+        })
+      ];
+
+      const portfolioAnnualizedRoR = calculatePortfolioAnnualizedRoR(transactions);
+      const normalTradeAnnualizedRoR = calculateAnnualizedRoR(transactions[1]);
+
+      // Should equal the normal trade's annualized RoR (zero collateral trade excluded)
+      expect(portfolioAnnualizedRoR).toBeCloseTo(normalTradeAnnualizedRoR, 2);
+    });
+
+    it('should handle infinite annualized RoR gracefully', () => {
+      const transactions = [
+        createMockTransaction({
+          stockSymbol: 'AAPL',
+          callOrPut: 'Put',
+          buyOrSell: 'Sell',
+          strikePrice: 150,
+          premium: 2.00,
+          numberOfContracts: 1,
+          fees: 1.32,
+          status: 'Closed',
+          tradeOpenDate: '2025-01-01',
+          closeDate: '2025-01-01', // Same day - will use 0.5 days
+          profitLoss: 200 - 1.32
+        })
+      ];
+
+      const portfolioAnnualizedRoR = calculatePortfolioAnnualizedRoR(transactions);
+
+      // Should be finite (using 0.5 days for same-day trades)
+      expect(isFinite(portfolioAnnualizedRoR)).toBe(true);
+      expect(portfolioAnnualizedRoR).toBeGreaterThan(0);
+    });
+
+    it('should handle negative portfolio annualized RoR correctly', () => {
+      const transactions = [
+        createMockTransaction({
+          stockSymbol: 'AAPL',
+          callOrPut: 'Put',
+          buyOrSell: 'Sell',
+          strikePrice: 150,
+          premium: 2.00,
+          numberOfContracts: 1,
+          fees: 1.32,
+          status: 'Closed',
+          tradeOpenDate: '2025-01-01',
+          closeDate: '2025-01-15',
+          profitLoss: -500 - 1.32 // Large loss
+        })
+      ];
+
+      const portfolioAnnualizedRoR = calculatePortfolioAnnualizedRoR(transactions);
+      const individualAnnualizedRoR = calculateAnnualizedRoR(transactions[0]);
+
+      expect(portfolioAnnualizedRoR).toBeLessThan(0);
+      expect(portfolioAnnualizedRoR).toBeCloseTo(individualAnnualizedRoR, 2);
+    });
+
+    it('should weight by capital deployment correctly', () => {
+      const transactions = [
+        // Small capital, high annualized return
+        createMockTransaction({
+          stockSymbol: 'AAPL',
+          callOrPut: 'Put',
+          buyOrSell: 'Sell',
+          strikePrice: 50, // Low collateral: $5,000
+          premium: 1.00,
+          numberOfContracts: 1,
+          fees: 1.32,
+          status: 'Closed',
+          tradeOpenDate: '2025-01-01',
+          closeDate: '2025-01-02', // 1 day - very high annualized return
+          profitLoss: 100 - 1.32
+        }),
+        // Large capital, moderate annualized return
+        createMockTransaction({
+          stockSymbol: 'MSFT',
+          callOrPut: 'Put',
+          buyOrSell: 'Sell',
+          strikePrice: 400, // High collateral: $40,000
+          premium: 4.00,
+          numberOfContracts: 1,
+          fees: 1.32,
+          status: 'Closed',
+          tradeOpenDate: '2025-01-01',
+          closeDate: '2025-01-31', // 30 days - moderate annualized return
+          profitLoss: 200 - 1.32
+        })
+      ];
+
+      const portfolioAnnualizedRoR = calculatePortfolioAnnualizedRoR(transactions);
+      const smallTradeAnnualizedRoR = calculateAnnualizedRoR(transactions[0]);
+      const largeTradeAnnualizedRoR = calculateAnnualizedRoR(transactions[1]);
+
+      // Portfolio should be closer to large trade due to capital weighting
+      expect(Math.abs(portfolioAnnualizedRoR - largeTradeAnnualizedRoR))
+        .toBeLessThan(Math.abs(portfolioAnnualizedRoR - smallTradeAnnualizedRoR));
     });
   });
 
@@ -2989,197 +2989,197 @@ describe('calculatePortfolioAnnualizedRoR', () => {
       const monthlyRoR = calculatePortfolioRoR(mockTransactions);
       const expected = calculateMonthlyAnnualizedRoR(monthlyRoR);
       expect(result).toBeCloseTo(expected, 2);
-  });
-});
-
-describe('calculateActiveTradingDays', () => {
-  it('should calculate active trading days based on unique months', () => {
-    const transactions = [
-      createMockTransaction({ tradeOpenDate: '2025-01-15' }), // January
-      createMockTransaction({ tradeOpenDate: '2025-01-20' }), // January (same month)
-      createMockTransaction({ tradeOpenDate: '2025-03-10' }), // March
-      createMockTransaction({ tradeOpenDate: '2025-03-25' }), // March (same month)
-      createMockTransaction({ tradeOpenDate: '2025-05-05' }), // May
-    ];
-
-    const result = calculateActiveTradingDays(transactions);
-
-    // 3 unique months (Jan, Mar, May) × 30 = 90 days
-    expect(result).toBe(90);
+    });
   });
 
-  it('should return 0 for empty transactions', () => {
-    const result = calculateActiveTradingDays([]);
-    expect(result).toBe(0);
+  describe('calculateActiveTradingDays', () => {
+    it('should calculate active trading days based on unique months', () => {
+      const transactions = [
+        createMockTransaction({ tradeOpenDate: '2025-01-15' }), // January
+        createMockTransaction({ tradeOpenDate: '2025-01-20' }), // January (same month)
+        createMockTransaction({ tradeOpenDate: '2025-03-10' }), // March
+        createMockTransaction({ tradeOpenDate: '2025-03-25' }), // March (same month)
+        createMockTransaction({ tradeOpenDate: '2025-05-05' }), // May
+      ];
+
+      const result = calculateActiveTradingDays(transactions);
+
+      // 3 unique months (Jan, Mar, May) × 30 = 90 days
+      expect(result).toBe(90);
+    });
+
+    it('should return 0 for empty transactions', () => {
+      const result = calculateActiveTradingDays([]);
+      expect(result).toBe(0);
+    });
+
+    it('should handle single month correctly', () => {
+      const transactions = [
+        createMockTransaction({ tradeOpenDate: new Date('2025-01-01T12:00:00') }),
+        createMockTransaction({ tradeOpenDate: new Date('2025-01-15T12:00:00') }),
+        createMockTransaction({ tradeOpenDate: new Date('2025-01-31T12:00:00') }),
+      ];
+
+      const result = calculateActiveTradingDays(transactions);
+
+      // 1 month × 30 = 30 days
+      expect(result).toBe(30);
+    });
+
+    it('should handle transactions across different years', () => {
+      const transactions = [
+        createMockTransaction({ tradeOpenDate: '2024-12-15' }), // December 2024
+        createMockTransaction({ tradeOpenDate: '2025-01-10' }), // January 2025
+        createMockTransaction({ tradeOpenDate: '2025-02-20' }), // February 2025
+      ];
+
+      const result = calculateActiveTradingDays(transactions);
+
+      // 3 unique months × 30 = 90 days
+      expect(result).toBe(90);
+    });
   });
 
-  it('should handle single month correctly', () => {
-    const transactions = [
-      createMockTransaction({ tradeOpenDate: new Date('2025-01-01T12:00:00') }),
-      createMockTransaction({ tradeOpenDate: new Date('2025-01-15T12:00:00') }),
-      createMockTransaction({ tradeOpenDate: new Date('2025-01-31T12:00:00') }),
-    ];
+  describe('calculateYearlyAnnualizedRoRWithActiveMonths', () => {
+    it('should calculate yearly annualized RoR with active months', () => {
+      const transactions = [
+        createMockTransaction({
+          tradeOpenDate: new Date('2025-01-15T12:00:00'),
+          closeDate: new Date('2025-01-20T12:00:00'),
+          status: 'Closed',
+          profitLoss: 100,
+          premium: 200
+        }),
+        createMockTransaction({
+          tradeOpenDate: new Date('2025-03-10T12:00:00'),
+          closeDate: new Date('2025-03-15T12:00:00'),
+          status: 'Closed',
+          profitLoss: 50,
+          premium: 150
+        }),
+      ];
 
-    const result = calculateActiveTradingDays(transactions);
+      const result = calculateYearlyAnnualizedRoRWithActiveMonths(transactions, [], 2025);
 
-    // 1 month × 30 = 30 days
-    expect(result).toBe(30);
+      // 2 months × 30 = 60 active trading days
+      expect(result.activeTradingDays).toBe(60);
+
+      // Base RoR should be calculated from the transactions
+      expect(result.baseRoR).toBeGreaterThan(0);
+
+      // Annualized RoR = baseRoR × (365 / 60)
+      const expectedAnnualized = result.baseRoR * (365 / 60);
+      expect(result.annualizedRoR).toBeCloseTo(expectedAnnualized, 2);
+    });
+
+    it('should return zeros for empty transactions', () => {
+      const result = calculateYearlyAnnualizedRoRWithActiveMonths([], [], 2025);
+
+      expect(result.annualizedRoR).toBe(0);
+      expect(result.activeTradingDays).toBe(0);
+      expect(result.baseRoR).toBe(0);
+    });
+
+    it('should filter transactions by year correctly', () => {
+      const transactions = [
+        createMockTransaction({
+          tradeOpenDate: '2024-12-15',
+          closeDate: '2024-12-20',
+          profitLoss: 100,
+          premium: 200
+        }),
+        createMockTransaction({
+          tradeOpenDate: '2025-01-10',
+          closeDate: '2025-01-15',
+          profitLoss: 50,
+          premium: 150
+        }),
+      ];
+
+      const result2025 = calculateYearlyAnnualizedRoRWithActiveMonths(transactions, [], 2025);
+      const result2024 = calculateYearlyAnnualizedRoRWithActiveMonths(transactions, [], 2024);
+
+      // 2025 should have 1 month (30 days)
+      expect(result2025.activeTradingDays).toBe(30);
+
+      // 2024 should have 1 month (30 days)
+      expect(result2024.activeTradingDays).toBe(30);
+    });
+
+    it('should use current year when no year specified', () => {
+      const currentYear = new Date().getFullYear();
+      const transactions = [
+        createMockTransaction({
+          tradeOpenDate: new Date(`${currentYear}-01-15T12:00:00`),
+          closeDate: new Date(`${currentYear}-01-20T12:00:00`),
+          status: 'Closed',
+          profitLoss: 100,
+          premium: 200
+        }),
+      ];
+
+      const result = calculateYearlyAnnualizedRoRWithActiveMonths(transactions);
+
+      expect(result.activeTradingDays).toBe(30);
+      expect(result.baseRoR).toBeGreaterThan(0);
+    });
+
+    it('should handle high annualized RoR for short periods', () => {
+      const transactions = [
+        createMockTransaction({
+          tradeOpenDate: new Date('2025-01-15T12:00:00'),
+          closeDate: new Date('2025-01-20T12:00:00'),
+          status: 'Closed',
+          profitLoss: 100,
+          premium: 1000 // 10% monthly return
+        }),
+      ];
+
+      const result = calculateYearlyAnnualizedRoRWithActiveMonths(transactions, [], 2025);
+
+      // 1 month = 30 days, so annualized should be baseRoR × (365/30) ≈ baseRoR × 12.17
+      expect(result.activeTradingDays).toBe(30);
+      expect(result.annualizedRoR).toBeGreaterThan(result.baseRoR * 10); // Should be much higher
+    });
+
+    it('should provide consistent results for All-Time vs Yearly when all transactions are from current year', () => {
+      const currentYear = new Date().getFullYear();
+      const transactions = [
+        createMockTransaction({
+          tradeOpenDate: new Date(`${currentYear}-01-15T12:00:00`),
+          closeDate: new Date(`${currentYear}-01-20T12:00:00`),
+          status: 'Closed',
+          profitLoss: 100,
+          premium: 200
+        }),
+        createMockTransaction({
+          tradeOpenDate: new Date(`${currentYear}-03-10T12:00:00`),
+          closeDate: new Date(`${currentYear}-03-15T12:00:00`),
+          status: 'Closed',
+          profitLoss: 50,
+          premium: 150
+        }),
+      ];
+
+      // Calculate yearly result
+      const yearlyResult = calculateYearlyAnnualizedRoRWithActiveMonths(transactions, [], currentYear);
+
+      // Calculate all-time result (should be same as yearly when all transactions are from current year)
+      const allTimeResult = calculateYearlyAnnualizedRoRWithActiveMonths(transactions);
+
+      // Both should be identical since all transactions are from current year
+      expect(yearlyResult.annualizedRoR).toBeCloseTo(allTimeResult.annualizedRoR, 3);
+      expect(yearlyResult.activeTradingDays).toBe(allTimeResult.activeTradingDays);
+      expect(yearlyResult.baseRoR).toBeCloseTo(allTimeResult.baseRoR, 3);
+
+      // Verify the calculation is using active trading days approach
+      expect(yearlyResult.activeTradingDays).toBe(60); // 2 months × 30
+      expect(yearlyResult.baseRoR).toBeGreaterThan(0);
+      expect(yearlyResult.annualizedRoR).toBeCloseTo(yearlyResult.baseRoR * (365 / 60), 2);
+    });
   });
 
-  it('should handle transactions across different years', () => {
-    const transactions = [
-      createMockTransaction({ tradeOpenDate: '2024-12-15' }), // December 2024
-      createMockTransaction({ tradeOpenDate: '2025-01-10' }), // January 2025
-      createMockTransaction({ tradeOpenDate: '2025-02-20' }), // February 2025
-    ];
-
-    const result = calculateActiveTradingDays(transactions);
-
-    // 3 unique months × 30 = 90 days
-    expect(result).toBe(90);
-  });
-});
-
-describe('calculateYearlyAnnualizedRoRWithActiveMonths', () => {
-  it('should calculate yearly annualized RoR with active months', () => {
-    const transactions = [
-      createMockTransaction({
-        tradeOpenDate: new Date('2025-01-15T12:00:00'),
-        closeDate: new Date('2025-01-20T12:00:00'),
-        status: 'Closed',
-        profitLoss: 100,
-        premium: 200
-      }),
-      createMockTransaction({
-        tradeOpenDate: new Date('2025-03-10T12:00:00'),
-        closeDate: new Date('2025-03-15T12:00:00'),
-        status: 'Closed',
-        profitLoss: 50,
-        premium: 150
-      }),
-    ];
-
-    const result = calculateYearlyAnnualizedRoRWithActiveMonths(transactions, 2025);
-
-    // 2 months × 30 = 60 active trading days
-    expect(result.activeTradingDays).toBe(60);
-
-    // Base RoR should be calculated from the transactions
-    expect(result.baseRoR).toBeGreaterThan(0);
-
-    // Annualized RoR = baseRoR × (365 / 60)
-    const expectedAnnualized = result.baseRoR * (365 / 60);
-    expect(result.annualizedRoR).toBeCloseTo(expectedAnnualized, 2);
-  });
-
-  it('should return zeros for empty transactions', () => {
-    const result = calculateYearlyAnnualizedRoRWithActiveMonths([], 2025);
-
-    expect(result.annualizedRoR).toBe(0);
-    expect(result.activeTradingDays).toBe(0);
-    expect(result.baseRoR).toBe(0);
-  });
-
-  it('should filter transactions by year correctly', () => {
-    const transactions = [
-      createMockTransaction({
-        tradeOpenDate: '2024-12-15',
-        closeDate: '2024-12-20',
-        profitLoss: 100,
-        premium: 200
-      }),
-      createMockTransaction({
-        tradeOpenDate: '2025-01-10',
-        closeDate: '2025-01-15',
-        profitLoss: 50,
-        premium: 150
-      }),
-    ];
-
-    const result2025 = calculateYearlyAnnualizedRoRWithActiveMonths(transactions, 2025);
-    const result2024 = calculateYearlyAnnualizedRoRWithActiveMonths(transactions, 2024);
-
-    // 2025 should have 1 month (30 days)
-    expect(result2025.activeTradingDays).toBe(30);
-
-    // 2024 should have 1 month (30 days)
-    expect(result2024.activeTradingDays).toBe(30);
-  });
-
-  it('should use current year when no year specified', () => {
-    const currentYear = new Date().getFullYear();
-    const transactions = [
-      createMockTransaction({
-        tradeOpenDate: new Date(`${currentYear}-01-15T12:00:00`),
-        closeDate: new Date(`${currentYear}-01-20T12:00:00`),
-        status: 'Closed',
-        profitLoss: 100,
-        premium: 200
-      }),
-    ];
-
-    const result = calculateYearlyAnnualizedRoRWithActiveMonths(transactions);
-
-    expect(result.activeTradingDays).toBe(30);
-    expect(result.baseRoR).toBeGreaterThan(0);
-  });
-
-  it('should handle high annualized RoR for short periods', () => {
-    const transactions = [
-      createMockTransaction({
-        tradeOpenDate: new Date('2025-01-15T12:00:00'),
-        closeDate: new Date('2025-01-20T12:00:00'),
-        status: 'Closed',
-        profitLoss: 100,
-        premium: 1000 // 10% monthly return
-      }),
-    ];
-
-    const result = calculateYearlyAnnualizedRoRWithActiveMonths(transactions, 2025);
-
-    // 1 month = 30 days, so annualized should be baseRoR × (365/30) ≈ baseRoR × 12.17
-    expect(result.activeTradingDays).toBe(30);
-    expect(result.annualizedRoR).toBeGreaterThan(result.baseRoR * 10); // Should be much higher
-  });
-
-  it('should provide consistent results for All-Time vs Yearly when all transactions are from current year', () => {
-    const currentYear = new Date().getFullYear();
-    const transactions = [
-      createMockTransaction({
-        tradeOpenDate: new Date(`${currentYear}-01-15T12:00:00`),
-        closeDate: new Date(`${currentYear}-01-20T12:00:00`),
-        status: 'Closed',
-        profitLoss: 100,
-        premium: 200
-      }),
-      createMockTransaction({
-        tradeOpenDate: new Date(`${currentYear}-03-10T12:00:00`),
-        closeDate: new Date(`${currentYear}-03-15T12:00:00`),
-        status: 'Closed',
-        profitLoss: 50,
-        premium: 150
-      }),
-    ];
-
-    // Calculate yearly result
-    const yearlyResult = calculateYearlyAnnualizedRoRWithActiveMonths(transactions, currentYear);
-
-    // Calculate all-time result (should be same as yearly when all transactions are from current year)
-    const allTimeResult = calculateYearlyAnnualizedRoRWithActiveMonths(transactions);
-
-    // Both should be identical since all transactions are from current year
-    expect(yearlyResult.annualizedRoR).toBeCloseTo(allTimeResult.annualizedRoR, 3);
-    expect(yearlyResult.activeTradingDays).toBe(allTimeResult.activeTradingDays);
-    expect(yearlyResult.baseRoR).toBeCloseTo(allTimeResult.baseRoR, 3);
-
-    // Verify the calculation is using active trading days approach
-    expect(yearlyResult.activeTradingDays).toBe(60); // 2 months × 30
-    expect(yearlyResult.baseRoR).toBeGreaterThan(0);
-    expect(yearlyResult.annualizedRoR).toBeCloseTo(yearlyResult.baseRoR * (365 / 60), 2);
-  });
-});
-
-describe('calculateYearlyPortfolioAnnualizedRoR', () => {
+  describe('calculateYearlyPortfolioAnnualizedRoR', () => {
     const mockTransactions = [
       createMockTransaction({ profitLoss: 240, collateral: 2000 }), // 12% RoR
       createMockTransaction({ profitLoss: 120, collateral: 1000 }),  // 12% RoR
