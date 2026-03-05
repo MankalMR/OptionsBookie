@@ -131,9 +131,17 @@ The persistence layer is a Postgres database hosted on Supabase.
     *   **Triggers**: `update_updated_at_column` helps maintain data integrity.
     *   **Constraints**: `ensure_single_default_portfolio` ensures business rules are enforced at the data level.
 
+### 3.6 Demo Mode Subsystem
+A fully isolated sandbox environment available at `/demo` that allows prospective users to explore the app with realistic simulated data, without requiring Google authentication or touching production data.
+
+For full details, see **[DEMO_ARCHITECTURE.md](./DEMO_ARCHITECTURE.md)**.
+
+*   **Key files**: `src/lib/demo-store.ts`, `src/lib/demo-seed-data.ts`, `src/app/api/demo/**`, `src/app/demo/page.tsx`, `src/components/DemoBanner.tsx`.
+*   **Configuration**: Enable with `ENABLE_DEMO_MODE=1` in environment variables.
+*   **Data isolation**: All demo state lives in an in-memory store; zero production database writes.
+
 ---
 
-## 4. Repository Structure
 
 ```text
 options-bookie/
@@ -163,6 +171,8 @@ options-bookie/
 │   │   └── timeOverlapDetection.ts# Capital efficiency algorithms
 │   └── middleware.ts       # Route protection middleware
 ├── 01-initial-database-setup.sql  # Canonical source for DB Schema & RLS
+├── ARCHITECTURE.md                  # This document — system overview
+├── DEMO_ARCHITECTURE.md             # Demo Mode deep dive
 ├── CAPITAL_CALCULATION_ARCHITECTURE.md # Deep dive into the math engine
 ├── README.md               # User-facing project documentation
 └── package.json            # Dependencies and scripts

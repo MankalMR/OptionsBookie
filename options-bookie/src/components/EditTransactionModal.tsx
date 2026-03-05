@@ -15,9 +15,32 @@ interface EditTransactionModalProps {
   onClose: () => void;
   onSave: (id: string, updates: Partial<OptionsTransaction>) => void;
   portfolios?: Portfolio[];
+  /** Optional override for the roll flow. When provided, replaces the internal
+   *  hardcoded API calls — used by the demo page to redirect to /api/demo/* */
+  onRollTrade?: (rollData: RollTradeData) => Promise<void>;
 }
 
-export default function EditTransactionModal({ transaction, onClose, onSave, portfolios = [] }: EditTransactionModalProps) {
+/** Data shape passed to the optional onRollTrade override. */
+export interface RollTradeData {
+  /** Updates to apply to the *original* transaction (status → Rolled, chainId, exitPrice, …) */
+  originalUpdates: Partial<OptionsTransaction>;
+  /** The fully-constructed new open trade to create */
+  newTrade: Omit<OptionsTransaction, 'id' | 'createdAt' | 'updatedAt'>;
+  /** Resolved chain id if the trade was already in a chain; null = must create new chain */
+  existingChainId: string | null;
+  /** Fields needed to create a new chain when existingChainId is null */
+  newChainData: {
+    portfolioId: string;
+    symbol: string;
+    optionType: string;
+    originalStrikePrice: number;
+    originalOpenDate: string;
+    chainStatus: string;
+    totalChainPnl: number;
+  };
+}
+
+export default function EditTransactionModal({ transaction, onClose, onSave, portfolios = [], onRollTrade }: EditTransactionModalProps) {
   // Ensure dates are Date objects
   const tradeOpenDate = transaction.tradeOpenDate instanceof Date
     ? transaction.tradeOpenDate
@@ -49,10 +72,14 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
     newStrikePrice: transaction.strikePrice,
     newPremium: 0,
     exitPremium: 0,
-        rollFees: transaction.numberOfContracts * 0.66, // Roll fee per contract
+    rollFees: transaction.numberOfContracts * 0.66, // Roll fee per contract
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const formatCurrency = (amount: number) => {
+    return amount < 0 ? `-$${Math.abs(amount).toFixed(2)}` : `$${amount.toFixed(2)}`;
+  };
 
   const calculateDaysToExpiry = (expiryDate: string) => {
     const today = new Date();
@@ -308,11 +335,77 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
 
   const handleRollTrade = async () => {
     try {
-      let chain;
+      // --- Shared data preparation (used by both production & demo paths) ---
+      let rolledProfitLoss = 0;
+      if (formData.buyOrSell === 'Sell') {
+        rolledProfitLoss = (formData.premium - formData.exitPremium) * formData.numberOfContracts * 100;
+      } else {
+        rolledProfitLoss = (formData.exitPremium - formData.premium) * formData.numberOfContracts * 100;
+      }
+      rolledProfitLoss -= formData.fees;
 
-      // Check if this trade is already part of a chain
+      const breakEvenPrice = formData.callOrPut === 'Call'
+        ? formData.newStrikePrice + formData.newPremium
+        : formData.newStrikePrice - formData.newPremium;
+
+      let newProfitLoss = 0;
+      if (formData.buyOrSell === 'Buy') {
+        newProfitLoss = -formData.newPremium * formData.numberOfContracts * 100;
+      } else {
+        newProfitLoss = formData.newPremium * formData.numberOfContracts * 100;
+      }
+      newProfitLoss -= parseFloat(String(formData.rollFees || '0'));
+
+      const originalUpdates = {
+        status: 'Rolled' as const,
+        exitPrice: formData.exitPremium,
+        closeDate: new Date(),
+        profitLoss: rolledProfitLoss,
+      };
+
+      const newTradeBase = {
+        portfolioId: formData.portfolioId,
+        stockSymbol: formData.stockSymbol,
+        tradeOpenDate: new Date(),
+        expiryDate: new Date(formData.newExpiryDate),
+        callOrPut: formData.callOrPut,
+        buyOrSell: formData.buyOrSell,
+        strikePrice: formData.newStrikePrice,
+        premium: formData.newPremium,
+        numberOfContracts: formData.numberOfContracts,
+        fees: formData.rollFees,
+        status: 'Open' as const,
+        breakEvenPrice,
+        profitLoss: newProfitLoss,
+        stockPriceCurrent: 0,
+        annualizedROR: undefined as undefined,
+      };
+
+      const newChainData = {
+        portfolioId: formData.portfolioId,
+        symbol: formData.stockSymbol,
+        optionType: formData.callOrPut,
+        originalStrikePrice: formData.strikePrice,
+        originalOpenDate: formData.tradeOpenDate,
+        chainStatus: 'Active',
+        totalChainPnl: 0,
+      };
+
+      // --- Delegate to onRollTrade override if provided (e.g. demo mode) ---
+      if (onRollTrade) {
+        await onRollTrade({
+          originalUpdates,
+          newTrade: newTradeBase as Omit<OptionsTransaction, 'id' | 'createdAt' | 'updatedAt'>,
+          existingChainId: transaction.chainId ?? null,
+          newChainData,
+        });
+        onClose();
+        return;
+      }
+
+      // --- Production path: use real /api/* endpoints ---
+      let chain;
       if (transaction.chainId) {
-        // Use existing chain
         const existingChainResponse = await fetch(`/api/trade-chains/${transaction.chainId}`);
         if (existingChainResponse.ok) {
           chain = await existingChainResponse.json();
@@ -320,96 +413,18 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
           throw new Error('Failed to fetch existing trade chain');
         }
       } else {
-        // Create a new trade chain if this trade isn't already part of one
-        const chainData = {
-          portfolioId: formData.portfolioId,
-          symbol: formData.stockSymbol,
-          optionType: formData.callOrPut,
-          originalStrikePrice: formData.strikePrice,
-          originalOpenDate: formData.tradeOpenDate,
-          chainStatus: 'Active',
-          totalChainPnl: 0
-        };
-
-        // Create chain via API
         const chainResponse = await fetch('/api/trade-chains', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(chainData)
+          body: JSON.stringify(newChainData)
         });
-
-        if (!chainResponse.ok) {
-          throw new Error('Failed to create trade chain');
-        }
-
+        if (!chainResponse.ok) throw new Error('Failed to create trade chain');
         chain = await chainResponse.json();
       }
 
-      // Calculate P&L for the rolled trade (closing the original position)
-      // P&L = (Original Premium - Exit Premium) for closing the position
-      let rolledProfitLoss = 0;
-      if (formData.buyOrSell === 'Sell') {
-        // Sold originally (received premium), buying back at exit premium
-        rolledProfitLoss = (formData.premium - formData.exitPremium) * formData.numberOfContracts * 100;
-      } else {
-        // Bought originally (paid premium), selling at exit premium
-        rolledProfitLoss = (formData.exitPremium - formData.premium) * formData.numberOfContracts * 100;
-      }
-
-      // Only subtract the original transaction fees (roll fees go to the new trade)
-      rolledProfitLoss -= formData.fees;
-
-
-      // Update current trade to "Rolled" status and link to chain
-      const rolledTradeUpdates = {
-        status: 'Rolled' as const,
-        chainId: chain.id,
-        exitPrice: formData.exitPremium,
-        closeDate: new Date(),
-        profitLoss: rolledProfitLoss,
-      };
-
-      // Calculate required fields for the new trade
-      const newExpiryDate = new Date(formData.newExpiryDate);
-
-      // Calculate break-even price based on option type
-      const breakEvenPrice = formData.callOrPut === 'Call'
-        ? formData.newStrikePrice + formData.newPremium
-        : formData.newStrikePrice - formData.newPremium;
-
-        // Calculate profit/loss for the new trade based on premium and fees
-        let newProfitLoss = 0;
-        if (formData.buyOrSell === 'Buy') {
-          // If you bought the option, you paid the premium (negative P&L until closed)
-          newProfitLoss = -formData.newPremium * formData.numberOfContracts * 100;
-        } else {
-          // If you sold the option, you received the premium (positive P&L until closed)
-          newProfitLoss = formData.newPremium * formData.numberOfContracts * 100;
-        }
-
-        // Subtract roll fees from the new trade P&L
-        newProfitLoss -= parseFloat(String(formData.rollFees || '0'));
-
-        // Create new open trade with updated terms
-        const newTradeData = {
-          portfolioId: formData.portfolioId,
-          stockSymbol: formData.stockSymbol,
-          tradeOpenDate: new Date(),
-          expiryDate: newExpiryDate,
-          callOrPut: formData.callOrPut,
-          buyOrSell: formData.buyOrSell,
-          strikePrice: formData.newStrikePrice,
-          premium: formData.newPremium,
-          numberOfContracts: formData.numberOfContracts,
-          fees: formData.rollFees,
-          status: 'Open' as const,
-          chainId: chain.id,
-          breakEvenPrice: breakEvenPrice,
-          profitLoss: newProfitLoss, // Calculate P&L based on premium
-          stockPriceCurrent: 0, // Default value since we removed from UI
-          annualizedROR: undefined // No ROR for new trades
-        };
-
+      // Apply chain id to both sets of data
+      const rolledTradeUpdates = { ...originalUpdates, chainId: chain.id };
+      const newTradeData = { ...newTradeBase, chainId: chain.id };
 
       // 1. Update current trade to "Rolled" status
       onSave(transaction.id, rolledTradeUpdates);
@@ -420,15 +435,9 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newTradeData)
       });
+      if (!newTradeResponse.ok) throw new Error('Failed to create new open trade');
 
-      if (!newTradeResponse.ok) {
-        throw new Error('Failed to create new open trade');
-      }
-
-      // Close modal
       onClose();
-
-      // Show success message
       alert('Trade rolled successfully! New open position created.');
 
     } catch (error) {
@@ -445,378 +454,387 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
       size="lg"
     >
       <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Portfolio - Full Width */}
-            {portfolios.length > 0 && (
-              <div className="space-y-2">
-                <Label htmlFor="portfolioId">Portfolio</Label>
-                <Select value={formData.portfolioId} onValueChange={(value) => handleChange('portfolioId', value)}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select a portfolio" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {portfolios.map((portfolio) => (
-                      <SelectItem key={portfolio.id} value={portfolio.id}>
-                        {portfolio.name} {portfolio.isDefault ? '(Default)' : ''}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {errors.portfolioId && <p className="text-sm text-destructive">{errors.portfolioId}</p>}
-              </div>
-            )}
+        {/* Portfolio - Full Width */}
+        {portfolios.length > 0 && (
+          <div className="space-y-2">
+            <Label htmlFor="portfolioId">Portfolio</Label>
+            <Select value={formData.portfolioId} onValueChange={(value) => handleChange('portfolioId', value)}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select a portfolio" />
+              </SelectTrigger>
+              <SelectContent>
+                {portfolios.map((portfolio) => (
+                  <SelectItem key={portfolio.id} value={portfolio.id}>
+                    {portfolio.name} {portfolio.isDefault ? '(Default)' : ''}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {errors.portfolioId && <p className="text-sm text-destructive">{errors.portfolioId}</p>}
+          </div>
+        )}
 
-            {/* Stock Symbol and Status */}
+        {/* Stock Symbol and Status */}
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="stockSymbol">Stock Symbol</Label>
+            <Input
+              id="stockSymbol"
+              type="text"
+              value={formData.stockSymbol}
+              onChange={(e) => handleChange('stockSymbol', e.target.value.toUpperCase())}
+              className={errors.stockSymbol ? 'border-destructive w-full' : 'w-full'}
+              placeholder="AAPL"
+            />
+            {errors.stockSymbol && <p className="text-sm text-destructive">{errors.stockSymbol}</p>}
+          </div>
+
+          <div className="space-y-2">
+            <Label>Status</Label>
+            <Select
+              value={formData.status}
+              onValueChange={(value) => handleStatusChange(value as 'Open' | 'Closed' | 'Expired' | 'Assigned' | 'Rolled')}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Open">Open</SelectItem>
+                <SelectItem value="Closed">Closed</SelectItem>
+                <SelectItem value="Expired">Expired</SelectItem>
+                <SelectItem value="Assigned">Assigned</SelectItem>
+                <SelectItem value="Rolled">Rolled</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        {/* Type and Action */}
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="callOrPut">Type</Label>
+            <Select value={formData.callOrPut} onValueChange={(value) => handleChange('callOrPut', value)}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select option type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Call">Call</SelectItem>
+                <SelectItem value="Put">Put</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="buyOrSell">Action</Label>
+            <Select value={formData.buyOrSell} onValueChange={(value) => handleChange('buyOrSell', value)}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select action" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Buy">Buy</SelectItem>
+                <SelectItem value="Sell">Sell</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="tradeOpenDate">Open Date</Label>
+            <Input
+              id="tradeOpenDate"
+              type="date"
+              value={formData.tradeOpenDate}
+              onChange={(e) => handleChange('tradeOpenDate', e.target.value)}
+              className="w-full"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="expiryDate">Expiry Date</Label>
+            <Input
+              id="expiryDate"
+              type="date"
+              value={formData.expiryDate}
+              onChange={(e) => handleChange('expiryDate', e.target.value)}
+              className={errors.expiryDate ? 'border-destructive w-full' : 'w-full'}
+            />
+            {errors.expiryDate && <p className="text-sm text-destructive">{errors.expiryDate}</p>}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="strikePrice">Strike Price</Label>
+            <Input
+              id="strikePrice"
+              type="number"
+              step="0.01"
+              value={formData.strikePrice}
+              onChange={(e) => handleChange('strikePrice', parseFloat(e.target.value) || 0)}
+              className={errors.strikePrice ? 'border-destructive w-full' : 'w-full'}
+            />
+            {errors.strikePrice && <p className="text-sm text-destructive">{errors.strikePrice}</p>}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="premium">Premium</Label>
+            <Input
+              id="premium"
+              type="number"
+              step="0.01"
+              value={formData.premium}
+              onChange={(e) => handleChange('premium', parseFloat(e.target.value) || 0)}
+              className={errors.premium ? 'border-destructive w-full' : 'w-full'}
+            />
+            {errors.premium && <p className="text-sm text-destructive">{errors.premium}</p>}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="numberOfContracts">Contracts</Label>
+            <Input
+              id="numberOfContracts"
+              type="number"
+              value={formData.numberOfContracts}
+              onChange={(e) => handleChange('numberOfContracts', parseInt(e.target.value) || 1)}
+              className={errors.numberOfContracts ? 'border-destructive w-full' : 'w-full'}
+            />
+            {errors.numberOfContracts && <p className="text-sm text-destructive">{errors.numberOfContracts}</p>}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="fees">Fees</Label>
+            <Input
+              id="fees"
+              type="number"
+              step="0.01"
+              value={formData.fees}
+              onChange={(e) => handleChange('fees', parseFloat(e.target.value) || 0)}
+              className="w-full"
+            />
+          </div>
+        </div>
+
+        {/* Collateral Amount - Only show for covered calls */}
+        {formData.buyOrSell === 'Sell' && formData.callOrPut === 'Call' && (
+          <div className="space-y-2">
+            <Label htmlFor="collateralAmount">
+              Collateral Amount ($)
+              <span className="text-sm text-muted-foreground ml-2">
+                (Optional - for accurate RoR calculation)
+              </span>
+            </Label>
+            <Input
+              id="collateralAmount"
+              type="number"
+              step="0.01"
+              value={formData.collateralAmount || ''}
+              onChange={(e) => handleChange('collateralAmount', parseFloat(e.target.value) || 0)}
+              className="w-full"
+              placeholder="Enter actual collateral deployed (e.g., LEAP cost for PMCC)"
+            />
+            <p className="text-xs text-muted-foreground">
+              Leave blank to use automatic calculation. For PMCC strategies, enter the cost of your LEAP option.
+            </p>
+          </div>
+        )}
+
+        {/* Exit Information - Only show when closing trade */}
+        {formData.status === 'Closed' && (
+          <div className="bg-orange-50 dark:bg-orange-950/20 p-4 rounded-lg border border-orange-200 dark:border-orange-800">
+            <h4 className="text-sm font-medium text-orange-800 dark:text-orange-200 mb-3">Exit Information (Required for Closed Trades)</h4>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="stockSymbol">Stock Symbol</Label>
+                <Label htmlFor="exitPrice">Exit Price</Label>
                 <Input
-                  id="stockSymbol"
-                  type="text"
-                  value={formData.stockSymbol}
-                  onChange={(e) => handleChange('stockSymbol', e.target.value.toUpperCase())}
-                  className={errors.stockSymbol ? 'border-destructive w-full' : 'w-full'}
-                  placeholder="AAPL"
+                  id="exitPrice"
+                  type="number"
+                  step="0.01"
+                  value={formData.exitPrice}
+                  onChange={(e) => handleChange('exitPrice', parseFloat(e.target.value) || 0)}
+                  className={errors.exitPrice ? 'border-destructive w-full' : 'w-full'}
                 />
-                {errors.stockSymbol && <p className="text-sm text-destructive">{errors.stockSymbol}</p>}
+                {errors.exitPrice && <p className="text-sm text-destructive">{errors.exitPrice}</p>}
               </div>
 
               <div className="space-y-2">
-                <Label>Status</Label>
-                <Select
-                  value={formData.status}
-                  onValueChange={(value) => handleStatusChange(value as 'Open' | 'Closed' | 'Expired' | 'Assigned' | 'Rolled')}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Open">Open</SelectItem>
-                    <SelectItem value="Closed">Closed</SelectItem>
-                    <SelectItem value="Expired">Expired</SelectItem>
-                    <SelectItem value="Assigned">Assigned</SelectItem>
-                    <SelectItem value="Rolled">Rolled</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            {/* Type and Action */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="callOrPut">Type</Label>
-                <Select value={formData.callOrPut} onValueChange={(value) => handleChange('callOrPut', value)}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select option type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Call">Call</SelectItem>
-                    <SelectItem value="Put">Put</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="buyOrSell">Action</Label>
-                <Select value={formData.buyOrSell} onValueChange={(value) => handleChange('buyOrSell', value)}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select action" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Buy">Buy</SelectItem>
-                    <SelectItem value="Sell">Sell</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="tradeOpenDate">Open Date</Label>
+                <Label htmlFor="closeDate">Close Date</Label>
                 <Input
-                  id="tradeOpenDate"
+                  id="closeDate"
                   type="date"
-                  value={formData.tradeOpenDate}
-                  onChange={(e) => handleChange('tradeOpenDate', e.target.value)}
-                  className="w-full"
+                  value={formData.closeDate}
+                  onChange={(e) => handleChange('closeDate', e.target.value)}
+                  className={errors.closeDate ? 'border-destructive w-full' : 'w-full'}
                 />
+                {errors.closeDate && <p className="text-sm text-destructive">{errors.closeDate}</p>}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Roll Information - Only show when rolling trade */}
+        {formData.status === 'Rolled' && (
+          <div className="bg-orange-50 dark:bg-orange-950/30 p-4 rounded-lg border border-orange-200 dark:border-orange-800/30">
+            <h4 className="text-sm font-medium text-orange-800 dark:text-orange-200 mb-3">Roll Information (Required for Rolled Trades)</h4>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="exitPremium">Exit Premium (Close Original)</Label>
+                <Input
+                  id="exitPremium"
+                  type="number"
+                  step="0.01"
+                  value={formData.exitPremium}
+                  onChange={(e) => handleChange('exitPremium', parseFloat(e.target.value) || 0)}
+                  className={errors.exitPremium ? 'border-destructive w-full' : 'w-full'}
+                />
+                {errors.exitPremium && <p className="text-sm text-destructive">{errors.exitPremium}</p>}
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="expiryDate">Expiry Date</Label>
+                <Label htmlFor="newExpiryDate">New Expiry Date</Label>
                 <Input
-                  id="expiryDate"
+                  id="newExpiryDate"
                   type="date"
-                  value={formData.expiryDate}
-                  onChange={(e) => handleChange('expiryDate', e.target.value)}
-                  className={errors.expiryDate ? 'border-destructive w-full' : 'w-full'}
+                  value={formData.newExpiryDate}
+                  onChange={(e) => handleChange('newExpiryDate', e.target.value)}
+                  className={errors.newExpiryDate ? 'border-destructive w-full' : 'w-full'}
                 />
-                {errors.expiryDate && <p className="text-sm text-destructive">{errors.expiryDate}</p>}
+                {errors.newExpiryDate && <p className="text-sm text-destructive">{errors.newExpiryDate}</p>}
               </div>
-            </div>
 
-            <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="strikePrice">Strike Price</Label>
+                <Label htmlFor="newStrikePrice">New Strike Price</Label>
                 <Input
-                  id="strikePrice"
+                  id="newStrikePrice"
                   type="number"
                   step="0.01"
-                  value={formData.strikePrice}
-                  onChange={(e) => handleChange('strikePrice', parseFloat(e.target.value) || 0)}
-                  className={errors.strikePrice ? 'border-destructive w-full' : 'w-full'}
+                  value={formData.newStrikePrice}
+                  onChange={(e) => handleChange('newStrikePrice', parseFloat(e.target.value) || 0)}
+                  className={errors.newStrikePrice ? 'border-destructive w-full' : 'w-full'}
                 />
-                {errors.strikePrice && <p className="text-sm text-destructive">{errors.strikePrice}</p>}
+                {errors.newStrikePrice && <p className="text-sm text-destructive">{errors.newStrikePrice}</p>}
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="premium">Premium</Label>
+                <Label htmlFor="newPremium">New Premium (Open New)</Label>
                 <Input
-                  id="premium"
+                  id="newPremium"
                   type="number"
                   step="0.01"
-                  value={formData.premium}
-                  onChange={(e) => handleChange('premium', parseFloat(e.target.value) || 0)}
-                  className={errors.premium ? 'border-destructive w-full' : 'w-full'}
+                  value={formData.newPremium}
+                  onChange={(e) => handleChange('newPremium', parseFloat(e.target.value) || 0)}
+                  className={errors.newPremium ? 'border-destructive w-full' : 'w-full'}
                 />
-                {errors.premium && <p className="text-sm text-destructive">{errors.premium}</p>}
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="numberOfContracts">Contracts</Label>
-                <Input
-                  id="numberOfContracts"
-                  type="number"
-                  value={formData.numberOfContracts}
-                  onChange={(e) => handleChange('numberOfContracts', parseInt(e.target.value) || 1)}
-                  className={errors.numberOfContracts ? 'border-destructive w-full' : 'w-full'}
-                />
-                {errors.numberOfContracts && <p className="text-sm text-destructive">{errors.numberOfContracts}</p>}
+                {errors.newPremium && <p className="text-sm text-destructive">{errors.newPremium}</p>}
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="fees">Fees</Label>
+                <Label htmlFor="rollFees">Roll Fees</Label>
                 <Input
-                  id="fees"
+                  id="rollFees"
                   type="number"
                   step="0.01"
-                  value={formData.fees}
-                  onChange={(e) => handleChange('fees', parseFloat(e.target.value) || 0)}
+                  value={formData.rollFees}
+                  onChange={(e) => handleChange('rollFees', parseFloat(e.target.value) || 0)}
                   className="w-full"
                 />
               </div>
-            </div>
 
-            {/* Collateral Amount - Only show for covered calls */}
-            {formData.buyOrSell === 'Sell' && formData.callOrPut === 'Call' && (
-              <div className="space-y-2">
-                <Label htmlFor="collateralAmount">
-                  Collateral Amount ($)
-                  <span className="text-sm text-muted-foreground ml-2">
-                    (Optional - for accurate RoR calculation)
-                  </span>
-                </Label>
-                <Input
-                  id="collateralAmount"
-                  type="number"
-                  step="0.01"
-                  value={formData.collateralAmount || ''}
-                  onChange={(e) => handleChange('collateralAmount', parseFloat(e.target.value) || 0)}
-                  className="w-full"
-                  placeholder="Enter actual collateral deployed (e.g., LEAP cost for PMCC)"
-                />
-                <p className="text-xs text-muted-foreground">
-                  Leave blank to use automatic calculation. For PMCC strategies, enter the cost of your LEAP option.
-                </p>
-              </div>
-            )}
-
-            {/* Exit Information - Only show when closing trade */}
-            {formData.status === 'Closed' && (
-              <div className="bg-orange-50 dark:bg-orange-950/20 p-4 rounded-lg border border-orange-200 dark:border-orange-800">
-                <h4 className="text-sm font-medium text-orange-800 dark:text-orange-200 mb-3">Exit Information (Required for Closed Trades)</h4>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="exitPrice">Exit Price</Label>
-                    <Input
-                      id="exitPrice"
-                      type="number"
-                      step="0.01"
-                      value={formData.exitPrice}
-                      onChange={(e) => handleChange('exitPrice', parseFloat(e.target.value) || 0)}
-                      className={errors.exitPrice ? 'border-destructive w-full' : 'w-full'}
-                    />
-                    {errors.exitPrice && <p className="text-sm text-destructive">{errors.exitPrice}</p>}
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="closeDate">Close Date</Label>
-                    <Input
-                      id="closeDate"
-                      type="date"
-                      value={formData.closeDate}
-                      onChange={(e) => handleChange('closeDate', e.target.value)}
-                      className={errors.closeDate ? 'border-destructive w-full' : 'w-full'}
-                    />
-                    {errors.closeDate && <p className="text-sm text-destructive">{errors.closeDate}</p>}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Roll Information - Only show when rolling trade */}
-            {formData.status === 'Rolled' && (
-              <div className="bg-orange-50 dark:bg-orange-950/30 p-4 rounded-lg border border-orange-200 dark:border-orange-800/30">
-                <h4 className="text-sm font-medium text-orange-800 dark:text-orange-200 mb-3">Roll Information (Required for Rolled Trades)</h4>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="exitPremium">Exit Premium (Close Original)</Label>
-                    <Input
-                      id="exitPremium"
-                      type="number"
-                      step="0.01"
-                      value={formData.exitPremium}
-                      onChange={(e) => handleChange('exitPremium', parseFloat(e.target.value) || 0)}
-                      className={errors.exitPremium ? 'border-destructive w-full' : 'w-full'}
-                    />
-                    {errors.exitPremium && <p className="text-sm text-destructive">{errors.exitPremium}</p>}
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="newExpiryDate">New Expiry Date</Label>
-                    <Input
-                      id="newExpiryDate"
-                      type="date"
-                      value={formData.newExpiryDate}
-                      onChange={(e) => handleChange('newExpiryDate', e.target.value)}
-                      className={errors.newExpiryDate ? 'border-destructive w-full' : 'w-full'}
-                    />
-                    {errors.newExpiryDate && <p className="text-sm text-destructive">{errors.newExpiryDate}</p>}
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="newStrikePrice">New Strike Price</Label>
-                    <Input
-                      id="newStrikePrice"
-                      type="number"
-                      step="0.01"
-                      value={formData.newStrikePrice}
-                      onChange={(e) => handleChange('newStrikePrice', parseFloat(e.target.value) || 0)}
-                      className={errors.newStrikePrice ? 'border-destructive w-full' : 'w-full'}
-                    />
-                    {errors.newStrikePrice && <p className="text-sm text-destructive">{errors.newStrikePrice}</p>}
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="newPremium">New Premium (Open New)</Label>
-                    <Input
-                      id="newPremium"
-                      type="number"
-                      step="0.01"
-                      value={formData.newPremium}
-                      onChange={(e) => handleChange('newPremium', parseFloat(e.target.value) || 0)}
-                      className={errors.newPremium ? 'border-destructive w-full' : 'w-full'}
-                    />
-                    {errors.newPremium && <p className="text-sm text-destructive">{errors.newPremium}</p>}
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="rollFees">Roll Fees</Label>
-                    <Input
-                      id="rollFees"
-                      type="number"
-                      step="0.01"
-                      value={formData.rollFees}
-                      onChange={(e) => handleChange('rollFees', parseFloat(e.target.value) || 0)}
-                      className="w-full"
-                    />
-                  </div>
-
-                  <div className="flex items-center">
-                    <div>
-                      <span className="text-sm text-muted-foreground">Net Credit/Debit:</span>
-                      <div className="text-lg font-medium">
-                        {parseFloat(String(formData.exitPremium || '0')) > 0 && parseFloat(String(formData.newPremium || '0')) > 0 ? (
-                          (() => {
-                            // Net Credit/Debit = (New Premium - Exit Premium) * Contracts * 100 - Roll Fees
-                            // Note: Original transaction fees are handled in individual P&L calculations
-                            const netAmount = (parseFloat(String(formData.newPremium || '0')) - parseFloat(String(formData.exitPremium || '0'))) * formData.numberOfContracts * 100 - parseFloat(String(formData.rollFees || '0'));
-                            return (
-                              <span className={netAmount >= 0 ? 'text-green-600' : 'text-red-600'}>
-                                ${Math.abs(netAmount).toFixed(2)}
-                                <span className="text-xs ml-1">
-                                  {netAmount >= 0 ? '(Credit)' : '(Debit)'}
-                                </span>
-                              </span>
-                            );
-                          })()
-                        ) : (
-                          <span className="text-gray-400">Enter premiums</span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Calculated Fields */}
-            <div className="bg-muted p-3 rounded-md">
-              <h4 className="text-sm font-medium text-card-foreground mb-2">Calculated Fields</h4>
-              <div className="grid grid-cols-2 gap-4 text-sm text-card-foreground">
+              <div className="flex items-center">
                 <div>
-                  <span className="text-muted-foreground">Days to Expiry:</span>
-                  <span className="ml-2 font-medium">
-                    {formData.expiryDate ? calculateDaysToExpiry(formData.expiryDate) : '-'}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Break Even:</span>
-                  <span className="ml-2 font-medium">
-                    ${calculateBreakEvenPrice().toFixed(2)}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Days Held:</span>
-                  <span className="ml-2 font-medium">
-                    {calculateDaysHeldValue()}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">
-                    {formData.status === 'Closed' ? 'Final P&L:' : 'Current P&L:'}
-                  </span>
-                  <span className={`ml-2 font-medium ${
-                    (formData.status === 'Closed' ? calculateFinalProfitLoss() : calculateCurrentProfitLoss()) >= 0 ? 'text-green-600' : 'text-red-600'
-                  }`}>
-                    {formData.status === 'Closed'
-                      ? (formData.exitPrice > 0 ? `$${calculateFinalProfitLoss().toFixed(2)}` : 'Enter exit price')
-                      : formData.status === 'Rolled'
-                      ? (parseFloat(String(formData.exitPremium || '0')) > 0 && parseFloat(String(formData.newPremium || '0')) > 0 ? `$${calculateCurrentProfitLoss().toFixed(2)}` : 'Enter roll details')
-                      : `$${calculateCurrentProfitLoss().toFixed(2)}`
-                    }
-                  </span>
+                  <span className="text-sm text-muted-foreground">Net Credit/Debit:</span>
+                  <div className="text-lg font-medium">
+                    {parseFloat(String(formData.exitPremium || '0')) > 0 && parseFloat(String(formData.newPremium || '0')) > 0 ? (
+                      (() => {
+                        const exitP = parseFloat(String(formData.exitPremium || '0'));
+                        const newP = parseFloat(String(formData.newPremium || '0'));
+                        const fees = parseFloat(String(formData.rollFees || '0'));
+
+                        // For a short roll (originally sold), we Buy to Close (pay exitP) and Sell to Open (receive newP).
+                        // For a long roll (originally bought), we Sell to Close (receive exitP) and Buy to Open (pay newP).
+                        let netAmount = 0;
+                        if (formData.buyOrSell === 'Sell') {
+                          netAmount = (newP - exitP) * formData.numberOfContracts * 100 - fees;
+                        } else {
+                          netAmount = (exitP - newP) * formData.numberOfContracts * 100 - fees;
+                        }
+
+                        return (
+                          <span className={netAmount >= 0 ? 'text-green-600' : 'text-red-600'}>
+                            {formatCurrency(netAmount)}
+                            <span className="text-xs ml-1">
+                              {netAmount >= 0 ? '(Credit)' : '(Debit)'}
+                            </span>
+                          </span>
+                        );
+                      })()
+                    ) : (
+                      <span className="text-gray-400">Enter premiums</span>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
+          </div>
+        )}
 
-            <div className="flex justify-end space-x-3 pt-4">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={onClose}
-              >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                disabled={!isFormValid}
-              >
-                Save Changes
-              </Button>
+        {/* Calculated Fields */}
+        <div className="bg-muted p-3 rounded-md">
+          <h4 className="text-sm font-medium text-card-foreground mb-2">Calculated Fields</h4>
+          <div className="grid grid-cols-2 gap-4 text-sm text-card-foreground">
+            <div>
+              <span className="text-muted-foreground">Days to Expiry:</span>
+              <span className="ml-2 font-medium">
+                {formData.expiryDate ? calculateDaysToExpiry(formData.expiryDate) : '-'}
+              </span>
             </div>
-          </form>
+            <div>
+              <span className="text-muted-foreground">Break Even:</span>
+              <span className="ml-2 font-medium">
+                {formatCurrency(calculateBreakEvenPrice())}
+              </span>
+            </div>
+            <div>
+              <span className="text-muted-foreground">Days Held:</span>
+              <span className="ml-2 font-medium">
+                {calculateDaysHeldValue()}
+              </span>
+            </div>
+            <div>
+              <span className="text-muted-foreground">
+                {formData.status === 'Closed' ? 'Final P&L:' : 'Current P&L:'}
+              </span>
+              <span className={`ml-2 font-medium ${(formData.status === 'Closed' ? calculateFinalProfitLoss() : calculateCurrentProfitLoss()) >= 0 ? 'text-green-600' : 'text-red-600'
+                }`}>
+                {formData.status === 'Closed'
+                  ? (formData.exitPrice > 0 ? formatCurrency(calculateFinalProfitLoss()) : 'Enter exit price')
+                  : formData.status === 'Rolled'
+                    ? (parseFloat(String(formData.exitPremium || '0')) > 0 && parseFloat(String(formData.newPremium || '0')) > 0 ? formatCurrency(calculateCurrentProfitLoss()) : 'Enter roll details')
+                    : formatCurrency(calculateCurrentProfitLoss())
+                }
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex justify-end space-x-3 pt-4">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onClose}
+          >
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            disabled={!isFormValid}
+          >
+            Save Changes
+          </Button>
+        </div>
+      </form>
     </Modal>
   );
 }

@@ -1059,7 +1059,6 @@ export const calculateSmartCapital = (
           // But for overlap detection against *other* trades, we should use the max known close date
           // or if it's open, treat it as open.
           // Simplified: Use the last leg's close date, or if open/missing, keep it undefined (active).
-          const lastLeg = sortedLegs[sortedLegs.length - 1];
 
           // Determine the effective close date for the synthetic chain
           // If any leg is still open (closeDate is undefined), the chain is considered open.

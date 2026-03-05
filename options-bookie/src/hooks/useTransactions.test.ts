@@ -57,14 +57,14 @@ describe('useTransactions hook', () => {
     portfolioId: 'portfolio-2',
   };
 
-  const createMockResponse = (data: any, success = true) => ({
+  const createMockResponse = (data: unknown, success = true) => ({
     ok: success,
     json: jest.fn().mockResolvedValue(success ? { success: true, data } : { success: false, error: data }),
-  });
+  } as unknown as Response);
 
   describe('Initial state and loading', () => {
     it('should initialize with correct default state', () => {
-      mockFetch.mockResolvedValue(createMockResponse([]) as any);
+      mockFetch.mockResolvedValue(createMockResponse([]));
 
       const { result } = renderHook(() => useTransactions());
 
@@ -78,7 +78,7 @@ describe('useTransactions hook', () => {
     });
 
     it('should fetch transactions on mount', async () => {
-      mockFetch.mockResolvedValue(createMockResponse([mockTransaction]) as any);
+      mockFetch.mockResolvedValue(createMockResponse([mockTransaction]));
 
       const { result } = renderHook(() => useTransactions());
 
@@ -108,7 +108,7 @@ describe('useTransactions hook', () => {
     });
 
     it('should handle API error response on mount', async () => {
-      mockFetch.mockResolvedValue(createMockResponse('Failed to fetch', false) as any);
+      mockFetch.mockResolvedValue(createMockResponse('Failed to fetch', false));
 
       const { result } = renderHook(() => useTransactions());
 
@@ -125,8 +125,8 @@ describe('useTransactions hook', () => {
     it('should successfully add a new transaction', async () => {
       // Setup initial state
       mockFetch
-        .mockResolvedValueOnce(createMockResponse([mockTransaction]) as any) // Initial fetch
-        .mockResolvedValueOnce(createMockResponse({ ...mockTransactionInput, id: 'new-id' }) as any); // Add transaction
+        .mockResolvedValueOnce(createMockResponse([mockTransaction])) // Initial fetch
+        .mockResolvedValueOnce(createMockResponse({ ...mockTransactionInput, id: 'new-id' })); // Add transaction
 
       const { result } = renderHook(() => useTransactions());
 
@@ -157,8 +157,8 @@ describe('useTransactions hook', () => {
 
     it('should handle add transaction API error', async () => {
       mockFetch
-        .mockResolvedValueOnce(createMockResponse([]) as any) // Initial fetch
-        .mockResolvedValueOnce(createMockResponse('Failed to create', false) as any); // Add transaction error
+        .mockResolvedValueOnce(createMockResponse([])) // Initial fetch
+        .mockResolvedValueOnce(createMockResponse('Failed to create', false)); // Add transaction error
 
       const { result } = renderHook(() => useTransactions());
 
@@ -180,7 +180,7 @@ describe('useTransactions hook', () => {
 
     it('should handle add transaction network error', async () => {
       mockFetch
-        .mockResolvedValueOnce(createMockResponse([]) as any) // Initial fetch
+        .mockResolvedValueOnce(createMockResponse([])) // Initial fetch
         .mockRejectedValueOnce(new Error('Network error')); // Add transaction error
 
       const { result } = renderHook(() => useTransactions());
@@ -207,8 +207,8 @@ describe('useTransactions hook', () => {
       const updatedTransaction = { ...mockTransaction, premium: 5.25, status: 'Closed' as const };
 
       mockFetch
-        .mockResolvedValueOnce(createMockResponse([mockTransaction]) as any) // Initial fetch
-        .mockResolvedValueOnce(createMockResponse(updatedTransaction) as any); // Update transaction
+        .mockResolvedValueOnce(createMockResponse([mockTransaction])) // Initial fetch
+        .mockResolvedValueOnce(createMockResponse(updatedTransaction)); // Update transaction
 
       const { result } = renderHook(() => useTransactions());
 
@@ -237,8 +237,8 @@ describe('useTransactions hook', () => {
 
     it('should handle update transaction API error', async () => {
       mockFetch
-        .mockResolvedValueOnce(createMockResponse([mockTransaction]) as any) // Initial fetch
-        .mockResolvedValueOnce(createMockResponse('Failed to update', false) as any); // Update error
+        .mockResolvedValueOnce(createMockResponse([mockTransaction])) // Initial fetch
+        .mockResolvedValueOnce(createMockResponse('Failed to update', false)); // Update error
 
       const { result } = renderHook(() => useTransactions());
 
@@ -260,7 +260,7 @@ describe('useTransactions hook', () => {
 
     it('should handle update transaction network error', async () => {
       mockFetch
-        .mockResolvedValueOnce(createMockResponse([mockTransaction]) as any) // Initial fetch
+        .mockResolvedValueOnce(createMockResponse([mockTransaction])) // Initial fetch
         .mockRejectedValueOnce(new Error('Network error')); // Update error
 
       const { result } = renderHook(() => useTransactions());
@@ -284,8 +284,8 @@ describe('useTransactions hook', () => {
   describe('deleteTransaction', () => {
     it('should successfully delete a transaction', async () => {
       mockFetch
-        .mockResolvedValueOnce(createMockResponse([mockTransaction]) as any) // Initial fetch
-        .mockResolvedValueOnce(createMockResponse(null) as any); // Delete transaction
+        .mockResolvedValueOnce(createMockResponse([mockTransaction])) // Initial fetch
+        .mockResolvedValueOnce(createMockResponse(null)); // Delete transaction
 
       const { result } = renderHook(() => useTransactions());
 
@@ -309,8 +309,8 @@ describe('useTransactions hook', () => {
 
     it('should handle delete transaction API error', async () => {
       mockFetch
-        .mockResolvedValueOnce(createMockResponse([mockTransaction]) as any) // Initial fetch
-        .mockResolvedValueOnce(createMockResponse('Failed to delete', false) as any); // Delete error
+        .mockResolvedValueOnce(createMockResponse([mockTransaction])) // Initial fetch
+        .mockResolvedValueOnce(createMockResponse('Failed to delete', false)); // Delete error
 
       const { result } = renderHook(() => useTransactions());
 
@@ -332,7 +332,7 @@ describe('useTransactions hook', () => {
 
     it('should handle delete transaction network error', async () => {
       mockFetch
-        .mockResolvedValueOnce(createMockResponse([mockTransaction]) as any) // Initial fetch
+        .mockResolvedValueOnce(createMockResponse([mockTransaction])) // Initial fetch
         .mockRejectedValueOnce(new Error('Network error')); // Delete error
 
       const { result } = renderHook(() => useTransactions());
@@ -358,8 +358,8 @@ describe('useTransactions hook', () => {
       const newTransaction = { ...mockTransaction, id: 'new-id', stockSymbol: 'MSFT' };
 
       mockFetch
-        .mockResolvedValueOnce(createMockResponse([mockTransaction]) as any) // Initial fetch
-        .mockResolvedValueOnce(createMockResponse([mockTransaction, newTransaction]) as any); // Refresh
+        .mockResolvedValueOnce(createMockResponse([mockTransaction])) // Initial fetch
+        .mockResolvedValueOnce(createMockResponse([mockTransaction, newTransaction])); // Refresh
 
       const { result } = renderHook(() => useTransactions());
 
@@ -379,7 +379,7 @@ describe('useTransactions hook', () => {
 
     it('should handle refresh error', async () => {
       mockFetch
-        .mockResolvedValueOnce(createMockResponse([mockTransaction]) as any) // Initial fetch
+        .mockResolvedValueOnce(createMockResponse([mockTransaction])) // Initial fetch
         .mockRejectedValueOnce(new Error('Refresh error')); // Refresh error
 
       const { result } = renderHook(() => useTransactions());
@@ -401,7 +401,7 @@ describe('useTransactions hook', () => {
       // Start with an error
       mockFetch
         .mockRejectedValueOnce(new Error('Initial error')) // Initial fetch error
-        .mockResolvedValueOnce(createMockResponse([mockTransaction]) as any); // Successful refresh
+        .mockResolvedValueOnce(createMockResponse([mockTransaction])); // Successful refresh
 
       const { result } = renderHook(() => useTransactions());
 
@@ -419,12 +419,12 @@ describe('useTransactions hook', () => {
     });
 
     it('should maintain loading state during operations', async () => {
-      let resolvePromise: (value: any) => void;
+      let resolvePromise: (value: unknown) => void;
       const slowPromise = new Promise((resolve) => {
         resolvePromise = resolve;
       });
 
-      mockFetch.mockReturnValue(slowPromise as any);
+      mockFetch.mockReturnValue(slowPromise as unknown as Promise<Response>);
 
       const { result } = renderHook(() => useTransactions());
 
@@ -445,8 +445,8 @@ describe('useTransactions hook', () => {
       const transaction2 = { ...mockTransaction, id: 'id-2', stockSymbol: 'MSFT' };
 
       mockFetch
-        .mockResolvedValueOnce(createMockResponse([transaction1]) as any) // Initial fetch
-        .mockResolvedValueOnce(createMockResponse(transaction2) as any); // Add transaction
+        .mockResolvedValueOnce(createMockResponse([transaction1])) // Initial fetch
+        .mockResolvedValueOnce(createMockResponse(transaction2)); // Add transaction
 
       const { result } = renderHook(() => useTransactions());
 
@@ -467,8 +467,8 @@ describe('useTransactions hook', () => {
 
     it('should handle concurrent operations gracefully', async () => {
       mockFetch
-        .mockResolvedValueOnce(createMockResponse([mockTransaction]) as any) // Initial fetch
-        .mockResolvedValue(createMockResponse({ ...mockTransaction, id: 'new-id' }) as any); // All subsequent calls
+        .mockResolvedValueOnce(createMockResponse([mockTransaction])) // Initial fetch
+        .mockResolvedValue(createMockResponse({ ...mockTransaction, id: 'new-id' })); // All subsequent calls
 
       const { result } = renderHook(() => useTransactions());
 
@@ -498,7 +498,7 @@ describe('useTransactions hook', () => {
       mockFetch.mockResolvedValue({
         ok: true,
         json: jest.fn().mockResolvedValue({ success: true, data: null }),
-      } as any);
+      } as unknown as Response);
 
       const { result } = renderHook(() => useTransactions());
 
@@ -514,7 +514,7 @@ describe('useTransactions hook', () => {
       mockFetch.mockResolvedValue({
         ok: true,
         json: jest.fn().mockResolvedValue({}), // Missing success/data fields
-      } as any);
+      } as unknown as Response);
 
       const { result } = renderHook(() => useTransactions());
 
@@ -529,7 +529,7 @@ describe('useTransactions hook', () => {
       mockFetch.mockResolvedValue({
         ok: true,
         json: jest.fn().mockRejectedValue(new Error('Invalid JSON')),
-      } as any);
+      } as unknown as Response);
 
       const { result } = renderHook(() => useTransactions());
 

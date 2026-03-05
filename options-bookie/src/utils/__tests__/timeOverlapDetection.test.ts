@@ -6,7 +6,7 @@ function createTransaction(
   symbol: string,
   openDate: string,
   closeDate: string,
-  collateral: number = 1000,
+  strikePrice?: number,
   id?: string
 ): OptionsTransaction {
   return {
@@ -17,7 +17,7 @@ function createTransaction(
     status: 'Closed',
     buyOrSell: 'Sell',
     callOrPut: 'Put',
-    strikePrice: 100,
+    strikePrice: strikePrice ?? 100,
     numberOfContracts: 1,
     premium: 1.0,
     fees: 0,

@@ -18,7 +18,8 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     session: async ({ session, token }) => {
       if (session?.user && token?.sub) {
-        (session.user as any).id = token.sub;
+        // NextAuth's User type doesn't include id by default, so we extend it
+        (session.user as Record<string, unknown> & typeof session.user).id = token.sub;
         // Use email as the user identifier for database operations
         session.user.email = session.user.email;
       }

@@ -52,7 +52,7 @@ import {
   calculateChainAwareStockPerformance,
   calculateChainAwareMonthlyPnL
 } from './optionsCalculations';
-import { OptionsTransaction } from '@/types/options';
+import { OptionsTransaction, TradeChain } from '@/types/options';
 
 describe('optionsCalculations', () => {
   // Test data helpers
@@ -1060,7 +1060,7 @@ describe('optionsCalculations', () => {
         })
       ];
 
-      const chains: any[] = [];
+      const chains: TradeChain[] = [];
 
       const realized = getRealizedTransactions(transactions, chains);
 
