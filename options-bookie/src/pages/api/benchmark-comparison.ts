@@ -137,10 +137,6 @@ export default async function handler(
       .map(t => t.closeDate!.getTime())
     ));
 
-    // Debug info (can be removed in production)
-    console.log(`Portfolio start date: ${portfolioStartDate.toISOString()}`);
-    console.log(`Found ${realizedTransactions.length} realized transactions`);
-
     // Group realized transactions by month when they were closed
     const monthlyPortfolioReturns = new Map<string, number>();
     const transactionsByMonth = new Map<string, OptionsTransaction[]>();
