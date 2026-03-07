@@ -42,6 +42,7 @@ export default function DeleteChainModal({
             <button
               onClick={onClose}
               className="text-muted-foreground hover:text-foreground transition-colors"
+              aria-label="Close modal"
             >
               <X className="h-5 w-5" />
             </button>

@@ -55,7 +55,8 @@ export default function Top5TickersSection({ yearTop5Tickers, yearAllTickers, ye
         <h3 className="text-lg font-medium text-card-foreground">Top Stocks</h3>
         <button
           onClick={() => setIsExpanded(!isExpanded)}
-          className="flex items-center gap-1 text-sky-600 dark:text-sky-400 hover:text-sky-800 dark:hover:text-sky-300 text-sm font-medium"
+          className="flex items-center gap-1 text-sky-600 dark:text-sky-400 hover:text-sky-800 dark:hover:text-sky-300 text-sm font-medium focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none rounded px-1"
+          aria-expanded={isExpanded}
         >
           {isExpanded ? (
             <>

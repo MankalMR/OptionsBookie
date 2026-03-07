@@ -337,6 +337,8 @@ export default function TransactionTable({
                         size="sm"
                         onClick={() => toggleChainCollapse(chainId)}
                         className="h-5 w-5 p-0 mt-0.5 flex-shrink-0"
+                        aria-label={isCollapsed ? `Expand ${activeTransaction.stockSymbol} chain` : `Collapse ${activeTransaction.stockSymbol} chain`}
+                        aria-expanded={!isCollapsed}
                       >
                         {isCollapsed ? <ChevronRight className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
                       </Button>
