@@ -75,7 +75,6 @@ export default async function handler(
 
     // Fallback to static data if both cache and Alpha Vantage fail
     if (!sp500Data || sp500Data.length === 0) {
-      console.log('Both cache and Alpha Vantage failed, using fallback S&P 500 data');
       sp500Data = [
         {
           date: '2025-09-30',
