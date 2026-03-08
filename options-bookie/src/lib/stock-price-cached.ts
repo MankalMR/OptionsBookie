@@ -55,8 +55,8 @@ export class CachedStockService {
             await this.cachePrice(symbol, priceData);
             return priceData;
           }
-        } catch (error) {
-          console.log(`Alpha Vantage failed for ${symbol}, returning null:`, error);
+        } catch {
+          // Fall through and return null as expected by the API interface
         }
       } else {
         console.log(`ALPHA_VANTAGE_KEY not available, returning null for ${symbol}`);
