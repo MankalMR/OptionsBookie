@@ -58,8 +58,6 @@ export class CachedStockService {
         } catch (error) {
           console.log(`Alpha Vantage failed for ${symbol}, returning null:`, error);
         }
-      } else {
-        console.log(`ALPHA_VANTAGE_KEY not available, returning null for ${symbol}`);
       }
 
       return null;
