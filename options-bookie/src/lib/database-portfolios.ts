@@ -165,8 +165,6 @@ export const portfolioDb = {
         return null;
       }
 
-      console.log('Portfolio found:', existingPortfolio);
-
       // First unset all other default portfolios for this user
       const { error: unsetError } = await supabaseAdmin
         .from('portfolios')
