@@ -56,6 +56,7 @@ export default function Modal({
                 size="sm"
                 onClick={onClose}
                 className="text-muted-foreground hover:text-foreground h-8 w-8 p-0"
+                aria-label="Close modal"
               >
                 <X className="h-4 w-4" />
               </Button>

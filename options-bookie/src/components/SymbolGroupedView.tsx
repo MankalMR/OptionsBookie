@@ -139,6 +139,8 @@ export default function SymbolGroupedView({
                     size="sm"
                     className="p-1"
                     title={isExpanded ? 'Collapse trades' : 'Expand trades'}
+                    aria-label={isExpanded ? `Collapse ${symbol} trades` : `Expand ${symbol} trades`}
+                    aria-expanded={isExpanded}
                   >
                     {isExpanded ? (
                       <ChevronDown className="h-4 w-4" />
