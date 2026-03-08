@@ -1,4 +1,5 @@
 import { NextApiRequest, NextApiResponse } from 'next';
+import { debugLog } from '@/utils/logger';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 import { secureDb } from '@/lib/database-secure';
@@ -56,12 +57,12 @@ export default async function handler(
     }
 
     // Try to get S&P 500 data from cache first
-    console.log('Checking cache for S&P 500 historical data...');
+    debugLog('Checking cache for S&P 500 historical data...');
     let sp500Data = await historicalDataCache.getCachedData('SPY');
 
     if (!sp500Data) {
       // Cache miss - fetch from Alpha Vantage
-      console.log(`Cache miss - fetching ${monthsToFetch} months of S&P 500 data from Alpha Vantage...`);
+      debugLog(`Cache miss - fetching ${monthsToFetch} months of S&P 500 data from Alpha Vantage...`);
       const freshData = await alphaVantageStockService.getHistoricalMonthlyData('SPY', monthsToFetch);
 
       if (freshData && freshData.length > 0) {
@@ -70,12 +71,12 @@ export default async function handler(
         sp500Data = freshData;
       }
     } else {
-      console.log(`Cache hit - using cached S&P 500 data (${sp500Data.length} data points)`);
+      debugLog(`Cache hit - using cached S&P 500 data (${sp500Data.length} data points)`);
     }
 
     // Fallback to static data if both cache and Alpha Vantage fail
     if (!sp500Data || sp500Data.length === 0) {
-      console.log('Both cache and Alpha Vantage failed, using fallback S&P 500 data');
+      debugLog('Both cache and Alpha Vantage failed, using fallback S&P 500 data');
       sp500Data = [
         {
           date: '2025-09-30',
@@ -91,7 +92,7 @@ export default async function handler(
     // Sort data chronologically first (Alpha Vantage returns newest first)
     sp500Data.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-    console.log('S&P 500 data after initial sort:', sp500Data.map(p => p.date));
+    debugLog('S&P 500 data after initial sort:', sp500Data.map(p => p.date));
 
     // Calculate monthly returns for the data (whether from cache or fresh)
     const sp500DataWithReturns = sp500Data.map((point, index) => {
@@ -164,7 +165,7 @@ export default async function handler(
       .filter(point => new Date(point.date) >= portfolioStartDate)
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-    console.log(`S&P 500 data points after filtering: ${sortedSP500Data.length}`);
+    debugLog(`S&P 500 data points after filtering: ${sortedSP500Data.length}`);
 
     if (sortedSP500Data.length === 0) {
       return res.status(404).json({
@@ -185,7 +186,7 @@ export default async function handler(
       const portfolioReturn = monthlyPortfolioReturns.get(monthKey) || 0;
       const sp500Return = sp500Point.monthlyReturn || 0;
 
-      console.log(`S&P 500 point: ${sp500Point.date} (${monthKey}) - Portfolio: ${portfolioReturn.toFixed(2)}%, S&P: ${sp500Return.toFixed(2)}%`);
+      debugLog(`S&P 500 point: ${sp500Point.date} (${monthKey}) - Portfolio: ${portfolioReturn.toFixed(2)}%, S&P: ${sp500Return.toFixed(2)}%`);
 
       // Calculate cumulative returns
       cumulativePortfolio *= (1 + portfolioReturn / 100);
@@ -200,8 +201,8 @@ export default async function handler(
       });
     });
 
-    console.log(`Final benchmark data points: ${benchmarkData.length}`);
-    console.log('Final benchmark data order:', benchmarkData.map(d => d.date));
+    debugLog(`Final benchmark data points: ${benchmarkData.length}`);
+    debugLog('Final benchmark data order:', benchmarkData.map(d => d.date));
 
     // Calculate performance metrics
     const portfolioReturns = benchmarkData.map(d => d.portfolioReturn);

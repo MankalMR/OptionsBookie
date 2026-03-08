@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { debugLog } from '@/utils/logger';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { portfolioDb } from '@/lib/database-portfolios';
@@ -70,33 +71,33 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
-    console.log('PATCH /api/portfolios/[id] - Portfolio ID:', params.id);
+    debugLog('PATCH /api/portfolios/[id] - Portfolio ID:', params.id);
 
     const session = await getServerSession(authOptions);
     if (!session?.user?.email) {
-      console.log('PATCH /api/portfolios/[id] - Unauthorized');
+      debugLog('PATCH /api/portfolios/[id] - Unauthorized');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    console.log('PATCH /api/portfolios/[id] - User email:', session.user.email);
+    debugLog('PATCH /api/portfolios/[id] - User email:', session.user.email);
 
     const body = await request.json();
     const { action } = body;
-    console.log('PATCH /api/portfolios/[id] - Action:', action);
+    debugLog('PATCH /api/portfolios/[id] - Action:', action);
 
     if (action === 'setDefault') {
-      console.log('PATCH /api/portfolios/[id] - Setting default portfolio');
+      debugLog('PATCH /api/portfolios/[id] - Setting default portfolio');
       const portfolio = await portfolioDb.setDefaultPortfolio(params.id, session.user.email);
-      console.log('PATCH /api/portfolios/[id] - Result:', portfolio);
+      debugLog('PATCH /api/portfolios/[id] - Result:', portfolio);
 
       if (!portfolio) {
-        console.log('PATCH /api/portfolios/[id] - Portfolio not found');
+        debugLog('PATCH /api/portfolios/[id] - Portfolio not found');
         return NextResponse.json({ error: 'Portfolio not found' }, { status: 404 });
       }
       return NextResponse.json(portfolio);
     }
 
-    console.log('PATCH /api/portfolios/[id] - Invalid action');
+    debugLog('PATCH /api/portfolios/[id] - Invalid action');
     return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
   } catch (error) {
     console.error('Error updating portfolio:', error);

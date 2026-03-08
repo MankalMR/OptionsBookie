@@ -1,6 +1,7 @@
 // Stock price service with shared caching (works with Alpha Vantage data)
 import { sharedStockPriceCache } from './stock-price-cache';
 import { alphaVantageStockService } from './stock-price-alphavantage';
+import { debugLog } from '../utils/logger';
 
 interface StockPriceResponse {
   symbol: string;
@@ -14,12 +15,6 @@ interface StockPriceResponse {
 
 export class CachedStockService {
   private readonly CACHE_TTL = 24 * 60 * 60 * 1000; // 1 day in milliseconds
-
-  private debugLog(...args: any[]) {
-    if (process.env.ENABLE_DEBUG_LOGS === 'true') {
-      console.log(...args);
-    }
-  }
 
   /**
    * Get cached price data from shared cache
@@ -41,31 +36,31 @@ export class CachedStockService {
   async getStockPrice(symbol: string): Promise<StockPriceResponse | null> {
     try {
       // Check shared cache first
-      this.debugLog(`Checking cache for ${symbol}`);
+      debugLog(`Checking cache for ${symbol}`);
       const cached = await this.getCachedPrice(symbol);
       if (cached) {
-        this.debugLog(`✅ Using cached price for ${symbol}: $${cached.price}`);
+        debugLog(`✅ Using cached price for ${symbol}: $${cached.price}`);
         return cached;
       }
-      this.debugLog(`❌ No cached price found for ${symbol}`);
+      debugLog(`❌ No cached price found for ${symbol}`);
 
       // If not cached and Alpha Vantage is available, try to fetch from Alpha Vantage
       if (process.env.ALPHA_VANTAGE_KEY) {
-        this.debugLog(`Fetching fresh price for ${symbol} from Alpha Vantage`);
+        debugLog(`Fetching fresh price for ${symbol} from Alpha Vantage`);
         try {
           const priceData = await alphaVantageStockService.getStockPrice(symbol);
 
           if (priceData) {
             // Cache the result in shared cache
-            this.debugLog(`💾 Caching price for ${symbol}: $${priceData.price} for 1 day`);
+            debugLog(`💾 Caching price for ${symbol}: $${priceData.price} for 1 day`);
             await this.cachePrice(symbol, priceData);
             return priceData;
           }
         } catch (error) {
-          this.debugLog(`Alpha Vantage failed for ${symbol}, returning null:`, error);
+          debugLog(`Alpha Vantage failed for ${symbol}, returning null:`, error);
         }
       } else {
-        this.debugLog(`ALPHA_VANTAGE_KEY not available, returning null for ${symbol}`);
+        debugLog(`ALPHA_VANTAGE_KEY not available, returning null for ${symbol}`);
       }
 
       return null;
@@ -85,24 +80,24 @@ export class CachedStockService {
     const cachedResults = await sharedStockPriceCache.getMultipleCachedPrices(symbols);
     const symbolsToFetch: string[] = [];
 
-    this.debugLog(`📦 Checking cache for ${symbols.length} symbols: ${symbols.join(', ')}`);
+    debugLog(`📦 Checking cache for ${symbols.length} symbols: ${symbols.join(', ')}`);
 
     symbols.forEach(symbol => {
       if (cachedResults[symbol]) {
-        this.debugLog(`✅ Using cached price for ${symbol}: $${cachedResults[symbol]!.price}`);
+        debugLog(`✅ Using cached price for ${symbol}: $${cachedResults[symbol]!.price}`);
         results[symbol] = cachedResults[symbol];
       } else {
-        this.debugLog(`❌ No cached price for ${symbol}`);
+        debugLog(`❌ No cached price for ${symbol}`);
         symbolsToFetch.push(symbol);
       }
     });
 
-    this.debugLog(`🔄 Need to fetch ${symbolsToFetch.length} symbols from Alpha Vantage: ${symbolsToFetch.join(', ')}`);
+    debugLog(`🔄 Need to fetch ${symbolsToFetch.length} symbols from Alpha Vantage: ${symbolsToFetch.join(', ')}`);
 
     // Fetch uncached symbols from Alpha Vantage if available
     if (symbolsToFetch.length > 0) {
       if (process.env.ALPHA_VANTAGE_KEY) {
-        this.debugLog(`Fetching fresh prices for: ${symbolsToFetch.join(', ')} from Alpha Vantage`);
+        debugLog(`Fetching fresh prices for: ${symbolsToFetch.join(', ')} from Alpha Vantage`);
         try {
           const alphaVantageResults = await alphaVantageStockService.getMultipleStockPrices(symbolsToFetch);
 
@@ -120,13 +115,13 @@ export class CachedStockService {
             await sharedStockPriceCache.cacheMultiplePrices(symbolsToFetch, pricesToCache);
           }
         } catch (error) {
-          this.debugLog(`Alpha Vantage failed for symbols: ${symbolsToFetch.join(', ')}, returning null:`, error);
+          debugLog(`Alpha Vantage failed for symbols: ${symbolsToFetch.join(', ')}, returning null:`, error);
           symbolsToFetch.forEach(symbol => {
             results[symbol] = null;
           });
         }
       } else {
-        this.debugLog(`ALPHA_VANTAGE_KEY not available, returning null for uncached symbols: ${symbolsToFetch.join(', ')}`);
+        debugLog(`ALPHA_VANTAGE_KEY not available, returning null for uncached symbols: ${symbolsToFetch.join(', ')}`);
         symbolsToFetch.forEach(symbol => {
           results[symbol] = null;
         });

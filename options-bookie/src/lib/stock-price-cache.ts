@@ -1,3 +1,4 @@
+import { debugLog } from "../utils/logger";
 // Shared stock price cache using Supabase
 import { createClient } from '@supabase/supabase-js';
 
@@ -90,7 +91,7 @@ export class SharedStockPriceCache {
       if (error) {
         console.error('Error caching price:', error);
       } else {
-        console.log(`Cached price for ${symbol} until ${expiresAt.toISOString()}`);
+        debugLog(`Cached price for ${symbol} until ${expiresAt.toISOString()}`);
       }
     } catch (error) {
       console.error('Error caching price:', error);
@@ -176,7 +177,7 @@ export class SharedStockPriceCache {
         if (error) {
           console.error('Error caching multiple prices:', error);
         } else {
-          console.log(`Cached ${cacheData.length} prices until ${expiresAt.toISOString()}`);
+          debugLog(`Cached ${cacheData.length} prices until ${expiresAt.toISOString()}`);
         }
       } catch (error) {
         console.error('Error caching multiple prices:', error);
@@ -197,7 +198,7 @@ export class SharedStockPriceCache {
       if (error) {
         console.error('Error clearing expired cache:', error);
       } else {
-        console.log('Cleared expired cache entries');
+        debugLog('Cleared expired cache entries');
       }
     } catch (error) {
       console.error('Error clearing expired cache:', error);
