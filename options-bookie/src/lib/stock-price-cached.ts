@@ -41,7 +41,6 @@ export class CachedStockService {
         console.log(`✅ Using cached price for ${symbol}: $${cached.price}`);
         return cached;
       }
-      console.log(`❌ No cached price found for ${symbol}`);
 
       // If not cached and Alpha Vantage is available, try to fetch from Alpha Vantage
       if (process.env.ALPHA_VANTAGE_KEY) {
