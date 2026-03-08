@@ -61,7 +61,6 @@ export default async function handler(
 
     if (!sp500Data) {
       // Cache miss - fetch from Alpha Vantage
-      console.log(`Cache miss - fetching ${monthsToFetch} months of S&P 500 data from Alpha Vantage...`);
       const freshData = await alphaVantageStockService.getHistoricalMonthlyData('SPY', monthsToFetch);
 
       if (freshData && freshData.length > 0) {
