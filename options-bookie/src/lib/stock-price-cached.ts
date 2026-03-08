@@ -45,7 +45,6 @@ export class CachedStockService {
 
       // If not cached and Alpha Vantage is available, try to fetch from Alpha Vantage
       if (process.env.ALPHA_VANTAGE_KEY) {
-        console.log(`Fetching fresh price for ${symbol} from Alpha Vantage`);
         try {
           const priceData = await alphaVantageStockService.getStockPrice(symbol);
 
