@@ -13,6 +13,7 @@ if (!supabaseUrl || !supabaseServiceKey) {
 const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
 // Helper function to convert Supabase row to Portfolio
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function rowToPortfolio(row: any): Portfolio {
   return {
     id: row.id,
@@ -145,8 +146,6 @@ export const portfolioDb = {
   // Set a portfolio as default
   async setDefaultPortfolio(id: string, userId: string): Promise<Portfolio | null> {
     try {
-      console.log('setDefaultPortfolio - ID:', id, 'User ID:', userId);
-
       // First check if the portfolio exists
       const { data: existingPortfolio, error: checkError } = await supabaseAdmin
         .from('portfolios')
