@@ -164,8 +164,6 @@ export default async function handler(
       .filter(point => new Date(point.date) >= portfolioStartDate)
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-    console.log(`S&P 500 data points after filtering: ${sortedSP500Data.length}`);
-
     if (sortedSP500Data.length === 0) {
       return res.status(404).json({
         success: false,
