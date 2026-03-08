@@ -59,7 +59,7 @@ const nextConfig = {
               "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://vercel.live https://va.vercel-scripts.com",
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "img-src 'self' data: https: blob:",
-              "font-src 'self' https://fonts.gstatic.com",
+              "font-src 'self' https://fonts.gstatic.com https://r2cdn.perplexity.ai",
               "connect-src 'self' https://*.supabase.co https://*.vercel.app wss://*.vercel.app",
               "frame-src 'self' https://vercel.live",
               "object-src 'none'",

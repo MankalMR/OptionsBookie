@@ -56,6 +56,9 @@ export default function DemoPage() {
     const [demoDisabled, setDemoDisabled] = useState(false);
 
     useEffect(() => {
+        // Only run boot if sessionId is null (e.g. initial mount or after reset)
+        if (sessionId !== null) return;
+
         const boot = async () => {
             // Check localStorage for an existing session
             const existing = typeof window !== 'undefined'
@@ -85,7 +88,7 @@ export default function DemoPage() {
         };
 
         boot();
-    }, []);
+    }, [sessionId]);
 
     // --- Core state ----------------------------------------------------------
     const [transactions, setTransactions] = useState<OptionsTransaction[]>([]);
@@ -186,10 +189,11 @@ export default function DemoPage() {
                 headers: demoHeaders(sessionId),
             });
             if (res.ok) {
-                const data = await res.json();
-                setPortfolios(data);
-                if (!selectedPortfolioId && data.length > 0) {
-                    const defaultPortfolio = data.find((p: Portfolio) => p.isDefault);
+                const result = await res.json();
+                const portData = result.success !== undefined ? result.data : result;
+                setPortfolios(portData);
+                if (!selectedPortfolioId && portData.length > 0) {
+                    const defaultPortfolio = portData.find((p: Portfolio) => p.isDefault);
                     if (defaultPortfolio) setSelectedPortfolioId(defaultPortfolio.id);
                 }
             }
