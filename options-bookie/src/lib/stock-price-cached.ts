@@ -35,7 +35,6 @@ export class CachedStockService {
   async getStockPrice(symbol: string): Promise<StockPriceResponse | null> {
     try {
       // Check shared cache first
-      console.log(`Checking cache for ${symbol}`);
       const cached = await this.getCachedPrice(symbol);
       if (cached) {
         console.log(`✅ Using cached price for ${symbol}: $${cached.price}`);
