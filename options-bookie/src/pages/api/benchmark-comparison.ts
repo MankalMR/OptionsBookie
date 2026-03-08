@@ -91,8 +91,6 @@ export default async function handler(
     // Sort data chronologically first (Alpha Vantage returns newest first)
     sp500Data.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-    console.log('S&P 500 data after initial sort:', sp500Data.map(p => p.date));
-
     // Calculate monthly returns for the data (whether from cache or fresh)
     const sp500DataWithReturns = sp500Data.map((point, index) => {
       let monthlyReturn = 0;
