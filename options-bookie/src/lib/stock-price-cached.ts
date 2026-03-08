@@ -38,7 +38,6 @@ export class CachedStockService {
       console.log(`Checking cache for ${symbol}`);
       const cached = await this.getCachedPrice(symbol);
       if (cached) {
-        console.log(`✅ Using cached price for ${symbol}: $${cached.price}`);
         return cached;
       }
       console.log(`❌ No cached price found for ${symbol}`);
@@ -83,7 +82,6 @@ export class CachedStockService {
 
     symbols.forEach(symbol => {
       if (cachedResults[symbol]) {
-        console.log(`✅ Using cached price for ${symbol}: $${cachedResults[symbol]!.price}`);
         results[symbol] = cachedResults[symbol];
       } else {
         console.log(`❌ No cached price for ${symbol}`);
