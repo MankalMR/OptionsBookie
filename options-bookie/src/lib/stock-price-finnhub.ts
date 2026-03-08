@@ -1,3 +1,4 @@
+import { logger } from "@/utils/logger";
 // Stock price service using Finnhub API
 interface StockPriceResponse {
   symbol: string;
@@ -77,12 +78,12 @@ export class FinnhubStockService implements StockPriceService {
 
       // Check if we're currently rate limited
       if (this.isCurrentlyRateLimited()) {
-        console.log(`Skipping ${symbol} - Finnhub API is rate limited`);
+        logger.debug(`Skipping ${symbol} - Finnhub API is rate limited`);
         return null;
       }
 
       const url = `${this.baseUrl}/quote?symbol=${symbol}&token=${this.apiKey}`;
-      console.log(`Finnhub API URL: ${url}`);
+      logger.debug(`Finnhub API URL: ${url}`);
 
       const response = await fetch(url);
 
@@ -131,7 +132,7 @@ export class FinnhubStockService implements StockPriceService {
 
     // Check if we're rate limited before making any calls
     if (this.isCurrentlyRateLimited()) {
-      console.log('Finnhub API is rate limited, returning null for all symbols');
+      logger.debug('Finnhub API is rate limited, returning null for all symbols');
       symbols.forEach(symbol => {
         results[symbol] = null;
       });
@@ -144,7 +145,7 @@ export class FinnhubStockService implements StockPriceService {
       try {
         // Check rate limit before each call
         if (this.isCurrentlyRateLimited()) {
-          console.log(`Rate limit hit, skipping remaining symbols: ${symbols.slice(symbols.indexOf(symbol)).join(', ')}`);
+          logger.debug(`Rate limit hit, skipping remaining symbols: ${symbols.slice(symbols.indexOf(symbol)).join(', ')}`);
           // Set remaining symbols to null
           symbols.slice(symbols.indexOf(symbol)).forEach(remainingSymbol => {
             results[remainingSymbol] = null;

@@ -1,3 +1,4 @@
+import { logger } from "@/utils/logger";
 // Stock price service using Alpha Vantage API
 interface StockPriceResponse {
   symbol: string;
@@ -100,12 +101,12 @@ export class AlphaVantageStockService implements StockPriceService {
 
       // Check if we're currently rate limited
       if (this.isCurrentlyRateLimited()) {
-        console.log(`Skipping ${symbol} - Alpha Vantage API is rate limited`);
+        logger.debug(`Skipping ${symbol} - Alpha Vantage API is rate limited`);
         return null;
       }
 
       const url = `${this.baseUrl}?function=GLOBAL_QUOTE&symbol=${symbol}&apikey=${this.apiKey}`;
-      console.log(`Alpha Vantage API URL: ${url.replace(this.apiKey, '[REDACTED]')}`);
+      logger.debug(`Alpha Vantage API URL: ${url.replace(this.apiKey, '[REDACTED]')}`);
 
       const response = await fetch(url);
 
@@ -171,7 +172,7 @@ export class AlphaVantageStockService implements StockPriceService {
 
     // Check if we're rate limited before making any calls
     if (this.isCurrentlyRateLimited()) {
-      console.log('Alpha Vantage API is rate limited, returning null for all symbols');
+      logger.debug('Alpha Vantage API is rate limited, returning null for all symbols');
       symbols.forEach(symbol => {
         results[symbol] = null;
       });
@@ -184,7 +185,7 @@ export class AlphaVantageStockService implements StockPriceService {
       try {
         // Check rate limit before each call
         if (this.isCurrentlyRateLimited()) {
-          console.log(`Rate limit hit, skipping remaining symbols: ${symbols.slice(symbols.indexOf(symbol)).join(', ')}`);
+          logger.debug(`Rate limit hit, skipping remaining symbols: ${symbols.slice(symbols.indexOf(symbol)).join(', ')}`);
           // Set remaining symbols to null
           symbols.slice(symbols.indexOf(symbol)).forEach(remainingSymbol => {
             results[remainingSymbol] = null;
@@ -217,12 +218,12 @@ export class AlphaVantageStockService implements StockPriceService {
       }
 
       if (this.isCurrentlyRateLimited()) {
-        console.log(`Skipping historical data for ${symbol} - Alpha Vantage API is rate limited`);
+        logger.debug(`Skipping historical data for ${symbol} - Alpha Vantage API is rate limited`);
         return [];
       }
 
       const url = `${this.baseUrl}?function=TIME_SERIES_MONTHLY&symbol=${symbol}&apikey=${this.apiKey}`;
-      console.log(`Alpha Vantage Historical API URL: ${url.replace(this.apiKey, '[REDACTED]')}`);
+      logger.debug(`Alpha Vantage Historical API URL: ${url.replace(this.apiKey, '[REDACTED]')}`);
 
       const response = await fetch(url);
 

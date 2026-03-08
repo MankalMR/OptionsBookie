@@ -1,3 +1,5 @@
+import { logger } from "@/utils/logger";
+
 /**
  * Tests for date utilities
  * Critical for options trading app - any date bugs could affect DTE, P&L, expiry calculations
@@ -166,7 +168,7 @@ describe('dateUtils', () => {
         const nativeDate = new Date(dateStr);
         if (nativeDate.getDate() !== parsed.getDate()) {
           // This confirms our parseLocalDate is fixing timezone issues
-          console.log(`Fixed timezone issue for ${dateStr}: native=${nativeDate.getDate()}, parsed=${parsed.getDate()}`);
+          logger.debug(`Fixed timezone issue for ${dateStr}: native=${nativeDate.getDate()}, parsed=${parsed.getDate()}`);
         }
       });
     });

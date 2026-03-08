@@ -1,3 +1,4 @@
+import { logger } from "@/utils/logger";
 import { createClient } from '@supabase/supabase-js';
 import { Portfolio } from '@/types/options';
 
@@ -145,7 +146,7 @@ export const portfolioDb = {
   // Set a portfolio as default
   async setDefaultPortfolio(id: string, userId: string): Promise<Portfolio | null> {
     try {
-      console.log('setDefaultPortfolio - ID:', id, 'User ID:', userId);
+      logger.debug('setDefaultPortfolio - ID:', id, 'User ID:', userId);
 
       // First check if the portfolio exists
       const { data: existingPortfolio, error: checkError } = await supabaseAdmin
@@ -161,11 +162,11 @@ export const portfolioDb = {
       }
 
       if (!existingPortfolio) {
-        console.log('Portfolio not found for user');
+        logger.debug('Portfolio not found for user');
         return null;
       }
 
-      console.log('Portfolio found:', existingPortfolio);
+      logger.debug('Portfolio found:', existingPortfolio);
 
       // First unset all other default portfolios for this user
       const { error: unsetError } = await supabaseAdmin
@@ -193,7 +194,7 @@ export const portfolioDb = {
         return null;
       }
 
-      console.log('Successfully set default portfolio:', data);
+      logger.debug('Successfully set default portfolio:', data);
       return rowToPortfolio(data);
     } catch (error) {
       console.error('Error in setDefaultPortfolio:', error);

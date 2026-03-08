@@ -1,3 +1,4 @@
+import { logger } from "@/utils/logger";
 // Historical data cache using Supabase
 import { createClient } from '@supabase/supabase-js';
 
@@ -43,11 +44,11 @@ export class HistoricalDataCache {
         .single();
 
       if (error || !data) {
-        console.log(`No cached historical data found for ${symbol}`);
+        logger.debug(`No cached historical data found for ${symbol}`);
         return null;
       }
 
-      console.log(`Retrieved cached historical data for ${symbol} (${data.data.length} data points)`);
+      logger.debug(`Retrieved cached historical data for ${symbol} (${data.data.length} data points)`);
       return data.data;
     } catch (error) {
       console.error('Error fetching cached historical data:', error);
@@ -78,7 +79,7 @@ export class HistoricalDataCache {
       if (error) {
         console.error('Error caching historical data:', error);
       } else {
-        console.log(`Cached historical data for ${symbol} (${historicalData.length} data points) until ${expiresAt.toISOString()}`);
+        logger.debug(`Cached historical data for ${symbol} (${historicalData.length} data points) until ${expiresAt.toISOString()}`);
       }
     } catch (error) {
       console.error('Error caching historical data:', error);
@@ -98,7 +99,7 @@ export class HistoricalDataCache {
       if (error) {
         console.error('Error clearing expired historical data cache:', error);
       } else {
-        console.log('Cleared expired historical data cache entries');
+        logger.debug('Cleared expired historical data cache entries');
       }
     } catch (error) {
       console.error('Error clearing expired historical data cache:', error);
@@ -152,7 +153,7 @@ export class HistoricalDataCache {
       if (error) {
         console.error(`Error force refreshing cache for ${symbol}:`, error);
       } else {
-        console.log(`Force refreshed cache for ${symbol}`);
+        logger.debug(`Force refreshed cache for ${symbol}`);
       }
     } catch (error) {
       console.error(`Error force refreshing cache for ${symbol}:`, error);
