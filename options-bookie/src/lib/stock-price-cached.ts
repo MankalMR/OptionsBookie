@@ -51,7 +51,6 @@ export class CachedStockService {
 
           if (priceData) {
             // Cache the result in shared cache
-            console.log(`💾 Caching price for ${symbol}: $${priceData.price} for 1 day`);
             await this.cachePrice(symbol, priceData);
             return priceData;
           }
