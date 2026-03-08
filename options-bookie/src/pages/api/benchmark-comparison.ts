@@ -56,7 +56,6 @@ export default async function handler(
     }
 
     // Try to get S&P 500 data from cache first
-    console.log('Checking cache for S&P 500 historical data...');
     let sp500Data = await historicalDataCache.getCachedData('SPY');
 
     if (!sp500Data) {
