@@ -1149,7 +1149,6 @@ export const calculateSmartCapital = (
     }
 
     if (stockCapital > 0) {
-      //   console.log(`[DEBUG] ${stock}: capital=${stockCapital}, trades=${stockTradeCount}, sequential=${stockIsSequential && transactionsForDetection.length > 1}, hasOverlap=${stockOverlapResult?.hasOverlap}`);
       breakdown.push({
         stock,
         capital: stockCapital,
@@ -1161,8 +1160,6 @@ export const calculateSmartCapital = (
     totalCapital += stockCapital;
     totalTrades += stockTradeCount;
   }
-
-  // console.log(`[DEBUG] Final totalCapital: ${totalCapital}`);
 
   return {
     totalCapital,
