@@ -161,7 +161,6 @@ export const portfolioDb = {
       }
 
       if (!existingPortfolio) {
-        console.log('Portfolio not found for user');
         return null;
       }
 
