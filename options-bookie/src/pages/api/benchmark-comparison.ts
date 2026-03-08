@@ -69,8 +69,6 @@ export default async function handler(
         await historicalDataCache.cacheData('SPY', freshData);
         sp500Data = freshData;
       }
-    } else {
-      console.log(`Cache hit - using cached S&P 500 data (${sp500Data.length} data points)`);
     }
 
     // Fallback to static data if both cache and Alpha Vantage fail
