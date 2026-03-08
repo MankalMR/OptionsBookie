@@ -193,7 +193,6 @@ export const portfolioDb = {
         return null;
       }
 
-      console.log('Successfully set default portfolio:', data);
       return rowToPortfolio(data);
     } catch (error) {
       console.error('Error in setDefaultPortfolio:', error);
