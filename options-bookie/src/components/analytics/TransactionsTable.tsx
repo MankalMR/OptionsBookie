@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo, useCallback } from 'react';
 import { OptionsTransaction, TradeChain } from '@/types/options';
 import { calculateRoR, calculateDaysHeld, calculateCollateral, formatPnLCurrency, getRealizedTransactions, calculateStrategyPerformance, calculatePortfolioRoR, calculateAnnualizedRoR, calculateMonthlyPortfolioAnnualizedRoR, getRoRColorClasses, calculateChainPnL, calculateChainAwareStockPerformance } from '@/utils/optionsCalculations';
 import RoRDisplay from '@/components/ui/RoRDisplay';
@@ -19,7 +19,7 @@ export default function TransactionsTable({ transactions, chains = [] }: Transac
   const isMobile = useIsMobile();
 
   // Helper function to get chain-aware P&L for display
-  const getDisplayPnL = (transaction: OptionsTransaction): number => {
+  const getDisplayPnL = useCallback((transaction: OptionsTransaction): number => {
     // For chained transactions, show the full chain P&L on the final transaction
     if (transaction.chainId) {
       const chain = chains.find((c: TradeChain) => c.id === transaction.chainId);
@@ -30,43 +30,59 @@ export default function TransactionsTable({ transactions, chains = [] }: Transac
 
     // For non-chained transactions, show individual P&L
     return transaction.profitLoss || 0;
-  };
+  }, [chains, transactions]);
 
   // Filter out rolled transactions for cleaner display
-  const displayTransactions = transactions.filter(t => t.status !== 'Rolled');
+  const displayTransactions = useMemo(() =>
+    transactions.filter(t => t.status !== 'Rolled'),
+  [transactions]);
 
   // Helper function to check if transaction is part of a closed chain
-  const isClosedChainTransaction = (transaction: OptionsTransaction): boolean => {
+  const isClosedChainTransaction = useCallback((transaction: OptionsTransaction): boolean => {
     if (transaction.chainId) {
       const chain = chains.find((c: TradeChain) => c.id === transaction.chainId);
       return Boolean(chain && chain.chainStatus === 'Closed');
     }
     return false;
-  };
+  }, [chains]);
 
   // Calculate month-specific metrics for Quick Stats
-  const realizedTransactions = getRealizedTransactions(transactions, chains);
-  const totalPnL = realizedTransactions.reduce((sum, t) => sum + (t.profitLoss || 0), 0);
-  const winningTrades = realizedTransactions.filter(t => (t.profitLoss || 0) > 0);
-  const winRate = realizedTransactions.length > 0 ? (winningTrades.length / realizedTransactions.length) * 100 : 0;
+  const realizedTransactions = useMemo(() =>
+    getRealizedTransactions(transactions, chains),
+  [transactions, chains]);
+
+  const { totalPnL, winRate } = useMemo(() => {
+    const pnl = realizedTransactions.reduce((sum, t) => sum + (t.profitLoss || 0), 0);
+    const winningTrades = realizedTransactions.filter(t => (t.profitLoss || 0) > 0);
+    const rate = realizedTransactions.length > 0 ? (winningTrades.length / realizedTransactions.length) * 100 : 0;
+    return { totalPnL: pnl, winRate: rate };
+  }, [realizedTransactions]);
 
   // Calculate month-specific strategy performance
-  const monthStrategyPerformance = calculateStrategyPerformance(transactions, chains);
+  const monthStrategyPerformance = useMemo(() =>
+    calculateStrategyPerformance(transactions, chains),
+  [transactions, chains]);
 
   // Calculate best stock by P&L and RoR for this month using chain-aware logic
-  const stockPerformance = calculateChainAwareStockPerformance(transactions, chains);
+  const stockPerformance = useMemo(() =>
+    calculateChainAwareStockPerformance(transactions, chains),
+  [transactions, chains]);
 
-  const bestStockByPnL = Array.from(stockPerformance.entries())
-    .sort((a, b) => b[1].pnl - a[1].pnl)[0];
+  const bestStockByPnL = useMemo(() =>
+    Array.from(stockPerformance.entries())
+      .sort((a, b) => b[1].pnl - a[1].pnl)[0],
+  [stockPerformance]);
 
-  const bestStockByRoR = Array.from(stockPerformance.entries())
-    .map(([ticker, data]) => ({
-      ticker,
-      ror: data.totalCollateral > 0 ? (data.pnl / data.totalCollateral * 100) : 0
-    }))
-    .sort((a, b) => b.ror - a.ror)[0];
+  const bestStockByRoR = useMemo(() =>
+    Array.from(stockPerformance.entries())
+      .map(([ticker, data]) => ({
+        ticker,
+        ror: data.totalCollateral > 0 ? (data.pnl / data.totalCollateral * 100) : 0
+      }))
+      .sort((a, b) => b.ror - a.ror)[0],
+  [stockPerformance]);
 
-  const quickStatsData = {
+  const quickStatsData = useMemo(() => ({
     totalPnL,
     totalTrades: realizedTransactions.length,
     winRate,
@@ -76,14 +92,16 @@ export default function TransactionsTable({ transactions, chains = [] }: Transac
       : null,
     bestStockByPnL: bestStockByPnL ? { ticker: bestStockByPnL[0], pnl: bestStockByPnL[1].pnl } : null,
     bestStockByRoR: bestStockByRoR ? { ticker: bestStockByRoR.ticker, ror: bestStockByRoR.ror } : null
-  };
+  }), [totalPnL, realizedTransactions.length, winRate, transactions, monthStrategyPerformance, bestStockByPnL, bestStockByRoR]);
 
   // Sort display transactions by close date (most recent first)
-  const sortedTransactions = [...displayTransactions].sort((a, b) => {
-    const dateA = parseLocalDate(a.closeDate!).getTime();
-    const dateB = parseLocalDate(b.closeDate!).getTime();
-    return dateB - dateA;
-  });
+  const sortedTransactions = useMemo(() =>
+    [...displayTransactions].sort((a, b) => {
+      const dateA = parseLocalDate(a.closeDate!).getTime();
+      const dateB = parseLocalDate(b.closeDate!).getTime();
+      return dateB - dateA;
+    }),
+  [displayTransactions]);
 
   return (
     <div className="bg-muted/30 px-4 py-3 space-y-6">
