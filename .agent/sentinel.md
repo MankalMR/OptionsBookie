@@ -1,0 +1,1 @@
+## 2026-03-10 - Prevent Unauthenticated API Access | **Learning:** All /api/* routes (excluding demo) must explicitly check `getServerSession(authOptions)` regardless of what Next.js middleware is doing. | **Prevention:** Audit all export async function GET/POST definitions in `src/app/api` to ensure the auth check is present at the very beginning of the function body.
