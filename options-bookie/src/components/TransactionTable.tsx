@@ -427,6 +427,7 @@ export default function TransactionTable({
                           onClick={() => onDeleteChain(chainId)}
                           className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
                           title="Delete entire chain"
+                          aria-label="Delete entire chain"
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -604,6 +605,7 @@ export default function TransactionTable({
                               size="sm"
                               onClick={() => onEdit(transaction)}
                               className="h-8 w-8 p-0"
+                              aria-label="Edit transaction"
                             >
                               <Edit className="h-4 w-4" />
                             </Button>
@@ -621,6 +623,7 @@ export default function TransactionTable({
                               size="sm"
                               onClick={() => onDelete(transaction.id)}
                               className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                              aria-label="Delete transaction"
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
@@ -823,6 +826,7 @@ export default function TransactionTable({
                       size="sm"
                       onClick={() => onEdit(transaction)}
                       className="h-8 w-8 p-0"
+                      aria-label="Edit transaction"
                     >
                       <Edit className="h-4 w-4" />
                     </Button>
@@ -840,6 +844,7 @@ export default function TransactionTable({
                       size="sm"
                       onClick={() => onDelete(transaction.id)}
                       className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                      aria-label="Delete transaction"
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
