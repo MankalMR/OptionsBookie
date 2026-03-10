@@ -1,5 +1,6 @@
 'use client';
 
+import React, { useMemo } from 'react';
 import { formatPnLCurrency, getRealizedTransactions, calculateStrategyPerformance, calculateCollateral, calculateYearlyAnnualizedRoRWithActiveMonths, getEffectiveCloseDate } from '@/utils/optionsCalculations';
 import { OptionsTransaction, TradeChain } from '@/types/options';
 import { YearlySummary } from '@/components/SummaryView';
@@ -60,20 +61,22 @@ export default function YearlySummaryCard({
 }: YearlySummaryCardProps) {
   const formatCurrency = formatPnLCurrency;
 
+  // Memoize all realized transactions to avoid O(N^2) performance hit in the loop
+  const allRealized = useMemo(() => getRealizedTransactions(transactions, chains), [transactions, chains]);
+  const allRealizedIds = useMemo(() => new Set(allRealized.map(t => t.id)), [allRealized]);
+
   // Filter transactions for this specific year using effective close date logic
   // This matches the MonthlyBreakdownSection logic
-  const yearTransactions = transactions.filter(transaction => {
+  const yearTransactions = useMemo(() => transactions.filter(transaction => {
     if (!transaction.closeDate) return false;
     // We need to check if this transaction belongs to this year based on effective close date
     // But we need the context of all realized transactions to determine effective date
-    // This is slightly inefficient but necessary for correctness
-    const allRealized = getRealizedTransactions(transactions, chains);
     // Only process if it's a realized transaction
-    if (!allRealized.find(t => t.id === transaction.id)) return false;
+    if (!allRealizedIds.has(transaction.id)) return false;
 
     const effectiveCloseDate = getEffectiveCloseDate(transaction, allRealized, chains);
     return effectiveCloseDate.getFullYear() === yearData.year;
-  });
+  }), [transactions, chains, yearData.year, allRealized, allRealizedIds]);
 
   // Use yearData values which are calculated from monthly breakdown (source of truth)
   // This ensures perfect consistency between yearly display and monthly sum

@@ -68,15 +68,17 @@ export default function MonthlyBreakdownSection({
     setExpandedMonths(newExpanded);
   };
 
+  // Memoize realized transactions so we don't recalculate them for every month
+  const realizedTransactionsWithCloseDate = React.useMemo(() => {
+    return getRealizedTransactions(transactions, chains).filter(t => t.closeDate);
+  }, [transactions, chains]);
+
   // Get transactions for a specific month using chain-aware filtering and effective close dates
   const getMonthTransactions = (month: number): OptionsTransaction[] => {
-    const realizedTransactions = getRealizedTransactions(transactions, chains).filter(t => t.closeDate);
-
-    const monthTransactions = realizedTransactions.filter(t => {
-      const effectiveCloseDate = getEffectiveCloseDate(t, realizedTransactions, chains);
+    const monthTransactions = realizedTransactionsWithCloseDate.filter(t => {
+      const effectiveCloseDate = getEffectiveCloseDate(t, realizedTransactionsWithCloseDate, chains);
       return effectiveCloseDate.getFullYear() === yearData.year && effectiveCloseDate.getMonth() === month;
     });
-
 
     return monthTransactions;
   };
