@@ -415,22 +415,27 @@ export default function TransactionTable({
                   <TableCell>
                     {!isMobile && onDeleteChain && (
                       <div className="flex space-x-1">
-                        <div
-                          className="h-8 w-8 flex items-center justify-center text-muted-foreground"
-                          title="Chain deletion"
-                        >
-                          <Link className="h-4 w-4" />
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => onDeleteChain(chainId)}
-                          className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
-                          title="Delete entire chain"
-                          aria-label="Delete entire chain"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        <Tooltip content="Chain deletion">
+                          <div
+                            className="h-8 w-8 flex items-center justify-center text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                            aria-label="Chain deletion link indicator"
+                            role="img"
+                            tabIndex={0}
+                          >
+                            <Link className="h-4 w-4" />
+                          </div>
+                        </Tooltip>
+                        <Tooltip content="Delete entire chain">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => onDeleteChain(chainId)}
+                            className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50 focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:outline-none"
+                            aria-label="Delete entire chain"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </Tooltip>
                       </div>
                     )}
                   </TableCell>
@@ -604,25 +609,29 @@ export default function TransactionTable({
                               variant="ghost"
                               size="sm"
                               onClick={() => onEdit(transaction)}
-                              className="h-8 w-8 p-0"
+                              className="h-8 w-8 p-0 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                               aria-label="Edit transaction"
                             >
                               <Edit className="h-4 w-4" />
                             </Button>
                           ) : (
-                            <div
-                              className="h-8 w-8 flex items-center justify-center text-muted-foreground cursor-not-allowed"
-                              title="Cannot edit rolled transactions. Delete entire chain to make changes."
-                            >
-                              <Edit className="h-4 w-4" />
-                            </div>
+                            <Tooltip content="Cannot edit rolled transactions. Delete entire chain to make changes.">
+                              <div
+                                className="h-8 w-8 flex items-center justify-center text-muted-foreground cursor-not-allowed focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                                aria-label="Edit disabled for rolled transactions"
+                                role="img"
+                                tabIndex={0}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </div>
+                            </Tooltip>
                           )}
                           {!isMobile && (
                             <Button
                               variant="ghost"
                               size="sm"
                               onClick={() => onDelete(transaction.id)}
-                              className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                              className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50 focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:outline-none"
                               aria-label="Delete transaction"
                             >
                               <Trash2 className="h-4 w-4" />
@@ -825,25 +834,29 @@ export default function TransactionTable({
                       variant="ghost"
                       size="sm"
                       onClick={() => onEdit(transaction)}
-                      className="h-8 w-8 p-0"
+                      className="h-8 w-8 p-0 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                       aria-label="Edit transaction"
                     >
                       <Edit className="h-4 w-4" />
                     </Button>
                   ) : (
-                    <div
-                      className="h-8 w-8 flex items-center justify-center text-muted-foreground cursor-not-allowed"
-                      title="Cannot edit rolled transactions. Delete entire chain to make changes."
-                    >
-                      <Edit className="h-4 w-4" />
-                    </div>
+                    <Tooltip content="Cannot edit rolled transactions. Delete entire chain to make changes.">
+                      <div
+                        className="h-8 w-8 flex items-center justify-center text-muted-foreground cursor-not-allowed focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                        aria-label="Edit disabled for rolled transactions"
+                        role="img"
+                        tabIndex={0}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </div>
+                    </Tooltip>
                   )}
                   {!isMobile && (
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={() => onDelete(transaction.id)}
-                      className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                      className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50 focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:outline-none"
                       aria-label="Delete transaction"
                     >
                       <Trash2 className="h-4 w-4" />
