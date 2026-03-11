@@ -1,13 +1,14 @@
 'use client';
 
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { AlertTriangle, X } from 'lucide-react';
+import { AlertTriangle, X, Loader2 } from 'lucide-react';
 import { OptionsTransaction } from '@/types/options';
 
 interface DeleteConfirmationModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: () => void;
+  onConfirm: () => void | Promise<void>;
   transaction: OptionsTransaction | null;
 }
 
@@ -17,11 +18,18 @@ export default function DeleteConfirmationModal({
   onConfirm,
   transaction
 }: DeleteConfirmationModalProps) {
+  const [isDeleting, setIsDeleting] = useState(false);
+
   if (!isOpen || !transaction) return null;
 
-  const handleConfirm = () => {
-    onConfirm();
-    onClose();
+  const handleConfirm = async () => {
+    setIsDeleting(true);
+    try {
+      await onConfirm();
+    } finally {
+      setIsDeleting(false);
+      onClose();
+    }
   };
 
   return (
@@ -35,7 +43,8 @@ export default function DeleteConfirmationModal({
             </div>
             <button
               onClick={onClose}
-              className="text-muted-foreground hover:text-foreground transition-colors"
+              disabled={isDeleting}
+              className="text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
               aria-label="Close modal"
             >
               <X className="h-5 w-5" />
@@ -84,14 +93,23 @@ export default function DeleteConfirmationModal({
             <Button
               variant="outline"
               onClick={onClose}
+              disabled={isDeleting}
             >
               Cancel
             </Button>
             <Button
               onClick={handleConfirm}
+              disabled={isDeleting}
               className="bg-red-600 hover:bg-red-700 text-white"
             >
-              Delete Transaction
+              {isDeleting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                'Delete Transaction'
+              )}
             </Button>
           </div>
         </div>

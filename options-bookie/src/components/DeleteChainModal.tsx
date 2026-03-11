@@ -1,13 +1,14 @@
 'use client';
 
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { AlertTriangle, X, Link } from 'lucide-react';
+import { AlertTriangle, X, Link, Loader2 } from 'lucide-react';
 import { OptionsTransaction, TradeChain } from '@/types/options';
 
 interface DeleteChainModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: () => void;
+  onConfirm: () => void | Promise<void>;
   chainId: string | null;
   chainTransactions: OptionsTransaction[];
   chainInfo?: TradeChain | null;
@@ -21,11 +22,18 @@ export default function DeleteChainModal({
   chainTransactions,
   chainInfo
 }: DeleteChainModalProps) {
+  const [isDeleting, setIsDeleting] = useState(false);
+
   if (!isOpen || !chainId || chainTransactions.length === 0) return null;
 
-  const handleConfirm = () => {
-    onConfirm();
-    onClose();
+  const handleConfirm = async () => {
+    setIsDeleting(true);
+    try {
+      await onConfirm();
+    } finally {
+      setIsDeleting(false);
+      onClose();
+    }
   };
 
   const stockSymbol = chainTransactions[0]?.stockSymbol || 'Unknown';
@@ -41,7 +49,8 @@ export default function DeleteChainModal({
             </div>
             <button
               onClick={onClose}
-              className="text-muted-foreground hover:text-foreground transition-colors"
+              disabled={isDeleting}
+              className="text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
               aria-label="Close modal"
             >
               <X className="h-5 w-5" />
@@ -101,14 +110,23 @@ export default function DeleteChainModal({
             <Button
               variant="outline"
               onClick={onClose}
+              disabled={isDeleting}
             >
               Cancel
             </Button>
             <Button
               onClick={handleConfirm}
+              disabled={isDeleting}
               className="bg-red-600 hover:bg-red-700 text-white"
             >
-              Delete Chain
+              {isDeleting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                'Delete Chain'
+              )}
             </Button>
           </div>
         </div>
