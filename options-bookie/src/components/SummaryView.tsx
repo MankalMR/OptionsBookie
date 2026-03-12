@@ -59,9 +59,14 @@ export interface YearlySummary {
 }
 
 export default function SummaryView({ transactions, selectedPortfolioName, chains = [] }: SummaryViewProps) {
+  // Memoize all realized transactions once for the entire component
+  const allRealizedTransactions = useMemo(() => {
+    return getRealizedTransactions(transactions, chains);
+  }, [transactions, chains, allRealizedTransactions]);
+
   const isMobile = useIsMobile();
   const yearlySummaries = useMemo(() => {
-    const completedTransactions = getRealizedTransactions(transactions, chains).filter(t =>
+    const completedTransactions = allRealizedTransactions.filter(t =>
       t.closeDate
     );
 
@@ -234,7 +239,7 @@ export default function SummaryView({ transactions, selectedPortfolioName, chain
   }, [mostRecentYear, userHasInteracted]);
 
   const overallStats = useMemo(() => {
-    const realizedTransactions = getRealizedTransactions(transactions, chains);
+    const realizedTransactions = allRealizedTransactions;
 
     // Calculate all-time P&L by summing yearly totals (which are sums of monthly breakdowns)
     // This ensures perfect consistency: Monthly -> Yearly -> All-Time
@@ -253,7 +258,7 @@ export default function SummaryView({ transactions, selectedPortfolioName, chain
         ? realizedTransactions.reduce((sum, t) => sum + calculateDaysHeld(t.tradeOpenDate, t.closeDate || new Date()), 0) / realizedTransactions.length
         : 0
     };
-  }, [transactions, chains, yearlySummaries]);
+  }, [transactions, chains, yearlySummaries, allRealizedTransactions]);
 
   const strategyPerformance = useMemo(() => {
     return calculateStrategyPerformance(transactions, chains);
@@ -271,9 +276,9 @@ export default function SummaryView({ transactions, selectedPortfolioName, chain
 
     return yearSummary.monthlyBreakdown.map(month => {
       // Calculate RoR for this month by getting all transactions for this month
-      const monthTransactions = getRealizedTransactions(transactions, chains).filter(t => {
+      const monthTransactions = allRealizedTransactions.filter(t => {
         if (!t.closeDate) return false;
-        const effectiveCloseDate = getEffectiveCloseDate(t, getRealizedTransactions(transactions, chains), chains);
+        const effectiveCloseDate = getEffectiveCloseDate(t, allRealizedTransactions, chains);
         return effectiveCloseDate.getFullYear() === year && effectiveCloseDate.getMonth() === month.month;
       });
 
@@ -292,7 +297,7 @@ export default function SummaryView({ transactions, selectedPortfolioName, chain
   };
 
   const getAllTickersForYear = (year: number) => {
-    const realizedTransactions = getRealizedTransactions(transactions, chains).filter(t => {
+    const realizedTransactions = allRealizedTransactions.filter(t => {
       if (!t.closeDate) return false;
       const closeDate = parseLocalDate(t.closeDate);
       return closeDate.getFullYear() === year;
@@ -337,7 +342,7 @@ export default function SummaryView({ transactions, selectedPortfolioName, chain
 
   // Calculate best stocks overall
   const bestStocks = useMemo(() => {
-    const realizedTransactions = getRealizedTransactions(transactions);
+    const realizedTransactions = allRealizedTransactions;
     const stockTotals = new Map<string, { pnl: number; collateral: number; trades: number }>();
 
     realizedTransactions.forEach(transaction => {
@@ -373,7 +378,7 @@ export default function SummaryView({ transactions, selectedPortfolioName, chain
       bestByPnL: bestByPnL.pnl > -Infinity ? { ticker: bestByPnL.ticker, pnl: bestByPnL.pnl } : null,
       bestByRoR: bestByRoR.ror > -Infinity ? { ticker: bestByRoR.ticker, ror: bestByRoR.ror } : null
     };
-  }, [transactions]);
+  }, [transactions, allRealizedTransactions]);
 
   // Calculate quick stats data
   const preciseAvgRoR = calculateSmartPortfolioRoR(transactions, chains);

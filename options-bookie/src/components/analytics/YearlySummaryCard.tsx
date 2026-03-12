@@ -88,35 +88,39 @@ export default function YearlySummaryCard({
   const winRate = yearData.winRate;
 
   // Calculate year-specific strategy performance
-  const yearStrategyPerformance = calculateStrategyPerformance(yearTransactions, chains);
+  const yearStrategyPerformance = useMemo(() => calculateStrategyPerformance(yearTransactions, chains), [yearTransactions, chains]);
 
   // Calculate best stock by P&L and RoR for this year
-  const stockPerformance = new Map<string, { pnl: number; trades: number; totalCollateral: number }>();
-  realizedTransactions.forEach(t => {
-    const symbol = t.stockSymbol;
-    if (!stockPerformance.has(symbol)) {
-      stockPerformance.set(symbol, { pnl: 0, trades: 0, totalCollateral: 0 });
-    }
-    const perf = stockPerformance.get(symbol)!;
-    perf.pnl += t.profitLoss || 0;
-    perf.trades += 1;
-    perf.totalCollateral += calculateCollateral(t);
-  });
+  const { bestStockByPnL, bestStockByRoR } = useMemo(() => {
+    const stockPerformance = new Map<string, { pnl: number; trades: number; totalCollateral: number }>();
+    realizedTransactions.forEach(t => {
+      const symbol = t.stockSymbol;
+      if (!stockPerformance.has(symbol)) {
+        stockPerformance.set(symbol, { pnl: 0, trades: 0, totalCollateral: 0 });
+      }
+      const perf = stockPerformance.get(symbol)!;
+      perf.pnl += t.profitLoss || 0;
+      perf.trades += 1;
+      perf.totalCollateral += calculateCollateral(t);
+    });
 
-  const bestStockByPnL = Array.from(stockPerformance.entries())
-    .sort((a, b) => b[1].pnl - a[1].pnl)[0];
+    const byPnL = Array.from(stockPerformance.entries())
+      .sort((a, b) => b[1].pnl - a[1].pnl)[0];
 
-  const bestStockByRoR = Array.from(stockPerformance.entries())
-    .map(([ticker, data]) => ({
-      ticker,
-      ror: data.totalCollateral > 0 ? (data.pnl / data.totalCollateral * 100) : 0
-    }))
-    .sort((a, b) => b.ror - a.ror)[0];
+    const byRoR = Array.from(stockPerformance.entries())
+      .map(([ticker, data]) => ({
+        ticker,
+        ror: data.totalCollateral > 0 ? (data.pnl / data.totalCollateral * 100) : 0
+      }))
+      .sort((a, b) => b.ror - a.ror)[0];
+
+    return { bestStockByPnL: byPnL, bestStockByRoR: byRoR };
+  }, [realizedTransactions]);
 
   // Use the common function to calculate yearly annualized RoR with active months
-  const yearlyRoRData = calculateYearlyAnnualizedRoRWithActiveMonths(yearTransactions, chains, yearData.year);
+  const yearlyRoRData = useMemo(() => calculateYearlyAnnualizedRoRWithActiveMonths(yearTransactions, chains, yearData.year), [yearTransactions, chains, yearData.year]);
 
-  const quickStatsData = {
+  const quickStatsData = useMemo(() => ({
     totalPnL,
     totalTrades,
     winRate,
@@ -128,7 +132,7 @@ export default function YearlySummaryCard({
       : null,
     bestStockByPnL: bestStockByPnL ? { ticker: bestStockByPnL[0], pnl: bestStockByPnL[1].pnl } : null,
     bestStockByRoR: bestStockByRoR ? { ticker: bestStockByRoR.ticker, ror: bestStockByRoR.ror } : null
-  };
+  }), [totalPnL, totalTrades, winRate, yearlyRoRData, yearStrategyPerformance, bestStockByPnL, bestStockByRoR]);
 
   // Mobile view: Show only monthly breakdown table with old structure
   if (mobileOnly) {
