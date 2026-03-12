@@ -49,7 +49,7 @@ Restructure the analytics view to separate historical performance from current a
 ```mermaid
 sequenceDiagram
     actor User
-    participant UI as CurrentRiskTab
+    participant UI as Top5TickersSection
     participant Store as Data Layer (demo-store / Supabase DAL)
     participant Utils as optionsCalculations.ts
 
