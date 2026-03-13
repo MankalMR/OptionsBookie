@@ -611,7 +611,7 @@ export default function DemoPage() {
                                             : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground'
                                         }`}
                                 >
-                                    {isMobile ? 'Current Risk' : 'Current Risk'}
+                                    {isMobile ? 'Risk' : 'Current Risk'}
                                 </button>
                             </nav>
                         </div>
@@ -620,7 +620,7 @@ export default function DemoPage() {
                     {/* Tab Content */}
                         {activeTab === 'risk' ? (
                             <CurrentRiskTab
-                                transactions={transactions.filter(t => t.status === 'Open')}
+                                transactions={transactions}
                                 selectedPortfolioName={selectedPortfolioId ? portfolios.find(p => p.id === selectedPortfolioId)?.name : null}
                             />
                         ) : activeTab === 'trades' ? (
