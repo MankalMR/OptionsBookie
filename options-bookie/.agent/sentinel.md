@@ -1,0 +1,3 @@
+## 2025-03-13 - Fix RLS Bypass in database-secure.ts
+**Learning:** Initializing the Supabase client with `SUPABASE_SERVICE_ROLE_KEY` bypasses Row Level Security (RLS) policies completely. The code had a debug comment mentioning this bypass was temporary but it wasn't removed.
+**Prevention:** Always initialize the standard client (`supabase`) with `NEXT_PUBLIC_SUPABASE_ANON_KEY` to ensure user operations adhere to RLS. Use `SUPABASE_SERVICE_ROLE_KEY` exclusively for admin tasks via a separate `supabaseAdmin` client. Ensure all environment variable assertions check for `NEXT_PUBLIC_SUPABASE_ANON_KEY` as well.
