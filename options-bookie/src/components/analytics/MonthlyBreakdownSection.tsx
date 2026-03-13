@@ -1,13 +1,12 @@
 'use client';
 
 import React, { useState } from 'react';
-import { formatPnLCurrency, getRealizedTransactions, calculateCollateral, calculateDaysHeld, calculateStrategyPerformance, calculateMonthlyAnnualizedRoR, getEffectiveCloseDate, calculateSmartCapital } from '@/utils/optionsCalculations';
+import { formatPnLCurrency, getRealizedTransactions, calculateDaysHeld, calculateStrategyPerformance, calculateMonthlyAnnualizedRoR, getEffectiveCloseDate, calculateSmartCapital } from '@/utils/optionsCalculations';
 import { RegularRoRTooltip, AnnualizedRoRTooltip } from '@/components/ui/RoRTooltip';
 import { ResponsiveContainer, ComposedChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend, Bar } from 'recharts';
 import { ChevronDown, ChevronRight, Plus, Minus } from 'lucide-react';
 import { OptionsTransaction, TradeChain } from '@/types/options';
 import TransactionsTable from './TransactionsTable';
-import { parseLocalDate } from '@/utils/dateUtils';
 import { useIsMobile } from '@/hooks/useMediaQuery';
 
 interface MonthlyData {
@@ -68,19 +67,33 @@ export default function MonthlyBreakdownSection({
     setExpandedMonths(newExpanded);
   };
 
-  // Memoize realized transactions so we don't recalculate them for every month
-  const realizedTransactionsWithCloseDate = React.useMemo(() => {
-    return getRealizedTransactions(transactions, chains).filter(t => t.closeDate);
-  }, [transactions, chains]);
+  // Memoize realized transactions and group them by month to avoid O(N^2) filtering
+  // on every render row where N is the total number of transactions.
+  const transactionsByMonth = React.useMemo(() => {
+    const realized = getRealizedTransactions(transactions, chains).filter(t => t.closeDate);
 
-  // Get transactions for a specific month using chain-aware filtering and effective close dates
-  const getMonthTransactions = (month: number): OptionsTransaction[] => {
-    const monthTransactions = realizedTransactionsWithCloseDate.filter(t => {
-      const effectiveCloseDate = getEffectiveCloseDate(t, realizedTransactionsWithCloseDate, chains);
-      return effectiveCloseDate.getFullYear() === yearData.year && effectiveCloseDate.getMonth() === month;
+    // Pre-calculate effective close date for all realized transactions
+    const monthGroups = new Map<number, OptionsTransaction[]>();
+
+    // Initialize map for all 12 months (0-11)
+    for (let i = 0; i < 12; i++) {
+      monthGroups.set(i, []);
+    }
+
+    realized.forEach(t => {
+      const effectiveCloseDate = getEffectiveCloseDate(t, realized, chains);
+      if (effectiveCloseDate.getFullYear() === yearData.year) {
+        const month = effectiveCloseDate.getMonth();
+        monthGroups.get(month)?.push(t);
+      }
     });
 
-    return monthTransactions;
+    return monthGroups;
+  }, [transactions, chains, yearData.year]);
+
+  // Fast O(1) lookup for transactions by month
+  const getMonthTransactions = (month: number): OptionsTransaction[] => {
+    return transactionsByMonth.get(month) || [];
   };
   const formatCurrency = formatPnLCurrency;
 
