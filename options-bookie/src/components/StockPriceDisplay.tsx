@@ -99,7 +99,8 @@ export default function StockPriceDisplay({
             variant="ghost"
             size="sm"
             onClick={onRefresh}
-            className="h-6 w-6 p-0"
+            aria-label="Refresh price"
+            className="h-6 w-6 p-0 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
           >
             <RefreshCw className="h-3 w-3" />
           </Button>
