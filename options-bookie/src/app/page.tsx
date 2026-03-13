@@ -10,6 +10,7 @@ import DeleteConfirmationModal from '@/components/DeleteConfirmationModal';
 import DeleteChainModal from '@/components/DeleteChainModal';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import SummaryView from '@/components/SummaryView';
+import CurrentRiskTab from '@/components/analytics/CurrentRiskTab';
 import { useIsMobile } from '@/hooks/useMediaQuery';
 import PortfolioSelector from '@/components/PortfolioSelector';
 import PortfolioModal from '@/components/PortfolioModal';
@@ -47,7 +48,7 @@ export default function Home() {
   const [editingTransaction, setEditingTransaction] = useState<OptionsTransaction | null>(null);
   const [deletingTransaction, setDeletingTransaction] = useState<OptionsTransaction | null>(null);
   const [deletingChainId, setDeletingChainId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'trades' | 'summary'>('trades');
+  const [activeTab, setActiveTab] = useState<'trades' | 'summary' | 'risk'>('trades');
   const [viewMode, setViewMode] = useState<'grouped' | 'flat'>('grouped');
 
   // No longer force mobile users to trades tab - they can access both tabs now
@@ -615,14 +616,29 @@ export default function Home() {
                     : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground'
                 }`}
               >
-                {isMobile ? 'Monthly Summary' : 'Summary & Analytics'}
+                {isMobile ? 'History' : 'History & Analytics'}
+              </button>
+              <button
+                onClick={() => setActiveTab('risk')}
+                className={`py-2 px-1 border-b-2 font-medium ${isMobile ? 'text-xs' : 'text-sm'} transition-colors ${
+                  activeTab === 'risk'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground'
+                }`}
+              >
+                {isMobile ? 'Current Risk' : 'Current Risk'}
               </button>
             </nav>
           </div>
         </div>
 
         {/* Tab Content */}
-        {activeTab === 'trades' ? (
+        {activeTab === 'risk' ? (
+          <CurrentRiskTab
+            transactions={transactions.filter(t => t.status === 'Open')}
+            selectedPortfolioName={selectedPortfolioId ? portfolios.find(p => p.id === selectedPortfolioId)?.name : null}
+          />
+        ) : activeTab === 'trades' ? (
           <div className="space-y-8">
             {/* Portfolio Overview */}
             <PortfolioSummary transactions={portfolioOverviewTransactions} chains={chains} />

@@ -1,7 +1,12 @@
 # Feature Ticket: Underlying Asset Exposure (Ticker Allocation)
 
 ## Status
-pending-implementation
+done
+
+## Implementation Notes
+- Files changed: `src/app/page.tsx`, `src/app/demo/page.tsx`, `src/utils/optionsCalculations.ts`, `src/components/analytics/TickerAllocationChart.tsx`, `src/components/analytics/CurrentRiskTab.tsx`, `src/utils/optionsCalculations.test.ts`.
+- Behavior: Added `CurrentRiskTab` conditionally rendered when `activeTab === 'risk'`, using a new function `calculateTickerAllocation` from `optionsCalculations.ts` to compute active collateral per ticker, visualized by `TickerAllocationChart`.
+- Tests: Added unit tests for `calculateTickerAllocation` in `optionsCalculations.test.ts` checking positive allocation, zero active collateral cases, and empty datasets.
 
 ## Context
 Options traders need to manage their risk and avoid over-concentration in a single underlying asset. Currently, OptionsBookie mixes realized historical performance with current active risk within a single "Summary and Analytics" tab. Users need a dedicated space to visualize their *current* risk profile, such as how their active capital (collateral) is distributed across open positions, to avoid outsized risk if a specific stock moves unfavorably.

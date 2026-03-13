@@ -7,6 +7,7 @@
  */
 
 import {
+  calculateTickerAllocation,
   calculateDaysToExpiry,
   calculateProfitLoss,
   calculateCollateral,
@@ -3448,5 +3449,51 @@ describe('optionsCalculations', () => {
       expect(result.totalCapital).toBe(0);
       expect(result.breakdown).toHaveLength(0);
     });
+  });
+});
+
+describe('calculateTickerAllocation', () => {
+  it('should calculate allocation correctly for active trades', () => {
+    const mockTransactions = [
+      { status: 'Open', stockSymbol: 'TSLA', premium: 200, numberOfContracts: 1, buyOrSell: 'Sell', strikePrice: 150, callOrPut: 'Put', fees: 0, tradeOpenDate: new Date() }, // Sell Put -> collateral = 150 * 100 = 15000
+      { status: 'Open', stockSymbol: 'AAPL', premium: 100, numberOfContracts: 2, buyOrSell: 'Sell', strikePrice: 100, callOrPut: 'Put', fees: 0, tradeOpenDate: new Date() }, // Sell Put -> collateral = 100 * 2 * 100 = 20000
+      { status: 'Closed', stockSymbol: 'TSLA', premium: 50, numberOfContracts: 1, buyOrSell: 'Sell', strikePrice: 100, callOrPut: 'Put', fees: 0, tradeOpenDate: new Date() }, // Ignored
+      { status: 'Open', stockSymbol: 'TSLA', premium: 50, numberOfContracts: 1, buyOrSell: 'Buy', strikePrice: 200, callOrPut: 'Call', fees: 0, tradeOpenDate: new Date() }, // Buy Call -> collateral = 50 * 1 * 100 = 5000
+    ] as any;
+
+    const allocation = calculateTickerAllocation(mockTransactions);
+
+    expect(allocation).toHaveLength(2);
+
+    // TSLA: 15000 + 5000 = 20000 (50%)
+    // AAPL: 20000 (50%)
+
+    // Sort order should be TSLA then AAPL (or vice versa since they are equal, but let's check values)
+    const tsla = allocation.find(a => a.ticker === 'TSLA');
+    const aapl = allocation.find(a => a.ticker === 'AAPL');
+
+    expect(tsla?.totalCollateral).toBe(20000);
+    expect(tsla?.percentage).toBe(50);
+
+    expect(aapl?.totalCollateral).toBe(20000);
+    expect(aapl?.percentage).toBe(50);
+  });
+
+  it('should handle zero active collateral correctly', () => {
+    const mockTransactions = [
+      { status: 'Open', stockSymbol: 'TSLA', premium: 0, numberOfContracts: 1, buyOrSell: 'Buy', strikePrice: 0, callOrPut: 'Call', fees: 0, tradeOpenDate: new Date() },
+    ] as any;
+
+    const allocation = calculateTickerAllocation(mockTransactions);
+
+    expect(allocation).toHaveLength(1);
+    expect(allocation[0].ticker).toBe('TSLA');
+    expect(allocation[0].totalCollateral).toBe(0);
+    expect(allocation[0].percentage).toBe(0); // Should not be NaN
+  });
+
+  it('should handle empty transactions correctly', () => {
+    const allocation = calculateTickerAllocation([]);
+    expect(allocation).toHaveLength(0);
   });
 });
