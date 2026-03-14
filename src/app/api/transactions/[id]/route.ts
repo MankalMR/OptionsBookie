@@ -7,9 +7,8 @@ import { OptionsTransaction } from '@/types/options';
 // GET /api/transactions/[id] - Get a specific transaction
 export async function GET(
   request: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
-  const { id } = await params;
   try {
     const session = await getServerSession(authOptions);
 
@@ -20,7 +19,7 @@ export async function GET(
       );
     }
 
-    const transaction = await secureDb.getTransaction(id, session.user.email);
+    const transaction = await secureDb.getTransaction(params.id, session.user.email);
 
     if (!transaction) {
       return NextResponse.json(
@@ -42,9 +41,8 @@ export async function GET(
 // PUT /api/transactions/[id] - Update a transaction
 export async function PUT(
   request: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
-  const { id } = await params;
   try {
     const session = await getServerSession(authOptions);
 
@@ -58,7 +56,7 @@ export async function PUT(
     const body = await request.json();
     const updates = body as Partial<OptionsTransaction>;
 
-    const updatedTransaction = await secureDb.updateTransaction(id, updates, session.user.email);
+    const updatedTransaction = await secureDb.updateTransaction(params.id, updates, session.user.email);
 
     if (!updatedTransaction) {
       return NextResponse.json(
@@ -80,9 +78,8 @@ export async function PUT(
 // DELETE /api/transactions/[id] - Delete a transaction
 export async function DELETE(
   request: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
-  const { id } = await params;
   try {
     const session = await getServerSession(authOptions);
 
@@ -93,7 +90,7 @@ export async function DELETE(
       );
     }
 
-    await secureDb.deleteTransaction(id, session.user.email);
+    await secureDb.deleteTransaction(params.id, session.user.email);
 
     return NextResponse.json({ success: true });
   } catch (error) {

@@ -596,15 +596,6 @@ export default function DemoPage() {
                                     Options Trades
                                 </button>
                                 <button
-                                    onClick={() => setActiveTab('risk')}
-                                    className={`py-2 px-1 border-b-2 font-medium ${isMobile ? 'text-xs' : 'text-sm'} transition-colors ${activeTab === 'risk'
-                                        ? 'border-blue-500 text-blue-600'
-                                        : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground'
-                                        }`}
-                                >
-                                    {isMobile ? 'Risk' : 'Current Risk'}
-                                </button>
-                                <button
                                     onClick={() => setActiveTab('summary')}
                                     className={`py-2 px-1 border-b-2 font-medium ${isMobile ? 'text-xs' : 'text-sm'} transition-colors ${activeTab === 'summary'
                                         ? 'border-blue-500 text-blue-600'
@@ -613,17 +604,26 @@ export default function DemoPage() {
                                 >
                                     {isMobile ? 'History' : 'History & Analytics'}
                                 </button>
+                                <button
+                                    onClick={() => setActiveTab('risk')}
+                                    className={`py-2 px-1 border-b-2 font-medium ${isMobile ? 'text-xs' : 'text-sm'} transition-colors ${activeTab === 'risk'
+                                            ? 'border-blue-500 text-blue-600'
+                                            : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground'
+                                        }`}
+                                >
+                                    {isMobile ? 'Risk' : 'Current Risk'}
+                                </button>
                             </nav>
                         </div>
                     </div>
 
                     {/* Tab Content */}
-                    {activeTab === 'risk' ? (
-                        <CurrentRiskTab
-                            transactions={portfolioOverviewTransactions}
-                            selectedPortfolioName={selectedPortfolioId ? portfolios.find(p => p.id === selectedPortfolioId)?.name : null}
-                        />
-                    ) : activeTab === 'trades' ? (
+                        {activeTab === 'risk' ? (
+                            <CurrentRiskTab
+                                transactions={transactions}
+                                selectedPortfolioName={selectedPortfolioId ? portfolios.find(p => p.id === selectedPortfolioId)?.name : null}
+                            />
+                        ) : activeTab === 'trades' ? (
                         <div className="space-y-8">
                             <PortfolioSummary transactions={portfolioOverviewTransactions} chains={chains} />
 

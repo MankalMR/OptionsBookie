@@ -5,16 +5,15 @@ import { portfolioDb } from '@/lib/database-portfolios';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
-  const { id } = await params;
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.email) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const portfolio = await portfolioDb.getPortfolio(id, session.user.email);
+    const portfolio = await portfolioDb.getPortfolio(params.id, session.user.email);
     if (!portfolio) {
       return NextResponse.json({ error: 'Portfolio not found' }, { status: 404 });
     }
@@ -31,9 +30,8 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
-  const { id } = await params;
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.email) {
@@ -44,7 +42,7 @@ export async function PUT(
     const { name, description, isDefault } = body;
 
     const portfolio = await portfolioDb.updatePortfolio(
-      id,
+      params.id,
       {
         name,
         description,
@@ -69,11 +67,10 @@ export async function PUT(
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
-  const { id } = await params;
   try {
-    console.log('PATCH /api/portfolios/[id] - Portfolio ID:', id);
+    console.log('PATCH /api/portfolios/[id] - Portfolio ID:', params.id);
 
     const session = await getServerSession(authOptions);
     if (!session?.user?.email) {
@@ -89,7 +86,7 @@ export async function PATCH(
 
     if (action === 'setDefault') {
       console.log('PATCH /api/portfolios/[id] - Setting default portfolio');
-      const portfolio = await portfolioDb.setDefaultPortfolio(id, session.user.email);
+      const portfolio = await portfolioDb.setDefaultPortfolio(params.id, session.user.email);
       console.log('PATCH /api/portfolios/[id] - Result:', portfolio);
 
       if (!portfolio) {
@@ -112,16 +109,15 @@ export async function PATCH(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
-  const { id } = await params;
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.email) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const success = await portfolioDb.deletePortfolio(id, session.user.email);
+    const success = await portfolioDb.deletePortfolio(params.id, session.user.email);
     if (!success) {
       return NextResponse.json({ error: 'Portfolio not found' }, { status: 404 });
     }
