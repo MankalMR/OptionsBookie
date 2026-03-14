@@ -12,7 +12,6 @@ import {
 import { formatPnLCurrency } from '@/utils/optionsCalculations';
 
 interface TickerAllocation {
-  [key: string]: string | number;
   ticker: string;
   totalCollateral: number;
   percentage: number;
@@ -74,12 +73,31 @@ export default function TickerAllocationChart({ data }: TickerAllocationChartPro
     );
   }
 
+  // Group top 5 and bundle the rest into "Other"
+  let chartData = [...data];
+  if (chartData.length > 5) {
+    const top5 = chartData.slice(0, 5);
+    const others = chartData.slice(5);
+
+    const otherCollateral = others.reduce((sum, item) => sum + item.totalCollateral, 0);
+    const otherPercentage = others.reduce((sum, item) => sum + item.percentage, 0);
+
+    top5.push({
+      ticker: 'Other',
+      totalCollateral: otherCollateral,
+      percentage: otherPercentage
+    });
+
+    chartData = top5;
+  }
+
   return (
     <div className="h-80 w-full">
       <ResponsiveContainer width="100%" height="100%">
         <PieChart>
           <Pie
-            data={data}
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            data={chartData as any[]}
             cx="50%"
             cy="50%"
             innerRadius={60}
@@ -87,10 +105,11 @@ export default function TickerAllocationChart({ data }: TickerAllocationChartPro
             paddingAngle={2}
             dataKey="totalCollateral"
             nameKey="ticker"
-            label={({ ticker, percentage }) => `${ticker} (${(percentage as number).toFixed(0)}%)`}
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            label={({ payload }: any) => `${payload.ticker} (${(payload.percentage as number).toFixed(0)}%)`}
             labelLine={true}
           >
-            {data.map((entry, index) => (
+            {chartData.map((entry, index) => (
               <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
             ))}
           </Pie>

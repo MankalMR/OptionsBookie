@@ -3459,6 +3459,7 @@ describe('calculateTickerAllocation', () => {
       { status: 'Open', stockSymbol: 'AAPL', premium: 100, numberOfContracts: 2, buyOrSell: 'Sell', strikePrice: 100, callOrPut: 'Put', fees: 0, tradeOpenDate: new Date() }, // Sell Put -> collateral = 100 * 2 * 100 = 20000
       { status: 'Closed', stockSymbol: 'TSLA', premium: 50, numberOfContracts: 1, buyOrSell: 'Sell', strikePrice: 100, callOrPut: 'Put', fees: 0, tradeOpenDate: new Date() }, // Ignored
       { status: 'Open', stockSymbol: 'TSLA', premium: 50, numberOfContracts: 1, buyOrSell: 'Buy', strikePrice: 200, callOrPut: 'Call', fees: 0, tradeOpenDate: new Date() }, // Buy Call -> collateral = 50 * 1 * 100 = 5000
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ] as any;
 
     const allocation = calculateTickerAllocation(mockTransactions);
@@ -3479,9 +3480,26 @@ describe('calculateTickerAllocation', () => {
     expect(aapl?.percentage).toBe(50);
   });
 
+  it('should sort allocation correctly by totalCollateral descending', () => {
+    const mockTransactions = [
+      { status: 'Open', stockSymbol: 'A', premium: 100, numberOfContracts: 1, buyOrSell: 'Sell', strikePrice: 10, callOrPut: 'Put', fees: 0, tradeOpenDate: new Date() }, // 1000
+      { status: 'Open', stockSymbol: 'B', premium: 100, numberOfContracts: 1, buyOrSell: 'Sell', strikePrice: 50, callOrPut: 'Put', fees: 0, tradeOpenDate: new Date() }, // 5000
+      { status: 'Open', stockSymbol: 'C', premium: 100, numberOfContracts: 1, buyOrSell: 'Sell', strikePrice: 30, callOrPut: 'Put', fees: 0, tradeOpenDate: new Date() }, // 3000
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ] as any;
+
+    const allocation = calculateTickerAllocation(mockTransactions);
+
+    expect(allocation).toHaveLength(3);
+    expect(allocation[0].ticker).toBe('B');
+    expect(allocation[1].ticker).toBe('C');
+    expect(allocation[2].ticker).toBe('A');
+  });
+
   it('should handle zero active collateral correctly', () => {
     const mockTransactions = [
       { status: 'Open', stockSymbol: 'TSLA', premium: 0, numberOfContracts: 1, buyOrSell: 'Buy', strikePrice: 0, callOrPut: 'Call', fees: 0, tradeOpenDate: new Date() },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ] as any;
 
     const allocation = calculateTickerAllocation(mockTransactions);
