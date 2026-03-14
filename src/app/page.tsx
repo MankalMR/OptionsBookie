@@ -10,6 +10,7 @@ import DeleteConfirmationModal from '@/components/DeleteConfirmationModal';
 import DeleteChainModal from '@/components/DeleteChainModal';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import SummaryView from '@/components/SummaryView';
+import CurrentRiskTab from '@/components/analytics/CurrentRiskTab';
 import { useIsMobile } from '@/hooks/useMediaQuery';
 import PortfolioSelector from '@/components/PortfolioSelector';
 import PortfolioModal from '@/components/PortfolioModal';
@@ -47,7 +48,7 @@ export default function Home() {
   const [editingTransaction, setEditingTransaction] = useState<OptionsTransaction | null>(null);
   const [deletingTransaction, setDeletingTransaction] = useState<OptionsTransaction | null>(null);
   const [deletingChainId, setDeletingChainId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'trades' | 'summary'>('trades');
+  const [activeTab, setActiveTab] = useState<'trades' | 'summary' | 'risk'>('trades');
   const [viewMode, setViewMode] = useState<'grouped' | 'flat'>('grouped');
 
   // No longer force mobile users to trades tab - they can access both tabs now
@@ -544,223 +545,235 @@ export default function Home() {
           </div>
         </header>
 
-      {/* Error Display */}
-      {error && (
-        <div className={`py-4 ${isMobile ? 'px-2' : 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'}`}>
-          <div className="bg-red-50 border border-red-200 rounded-md p-4">
-            <div className="flex">
-              <div className="ml-3">
-                <h3 className="text-sm font-medium text-red-800">Error</h3>
-                <div className="mt-2 text-sm text-red-700">
-                  <p>{error}</p>
-                </div>
-                <div className="mt-4">
-                  <button
-                    onClick={refreshTransactions}
-                    className="bg-red-100 hover:bg-red-200 text-red-800 px-3 py-1 rounded text-sm font-medium"
-                  >
-                    Retry
-                  </button>
+        {/* Error Display */}
+        {error && (
+          <div className={`py-4 ${isMobile ? 'px-2' : 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'}`}>
+            <div className="bg-red-50 border border-red-200 rounded-md p-4">
+              <div className="flex">
+                <div className="ml-3">
+                  <h3 className="text-sm font-medium text-red-800">Error</h3>
+                  <div className="mt-2 text-sm text-red-700">
+                    <p>{error}</p>
+                  </div>
+                  <div className="mt-4">
+                    <button
+                      onClick={refreshTransactions}
+                      className="bg-red-100 hover:bg-red-200 text-red-800 px-3 py-1 rounded text-sm font-medium"
+                    >
+                      Retry
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Loading State */}
-      {loading && (
-        <div className={`py-8 ${isMobile ? 'px-2' : 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'}`}>
-          <div className="flex justify-center items-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-            <span className="ml-2 text-gray-600">Loading transactions...</span>
+        {/* Loading State */}
+        {loading && (
+          <div className={`py-8 ${isMobile ? 'px-2' : 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'}`}>
+            <div className="flex justify-center items-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              <span className="ml-2 text-gray-600">Loading transactions...</span>
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {!loading && (
-        <main className={`py-8 ${isMobile ? 'px-2' : 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'}`}>
-        {/* Portfolio Selector */}
-        <div className="mb-6">
-          <PortfolioSelector
+        {!loading && (
+          <main className={`py-8 ${isMobile ? 'px-2' : 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'}`}>
+            {/* Portfolio Selector */}
+            <div className="mb-6">
+              <PortfolioSelector
+                portfolios={portfolios}
+                selectedPortfolioId={selectedPortfolioId}
+                onPortfolioChange={handlePortfolioChange}
+                onAddPortfolio={handleAddPortfolio}
+                onDeletePortfolio={handleDeletePortfolio}
+                onSetDefaultPortfolio={handleSetDefaultPortfolio}
+                loading={portfoliosLoading}
+              />
+            </div>
+
+            {/* Tab Navigation */}
+            <div className="mb-8">
+              <div className="border-b border-border">
+                <nav className={`-mb-px flex ${isMobile ? 'space-x-4' : 'space-x-8'}`}>
+                  <button
+                    onClick={() => setActiveTab('trades')}
+                    className={`py-2 px-1 border-b-2 font-medium ${isMobile ? 'text-xs' : 'text-sm'} transition-colors ${activeTab === 'trades'
+                      ? 'border-blue-500 text-blue-600'
+                      : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground'
+                      }`}
+                  >
+                    Options Trades
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('risk')}
+                    className={`py-2 px-1 border-b-2 font-medium ${isMobile ? 'text-xs' : 'text-sm'} transition-colors ${activeTab === 'risk'
+                        ? 'border-blue-500 text-blue-600'
+                        : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground'
+                      }`}
+                  >
+                    {isMobile ? 'Risk' : 'Current Risk'}
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('summary')}
+                    className={`py-2 px-1 border-b-2 font-medium ${isMobile ? 'text-xs' : 'text-sm'} transition-colors ${activeTab === 'summary'
+                        ? 'border-blue-500 text-blue-600'
+                        : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground'
+                      }`}
+                  >
+                    {isMobile ? 'History' : 'History & Analytics'}
+                  </button>
+                </nav>
+              </div>
+            </div>
+
+            {/* Tab Content */}
+            {activeTab === 'risk' ? (
+              <CurrentRiskTab
+                transactions={portfolioOverviewTransactions}
+                selectedPortfolioName={selectedPortfolioId ? portfolios.find(p => p.id === selectedPortfolioId)?.name : null}
+              />
+            ) : activeTab === 'trades' ? (
+              <div className="space-y-8">
+                {/* Portfolio Overview */}
+                <PortfolioSummary transactions={portfolioOverviewTransactions} chains={chains} />
+
+                {/* Recent Trades - Full Width */}
+                <Card>
+                  <CardHeader>
+                    <div className="flex justify-between items-center">
+                      <div className="flex items-center space-x-4">
+                        <CardTitle className="text-xl">Recent Trades</CardTitle>
+
+                        {/* Status Filter */}
+                        {!isMobile && (
+                          <StatusMultiSelect
+                            selectedStatuses={selectedStatuses}
+                            onStatusChange={handleStatusChange}
+                            className="w-48"
+                          />
+                        )}
+
+                        {/* View Toggle - Only show for trades tab and desktop */}
+                        {!isMobile && (
+                          <ViewToggle
+                            viewMode={viewMode}
+                            onViewChange={setViewMode}
+                          />
+                        )}
+                      </div>
+
+                      <div className="flex items-center space-x-4">
+                        {!isMobile && (
+                          <div className="text-sm text-muted-foreground">
+                            💡 Click the ✏️ button to edit or close trades
+                          </div>
+                        )}
+                        <Button variant="default" onClick={() => setShowAddModal(true)}>
+                          <Plus className="mr-2 h-4 w-4" />
+                          {isMobile ? 'Add' : 'Add Trade'}
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Filter Status Info */}
+                    <CardDescription>
+                      Showing {filteredTransactions.length} trade{filteredTransactions.length !== 1 ? 's' : ''}
+                      {selectedPortfolioId && (
+                        <span className="ml-1">
+                          in {portfolios.find(p => p.id === selectedPortfolioId)?.name || 'selected portfolio'}
+                        </span>
+                      )}
+                      {selectedStatuses.length > 0 && (
+                        <span className="ml-1">
+                          with status{selectedStatuses.length > 1 ? 'es' : ''}: {selectedStatuses.join(', ')}
+                        </span>
+                      )}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {viewMode === 'grouped' ? (
+                      <SymbolGroupedView
+                        transactions={filteredTransactions}
+                        onDelete={handleDeleteTransaction}
+                        onDeleteChain={handleDeleteChain}
+                        onEdit={handleEditTransaction}
+                        chains={chains}
+                        portfolios={portfolios}
+                        showPortfolioColumn={!selectedPortfolioId}
+                      />
+                    ) : (
+                      <TransactionTable
+                        transactions={filteredTransactions}
+                        onDelete={handleDeleteTransaction}
+                        onDeleteChain={handleDeleteChain}
+                        onEdit={handleEditTransaction}
+                        chains={chains}
+                        portfolios={portfolios}
+                        showPortfolioColumn={!selectedPortfolioId}
+                      />
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            ) : (
+              <SummaryView
+                transactions={portfolioFilteredTransactions}
+                selectedPortfolioName={selectedPortfolioId ? portfolios.find(p => p.id === selectedPortfolioId)?.name : null}
+                chains={chains}
+              />
+            )}
+          </main>
+        )}
+
+        {/* Add Transaction Modal */}
+        {showAddModal && (
+          <AddTransactionModal
+            onClose={() => setShowAddModal(false)}
+            onSave={handleAddTransaction}
             portfolios={portfolios}
             selectedPortfolioId={selectedPortfolioId}
-            onPortfolioChange={handlePortfolioChange}
-            onAddPortfolio={handleAddPortfolio}
-            onDeletePortfolio={handleDeletePortfolio}
-            onSetDefaultPortfolio={handleSetDefaultPortfolio}
-            loading={portfoliosLoading}
-          />
-        </div>
-
-        {/* Tab Navigation */}
-        <div className="mb-8">
-          <div className="border-b border-border">
-            <nav className={`-mb-px flex ${isMobile ? 'space-x-4' : 'space-x-8'}`}>
-              <button
-                onClick={() => setActiveTab('trades')}
-                className={`py-2 px-1 border-b-2 font-medium ${isMobile ? 'text-xs' : 'text-sm'} transition-colors ${
-                  activeTab === 'trades'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground'
-                }`}
-              >
-                Options Trades
-              </button>
-              <button
-                onClick={() => setActiveTab('summary')}
-                className={`py-2 px-1 border-b-2 font-medium ${isMobile ? 'text-xs' : 'text-sm'} transition-colors ${
-                  activeTab === 'summary'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground'
-                }`}
-              >
-                {isMobile ? 'Monthly Summary' : 'Summary & Analytics'}
-              </button>
-            </nav>
-          </div>
-        </div>
-
-        {/* Tab Content */}
-        {activeTab === 'trades' ? (
-          <div className="space-y-8">
-            {/* Portfolio Overview */}
-            <PortfolioSummary transactions={portfolioOverviewTransactions} chains={chains} />
-
-            {/* Recent Trades - Full Width */}
-            <Card>
-              <CardHeader>
-                <div className="flex justify-between items-center">
-                  <div className="flex items-center space-x-4">
-                    <CardTitle className="text-xl">Recent Trades</CardTitle>
-
-                    {/* Status Filter */}
-                    {!isMobile && (
-                      <StatusMultiSelect
-                        selectedStatuses={selectedStatuses}
-                        onStatusChange={handleStatusChange}
-                        className="w-48"
-                      />
-                    )}
-
-                    {/* View Toggle - Only show for trades tab and desktop */}
-                    {!isMobile && (
-                      <ViewToggle
-                        viewMode={viewMode}
-                        onViewChange={setViewMode}
-                      />
-                    )}
-                  </div>
-
-                  <div className="flex items-center space-x-4">
-                    {!isMobile && (
-                      <div className="text-sm text-muted-foreground">
-                        💡 Click the ✏️ button to edit or close trades
-                      </div>
-                    )}
-                    <Button variant="default" onClick={() => setShowAddModal(true)}>
-                      <Plus className="mr-2 h-4 w-4" />
-                      {isMobile ? 'Add' : 'Add Trade'}
-                    </Button>
-                  </div>
-                </div>
-
-                {/* Filter Status Info */}
-                <CardDescription>
-                  Showing {filteredTransactions.length} trade{filteredTransactions.length !== 1 ? 's' : ''}
-                  {selectedPortfolioId && (
-                    <span className="ml-1">
-                      in {portfolios.find(p => p.id === selectedPortfolioId)?.name || 'selected portfolio'}
-                    </span>
-                  )}
-                  {selectedStatuses.length > 0 && (
-                    <span className="ml-1">
-                      with status{selectedStatuses.length > 1 ? 'es' : ''}: {selectedStatuses.join(', ')}
-                    </span>
-                  )}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {viewMode === 'grouped' ? (
-                  <SymbolGroupedView
-                    transactions={filteredTransactions}
-                    onDelete={handleDeleteTransaction}
-                    onDeleteChain={handleDeleteChain}
-                    onEdit={handleEditTransaction}
-                    chains={chains}
-                    portfolios={portfolios}
-                    showPortfolioColumn={!selectedPortfolioId}
-                  />
-                ) : (
-                  <TransactionTable
-                    transactions={filteredTransactions}
-                    onDelete={handleDeleteTransaction}
-                    onDeleteChain={handleDeleteChain}
-                    onEdit={handleEditTransaction}
-                    chains={chains}
-                    portfolios={portfolios}
-                    showPortfolioColumn={!selectedPortfolioId}
-                  />
-                )}
-              </CardContent>
-            </Card>
-          </div>
-        ) : (
-          <SummaryView
-            transactions={portfolioFilteredTransactions}
-            selectedPortfolioName={selectedPortfolioId ? portfolios.find(p => p.id === selectedPortfolioId)?.name : null}
-            chains={chains}
           />
         )}
-        </main>
-      )}
 
-      {/* Add Transaction Modal */}
-      {showAddModal && (
-        <AddTransactionModal
-          onClose={() => setShowAddModal(false)}
-          onSave={handleAddTransaction}
-          portfolios={portfolios}
-          selectedPortfolioId={selectedPortfolioId}
+        {/* Edit Transaction Modal */}
+        {showEditModal && editingTransaction && (
+          <EditTransactionModal
+            transaction={editingTransaction}
+            onClose={handleCloseEdit}
+            onSave={handleSaveEdit}
+            portfolios={portfolios}
+          />
+        )}
+
+        {/* Delete Confirmation Modal */}
+        <DeleteConfirmationModal
+          isOpen={showDeleteModal}
+          onClose={handleCloseDeleteModal}
+          onConfirm={confirmDeleteTransaction}
+          transaction={deletingTransaction}
         />
-      )}
 
-                  {/* Edit Transaction Modal */}
-                  {showEditModal && editingTransaction && (
-                    <EditTransactionModal
-                      transaction={editingTransaction}
-                      onClose={handleCloseEdit}
-                      onSave={handleSaveEdit}
-                      portfolios={portfolios}
-                    />
-                  )}
-
-      {/* Delete Confirmation Modal */}
-      <DeleteConfirmationModal
-        isOpen={showDeleteModal}
-        onClose={handleCloseDeleteModal}
-        onConfirm={confirmDeleteTransaction}
-        transaction={deletingTransaction}
-      />
-
-      {/* Delete Chain Modal */}
-      <DeleteChainModal
-        isOpen={showDeleteChainModal}
-        onClose={handleCloseDeleteChainModal}
-        onConfirm={confirmDeleteChain}
-        chainId={deletingChainId}
-        chainTransactions={deletingChainId ? transactions.filter(t => t.chainId === deletingChainId) : []}
-        chainInfo={deletingChainId ? chains.find(c => c.id === deletingChainId) : null}
-      />
-
-      {/* Portfolio Modal */}
-      {showPortfolioModal && (
-        <PortfolioModal
-          isOpen={showPortfolioModal}
-          onClose={() => setShowPortfolioModal(false)}
-          onPortfolioCreated={handlePortfolioCreated}
+        {/* Delete Chain Modal */}
+        <DeleteChainModal
+          isOpen={showDeleteChainModal}
+          onClose={handleCloseDeleteChainModal}
+          onConfirm={confirmDeleteChain}
+          chainId={deletingChainId}
+          chainTransactions={deletingChainId ? transactions.filter(t => t.chainId === deletingChainId) : []}
+          chainInfo={deletingChainId ? chains.find(c => c.id === deletingChainId) : null}
         />
-      )}
+
+        {/* Portfolio Modal */}
+        {showPortfolioModal && (
+          <PortfolioModal
+            isOpen={showPortfolioModal}
+            onClose={() => setShowPortfolioModal(false)}
+            onPortfolioCreated={handlePortfolioCreated}
+          />
+        )}
       </div>
     </ProtectedRoute>
   );
