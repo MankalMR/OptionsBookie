@@ -24,6 +24,7 @@ import DeleteConfirmationModal from '@/components/DeleteConfirmationModal';
 import DeleteChainModal from '@/components/DeleteChainModal';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import SummaryView from '@/components/SummaryView';
+import CurrentRiskTab from '@/components/analytics/CurrentRiskTab';
 import { useIsMobile } from '@/hooks/useMediaQuery';
 import PortfolioSelector from '@/components/PortfolioSelector';
 import DemoBanner from '@/components/DemoBanner';
@@ -106,7 +107,7 @@ export default function DemoPage() {
     const [editingTransaction, setEditingTransaction] = useState<OptionsTransaction | null>(null);
     const [deletingTransaction, setDeletingTransaction] = useState<OptionsTransaction | null>(null);
     const [deletingChainId, setDeletingChainId] = useState<string | null>(null);
-    const [activeTab, setActiveTab] = useState<'trades' | 'summary'>('trades');
+    const [activeTab, setActiveTab] = useState<'trades' | 'summary' | 'risk'>('trades');
     const [viewMode, setViewMode] = useState<'grouped' | 'flat'>('grouped');
     const [selectedPortfolioId, setSelectedPortfolioId] = useState<string | null>(null);
     const [selectedStatuses, setSelectedStatuses] = useState<string[]>(['Open', 'Rolled']);
@@ -595,20 +596,34 @@ export default function DemoPage() {
                                     Options Trades
                                 </button>
                                 <button
+                                    onClick={() => setActiveTab('risk')}
+                                    className={`py-2 px-1 border-b-2 font-medium ${isMobile ? 'text-xs' : 'text-sm'} transition-colors ${activeTab === 'risk'
+                                        ? 'border-blue-500 text-blue-600'
+                                        : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground'
+                                        }`}
+                                >
+                                    {isMobile ? 'Risk' : 'Current Risk'}
+                                </button>
+                                <button
                                     onClick={() => setActiveTab('summary')}
                                     className={`py-2 px-1 border-b-2 font-medium ${isMobile ? 'text-xs' : 'text-sm'} transition-colors ${activeTab === 'summary'
                                         ? 'border-blue-500 text-blue-600'
                                         : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground'
                                         }`}
                                 >
-                                    {isMobile ? 'Monthly Summary' : 'Summary & Analytics'}
+                                    {isMobile ? 'History' : 'History & Analytics'}
                                 </button>
                             </nav>
                         </div>
                     </div>
 
                     {/* Tab Content */}
-                    {activeTab === 'trades' ? (
+                    {activeTab === 'risk' ? (
+                        <CurrentRiskTab
+                            transactions={portfolioOverviewTransactions}
+                            selectedPortfolioName={selectedPortfolioId ? portfolios.find(p => p.id === selectedPortfolioId)?.name : null}
+                        />
+                    ) : activeTab === 'trades' ? (
                         <div className="space-y-8">
                             <PortfolioSummary transactions={portfolioOverviewTransactions} chains={chains} />
 

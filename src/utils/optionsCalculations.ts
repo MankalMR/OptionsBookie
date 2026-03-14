@@ -1425,3 +1425,27 @@ export function calculateYearlyAnnualizedRoRWithActiveMonths(
 
   return { annualizedRoR, activeTradingDays, baseRoR };
 }
+
+export const calculateTickerAllocation = (transactions: OptionsTransaction[]) => {
+  const openTransactions = transactions.filter(t => t.status === 'Open');
+
+  const tickerCollateralMap = new Map<string, number>();
+  let totalActiveCollateral = 0;
+
+  for (const t of openTransactions) {
+    const collateral = calculateCollateral(t);
+    totalActiveCollateral += collateral;
+    const current = tickerCollateralMap.get(t.stockSymbol) || 0;
+    tickerCollateralMap.set(t.stockSymbol, current + collateral);
+  }
+
+  const allocation = Array.from(tickerCollateralMap.entries()).map(([ticker, collateral]) => ({
+    ticker,
+    totalCollateral: collateral,
+    percentage: totalActiveCollateral > 0 ? (collateral / totalActiveCollateral) * 100 : 0
+  }));
+
+  allocation.sort((a, b) => b.totalCollateral - a.totalCollateral);
+
+  return allocation;
+};

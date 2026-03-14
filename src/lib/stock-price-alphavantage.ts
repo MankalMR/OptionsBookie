@@ -129,14 +129,15 @@ export class AlphaVantageStockService implements StockPriceService {
         throw new Error(`Alpha Vantage API error: ${(data as any)['Error Message']}`);
       }
 
-      if ('Note' in data) {
-        console.warn('Alpha Vantage API rate limit reached:', (data as any)['Note']);
+      if ('Note' in data || 'Information' in data) {
+        console.warn('Alpha Vantage API limit reached/info:', (data as any)['Note'] || (data as any)['Information']);
         this.setRateLimited();
         return null;
       }
 
       if (!data['Global Quote'] || !data['Global Quote']['05. price']) {
-        throw new Error('No price data available for symbol');
+        console.warn(`Unrecognized Alpha Vantage response for ${symbol}:`, JSON.stringify(data).substring(0, 100));
+        return null; // Fall back gracefully
       }
 
       const quote = data['Global Quote'];
@@ -242,14 +243,15 @@ export class AlphaVantageStockService implements StockPriceService {
         throw new Error(`Alpha Vantage API error: ${(data as any)['Error Message']}`);
       }
 
-      if ('Note' in data) {
-        console.warn('Alpha Vantage API rate limit reached:', (data as any)['Note']);
+      if ('Note' in data || 'Information' in data) {
+        console.warn('Alpha Vantage API limit reached/info:', (data as any)['Note'] || (data as any)['Information']);
         this.setRateLimited();
         return [];
       }
 
       if (!data['Monthly Time Series']) {
-        throw new Error('No historical data available for symbol');
+        console.warn(`Unrecognized Alpha Vantage historical response for ${symbol}:`, JSON.stringify(data).substring(0, 100));
+        return [];
       }
 
       const timeSeries = data['Monthly Time Series'];

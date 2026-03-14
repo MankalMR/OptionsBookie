@@ -10,8 +10,9 @@ import { isDemoRateLimited, getClientIp } from '@/lib/demo-rate-limiter';
 
 export async function PUT(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
+    const { id } = await params;
     const guard = demoGuard(request);
     if (guard.error) return guard.error;
     const { sessionId } = guard;
@@ -27,7 +28,7 @@ export async function PUT(
     }
 
     const state = demoStore.getOrCreate(sessionId);
-    const idx = state.transactions.findIndex(t => t.id === params.id);
+    const idx = state.transactions.findIndex(t => t.id === id);
 
     if (idx === -1) {
         return NextResponse.json({ success: false, error: 'Transaction not found' }, { status: 404 });
@@ -41,8 +42,9 @@ export async function PUT(
 
 export async function DELETE(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
+    const { id } = await params;
     const guard = demoGuard(request);
     if (guard.error) return guard.error;
     const { sessionId } = guard;
@@ -54,7 +56,7 @@ export async function DELETE(
 
     const state = demoStore.getOrCreate(sessionId);
     const originalLength = state.transactions.length;
-    state.transactions = state.transactions.filter(t => t.id !== params.id);
+    state.transactions = state.transactions.filter(t => t.id !== id);
 
     if (state.transactions.length === originalLength) {
         return NextResponse.json({ success: false, error: 'Transaction not found' }, { status: 404 });

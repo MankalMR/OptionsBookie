@@ -10,8 +10,9 @@ const supabase = createClient(
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.email) {
@@ -21,7 +22,7 @@ export async function GET(
     const { data, error } = await supabase
       .from('trade_chains')
       .select('*, transactions:options_transactions(*)')
-      .eq('id', params.id)
+      .eq('id', id)
       .eq('user_id', session.user.email)
       .single();
 
@@ -55,8 +56,9 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.email) {
@@ -79,7 +81,7 @@ export async function PUT(
     const { data, error } = await supabase
       .from('trade_chains')
       .update(updates)
-      .eq('id', params.id)
+      .eq('id', id)
       .eq('user_id', session.user.email)
       .select()
       .single();
