@@ -26,6 +26,7 @@ import StatusMultiSelect from '@/components/StatusMultiSelect';
 import ViewToggle from '@/components/ViewToggle';
 import SymbolGroupedView from '@/components/SymbolGroupedView';
 import StructuredData, { webApplicationSchema, organizationSchema } from '@/components/StructuredData';
+import { logger } from "@/lib/logger";
 
 export default function Home() {
   const isMobile = useIsMobile();
@@ -152,7 +153,7 @@ export default function Home() {
         }
       }
     } catch (error) {
-      console.error('Error fetching portfolios:', error);
+      logger.error({ error }, 'Error fetching portfolios:');
     } finally {
       setPortfoliosLoading(false);
     }
@@ -169,10 +170,10 @@ export default function Home() {
         const data = await response.json();
         setChains(data);
       } else {
-        console.error('Failed to fetch trade chains');
+        logger.error('Failed to fetch trade chains');
       }
     } catch (error) {
-      console.error('Error fetching trade chains:', error);
+      logger.error({ error }, 'Error fetching trade chains:');
     }
   }, [selectedPortfolioId]);
 
@@ -223,10 +224,10 @@ export default function Home() {
 
           if (chainResponse.ok) {
           } else {
-            console.error(`Failed to update chain ${chainUpdate.id}:`, await chainResponse.text());
+            logger.error({ data0: await chainResponse.text() }, `Failed to update chain ${chainUpdate.id}:`);
           }
         } catch (error) {
-          console.error(`Error updating chain ${chainUpdate.id}:`, error);
+          logger.error({ error }, `Error updating chain ${chainUpdate.id}:`);
         }
       }
 
@@ -279,14 +280,14 @@ export default function Home() {
                 });
 
                 if (!chainResponse.ok) {
-                  console.error('Failed to update chain status for expired trade');
+                  logger.error('Failed to update chain status for expired trade');
                 }
               } catch (error) {
-                console.error('Error updating chain status for expired trade:', error);
+                logger.error({ error }, 'Error updating chain status for expired trade:');
               }
             }
           } catch (error) {
-            console.error(`Error updating expired trade ${trade.id}:`, error);
+            logger.error({ error }, `Error updating expired trade ${trade.id}:`);
           }
         }
 
@@ -337,7 +338,7 @@ export default function Home() {
       // Refresh the portfolios list
       await fetchPortfolios();
     } catch (error) {
-      console.error('Failed to delete portfolio:', error);
+      logger.error({ error }, 'Failed to delete portfolio:');
       alert(`Failed to delete portfolio: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
@@ -359,7 +360,7 @@ export default function Home() {
       // Refresh portfolios to get updated default status
       await fetchPortfolios();
     } catch (error) {
-      console.error('Failed to set default portfolio:', error);
+      logger.error({ error }, 'Failed to set default portfolio:');
       alert(`Failed to set default portfolio: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
@@ -378,7 +379,7 @@ export default function Home() {
 
       setShowAddModal(false);
     } catch (error) {
-      console.error('Failed to add transaction:', error);
+      logger.error({ error }, 'Failed to add transaction:');
       // Error is handled by the hook and displayed in the UI
     }
   };
@@ -413,10 +414,10 @@ export default function Home() {
             });
 
             if (!chainResponse.ok) {
-              console.error('Failed to update chain status:', await chainResponse.text());
+              logger.error({ data0: await chainResponse.text() }, 'Failed to update chain status:');
             }
           } catch (error) {
-            console.error('Error updating chain status:', error);
+            logger.error({ error }, 'Error updating chain status:');
           }
         }
       }
@@ -431,7 +432,7 @@ export default function Home() {
         await fetchChains();
       }
     } catch (error) {
-      console.error('Failed to save edit:', error);
+      logger.error({ error }, 'Failed to save edit:');
       // Error is handled by the hook and displayed in the UI
     }
   };
@@ -468,7 +469,7 @@ export default function Home() {
       await deleteTransaction(deletingTransaction.id);
       setDeletingTransaction(null);
     } catch (error) {
-      console.error('Failed to delete transaction:', error);
+      logger.error({ error }, 'Failed to delete transaction:');
       // Error is handled by the hook and displayed in the UI
     }
   };
@@ -485,7 +486,7 @@ export default function Home() {
       await Promise.all(chainTransactions.map(t => deleteTransaction(t.id)));
       setDeletingChainId(null);
     } catch (error) {
-      console.error('Failed to delete chain:', error);
+      logger.error({ error }, 'Failed to delete chain:');
       // Error is handled by the hook and displayed in the UI
     }
   };

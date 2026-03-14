@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
+import { logger } from "@/lib/logger";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -27,7 +28,7 @@ export async function GET(
       .single();
 
     if (error) {
-      console.error('Error fetching trade chain:', error);
+      logger.error({ error }, 'Error fetching trade chain:');
       return NextResponse.json({ error: 'Trade chain not found' }, { status: 404 });
     }
 
@@ -49,7 +50,7 @@ export async function GET(
 
     return NextResponse.json(mappedData);
   } catch (error) {
-    console.error('Error in trade chain GET:', error);
+    logger.error({ error }, 'Error in trade chain GET:');
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -87,12 +88,12 @@ export async function PUT(
       .single();
 
     if (error) {
-      console.error('Error updating trade chain:', error);
+      logger.error({ error }, 'Error updating trade chain:');
       return NextResponse.json({ error: 'Failed to update trade chain' }, { status: 500 });
     }
     return NextResponse.json(data);
   } catch (error) {
-    console.error('Error in trade chain PUT:', error);
+    logger.error({ error }, 'Error in trade chain PUT:');
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

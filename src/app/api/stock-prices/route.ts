@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { StockPriceFactory } from '@/lib/stock-price-factory';
+import { logger } from "@/lib/logger";
 
 export async function GET(request: NextRequest) {
   try {
@@ -23,9 +24,9 @@ export async function GET(request: NextRequest) {
     const symbolList = symbols.split(',').map(s => s.trim().toUpperCase());
 
     // Debug: Check if API keys are available
-    console.log('ALPHA_VANTAGE_KEY available:', !!process.env.ALPHA_VANTAGE_KEY);
-    console.log('FINNHUB_API_KEY available:', !!process.env.FINNHUB_API_KEY);
-    console.log('Available providers:', StockPriceFactory.getAvailableProviders());
+    logger.info({ data0: !!process.env.ALPHA_VANTAGE_KEY }, 'ALPHA_VANTAGE_KEY available:');
+    logger.info({ data0: !!process.env.FINNHUB_API_KEY }, 'FINNHUB_API_KEY available:');
+    logger.info({ data0: StockPriceFactory.getAvailableProviders() }, 'Available providers:');
 
     // Try cached first (which will fall back to Alpha Vantage if cache miss)
     let stockService = StockPriceFactory.initialize('cached');
@@ -39,7 +40,7 @@ export async function GET(request: NextRequest) {
 
       // If cached service failed (returned null), try pure Finnhub as last resort
       if (!result) {
-        console.log('Cached service failed, trying pure Finnhub as last resort');
+        logger.info('Cached service failed, trying pure Finnhub as last resort');
         stockService = StockPriceFactory.initialize('finnhub');
         result = await stockService.getStockPrice(symbolList[0]);
 
@@ -60,7 +61,7 @@ export async function GET(request: NextRequest) {
       // If cached service failed for all symbols, try pure Finnhub as last resort
       const hasAnyResults = Object.values(result).some(price => price !== null);
       if (!hasAnyResults) {
-        console.log('Cached service failed for all symbols, trying pure Finnhub as last resort');
+        logger.info('Cached service failed for all symbols, trying pure Finnhub as last resort');
         stockService = StockPriceFactory.initialize('finnhub');
         result = await stockService.getMultipleStockPrices(symbolList);
 
@@ -77,7 +78,7 @@ export async function GET(request: NextRequest) {
       });
     }
   } catch (error) {
-    console.error('Error fetching stock prices:', error);
+    logger.error({ error }, 'Error fetching stock prices:');
     return NextResponse.json(
       { error: 'Failed to fetch stock prices' },
       { status: 500 }
@@ -106,7 +107,7 @@ export async function POST(request: NextRequest) {
     const prices = await stockService.getMultipleStockPrices(symbols);
     return NextResponse.json(prices);
   } catch (error) {
-    console.error('Error fetching stock prices:', error);
+    logger.error({ error }, 'Error fetching stock prices:');
     return NextResponse.json(
       { error: 'Failed to fetch stock prices' },
       { status: 500 }

@@ -10,6 +10,7 @@ import {
   formatDisplayDate,
   formatDisplayDateShort
 } from './dateUtils';
+import { logger } from "@/lib/logger";
 
 describe('dateUtils', () => {
   describe('parseLocalDate', () => {
@@ -166,7 +167,7 @@ describe('dateUtils', () => {
         const nativeDate = new Date(dateStr);
         if (nativeDate.getDate() !== parsed.getDate()) {
           // This confirms our parseLocalDate is fixing timezone issues
-          console.log(`Fixed timezone issue for ${dateStr}: native=${nativeDate.getDate()}, parsed=${parsed.getDate()}`);
+          logger.info(`Fixed timezone issue for ${dateStr}: native=${nativeDate.getDate()}, parsed=${parsed.getDate()}`);
         }
       });
     });

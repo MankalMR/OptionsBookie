@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import Modal from '@/components/ui/Modal';
+import { logger } from "@/lib/logger";
 
 interface EditTransactionModalProps {
   transaction: OptionsTransaction;
@@ -441,7 +442,7 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
       alert('Trade rolled successfully! New open position created.');
 
     } catch (error) {
-      console.error('Error rolling trade:', error);
+      logger.error({ error }, 'Error rolling trade:');
       alert('Failed to roll trade. Please try again.');
     }
   };

@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { Portfolio } from '@/types/options';
+import { logger } from "@/lib/logger";
 
 // Environment variables validation
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -145,7 +146,7 @@ export const portfolioDb = {
   // Set a portfolio as default
   async setDefaultPortfolio(id: string, userId: string): Promise<Portfolio | null> {
     try {
-      console.log('setDefaultPortfolio - ID:', id, 'User ID:', userId);
+      logger.info({ id, data1: 'User ID:', userId }, 'setDefaultPortfolio - ID:');
 
       // First check if the portfolio exists
       const { data: existingPortfolio, error: checkError } = await supabaseAdmin
@@ -156,16 +157,16 @@ export const portfolioDb = {
         .single();
 
       if (checkError) {
-        console.error('Error checking portfolio existence:', checkError);
+        logger.error({ checkError }, 'Error checking portfolio existence:');
         return null;
       }
 
       if (!existingPortfolio) {
-        console.log('Portfolio not found for user');
+        logger.info('Portfolio not found for user');
         return null;
       }
 
-      console.log('Portfolio found:', existingPortfolio);
+      logger.info({ existingPortfolio }, 'Portfolio found:');
 
       // First unset all other default portfolios for this user
       const { error: unsetError } = await supabaseAdmin
@@ -175,7 +176,7 @@ export const portfolioDb = {
         .neq('id', id);
 
       if (unsetError) {
-        console.error('Error unsetting other defaults:', unsetError);
+        logger.error({ unsetError }, 'Error unsetting other defaults:');
         return null;
       }
 
@@ -189,14 +190,14 @@ export const portfolioDb = {
         .single();
 
       if (error) {
-        console.error('Error setting default portfolio:', error);
+        logger.error({ error }, 'Error setting default portfolio:');
         return null;
       }
 
-      console.log('Successfully set default portfolio:', data);
+      logger.info({ data }, 'Successfully set default portfolio:');
       return rowToPortfolio(data);
     } catch (error) {
-      console.error('Error in setDefaultPortfolio:', error);
+      logger.error({ error }, 'Error in setDefaultPortfolio:');
       return null;
     }
   },

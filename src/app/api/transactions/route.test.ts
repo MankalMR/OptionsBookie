@@ -24,15 +24,25 @@ jest.mock('@/lib/database-secure', () => ({
   secureDb: mockSecureDb,
 }));
 
-// Mock console methods to suppress logs during tests
-const originalConsoleError = console.error;
+// Mock logger securely without hoisting issues
+const mockLoggerError = jest.fn();
+jest.mock('@/lib/logger', () => {
+  return {
+    logger: {
+      error: (...args: any[]) => mockLoggerError(...args),
+      info: jest.fn(),
+      warn: jest.fn(),
+      debug: jest.fn(),
+    },
+  };
+});
+
 beforeEach(() => {
-  console.error = jest.fn();
+  mockLoggerError.mockClear();
   jest.clearAllMocks();
 });
 
 afterEach(() => {
-  console.error = originalConsoleError;
 });
 
 describe('/api/transactions API routes', () => {
@@ -130,7 +140,7 @@ describe('/api/transactions API routes', () => {
         success: false,
         error: 'Failed to fetch transactions',
       });
-      expect(console.error).toHaveBeenCalledWith('Error fetching transactions:', expect.any(Error));
+      expect(mockLoggerError).toHaveBeenCalledWith({ error: expect.any(Error) }, 'Error fetching transactions:');
     });
 
     it('should handle empty transaction list', async () => {
@@ -266,7 +276,7 @@ describe('/api/transactions API routes', () => {
         success: false,
         error: 'Failed to create transaction',
       });
-      expect(console.error).toHaveBeenCalledWith('Error creating transaction:', expect.any(Error));
+      expect(mockLoggerError).toHaveBeenCalledWith({ error: expect.any(Error) }, 'Error creating transaction:');
     });
 
     it('should handle invalid JSON in request body', async () => {

@@ -1,6 +1,7 @@
 // Stock price service with shared caching (works with Alpha Vantage data)
 import { sharedStockPriceCache } from './stock-price-cache';
 import { alphaVantageStockService } from './stock-price-alphavantage';
+import { logger } from "@/lib/logger";
 
 interface StockPriceResponse {
   symbol: string;
@@ -35,35 +36,35 @@ export class CachedStockService {
   async getStockPrice(symbol: string): Promise<StockPriceResponse | null> {
     try {
       // Check shared cache first
-      console.log(`Checking cache for ${symbol}`);
+      logger.info(`Checking cache for ${symbol}`);
       const cached = await this.getCachedPrice(symbol);
       if (cached) {
-        console.log(`✅ Using cached price for ${symbol}: $${cached.price}`);
+        logger.info(`✅ Using cached price for ${symbol}: $${cached.price}`);
         return cached;
       }
 
       // If not cached and Alpha Vantage is available, try to fetch from Alpha Vantage
       if (process.env.ALPHA_VANTAGE_KEY) {
-        console.log(`Fetching fresh price for ${symbol} from Alpha Vantage`);
+        logger.info(`Fetching fresh price for ${symbol} from Alpha Vantage`);
         try {
           const priceData = await alphaVantageStockService.getStockPrice(symbol);
 
           if (priceData) {
             // Cache the result in shared cache
-            console.log(`💾 Caching price for ${symbol}: $${priceData.price} for 1 day`);
+            logger.info(`💾 Caching price for ${symbol}: $${priceData.price} for 1 day`);
             await this.cachePrice(symbol, priceData);
             return priceData;
           }
         } catch (error) {
-          console.log(`Alpha Vantage failed for ${symbol}, returning null:`, error);
+          logger.info({ error }, `Alpha Vantage failed for ${symbol}, returning null:`);
         }
       } else {
-        console.log(`ALPHA_VANTAGE_KEY not available, returning null for ${symbol}`);
+        logger.info(`ALPHA_VANTAGE_KEY not available, returning null for ${symbol}`);
       }
 
       return null;
     } catch (error) {
-      console.error('Error fetching stock price:', error);
+      logger.error({ error }, 'Error fetching stock price:');
       return null;
     }
   }
@@ -78,24 +79,24 @@ export class CachedStockService {
     const cachedResults = await sharedStockPriceCache.getMultipleCachedPrices(symbols);
     const symbolsToFetch: string[] = [];
 
-    console.log(`📦 Checking cache for ${symbols.length} symbols: ${symbols.join(', ')}`);
+    logger.info(`📦 Checking cache for ${symbols.length} symbols: ${symbols.join(', ')}`);
 
     symbols.forEach(symbol => {
       if (cachedResults[symbol]) {
-        console.log(`✅ Using cached price for ${symbol}: $${cachedResults[symbol]!.price}`);
+        logger.info(`✅ Using cached price for ${symbol}: $${cachedResults[symbol]!.price}`);
         results[symbol] = cachedResults[symbol];
       } else {
-        console.log(`❌ No cached price for ${symbol}`);
+        logger.info(`❌ No cached price for ${symbol}`);
         symbolsToFetch.push(symbol);
       }
     });
 
-    console.log(`🔄 Need to fetch ${symbolsToFetch.length} symbols from Alpha Vantage: ${symbolsToFetch.join(', ')}`);
+    logger.info(`🔄 Need to fetch ${symbolsToFetch.length} symbols from Alpha Vantage: ${symbolsToFetch.join(', ')}`);
 
     // Fetch uncached symbols from Alpha Vantage if available
     if (symbolsToFetch.length > 0) {
       if (process.env.ALPHA_VANTAGE_KEY) {
-        console.log(`Fetching fresh prices for: ${symbolsToFetch.join(', ')} from Alpha Vantage`);
+        logger.info(`Fetching fresh prices for: ${symbolsToFetch.join(', ')} from Alpha Vantage`);
         try {
           const alphaVantageResults = await alphaVantageStockService.getMultipleStockPrices(symbolsToFetch);
 
@@ -113,13 +114,13 @@ export class CachedStockService {
             await sharedStockPriceCache.cacheMultiplePrices(symbolsToFetch, pricesToCache);
           }
         } catch (error) {
-          console.log(`Alpha Vantage failed for symbols: ${symbolsToFetch.join(', ')}, returning null:`, error);
+          logger.info({ error }, `Alpha Vantage failed for symbols: ${symbolsToFetch.join(', ')}, returning null:`);
           symbolsToFetch.forEach(symbol => {
             results[symbol] = null;
           });
         }
       } else {
-        console.log(`ALPHA_VANTAGE_KEY not available, returning null for uncached symbols: ${symbolsToFetch.join(', ')}`);
+        logger.info(`ALPHA_VANTAGE_KEY not available, returning null for uncached symbols: ${symbolsToFetch.join(', ')}`);
         symbolsToFetch.forEach(symbol => {
           results[symbol] = null;
         });

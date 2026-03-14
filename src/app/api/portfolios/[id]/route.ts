@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { portfolioDb } from '@/lib/database-portfolios';
+import { logger } from "@/lib/logger";
 
 export async function GET(
   request: NextRequest,
@@ -21,7 +22,7 @@ export async function GET(
 
     return NextResponse.json(portfolio);
   } catch (error) {
-    console.error('Error fetching portfolio:', error);
+    logger.error({ error }, 'Error fetching portfolio:');
     return NextResponse.json(
       { error: 'Failed to fetch portfolio' },
       { status: 500 }
@@ -59,7 +60,7 @@ export async function PUT(
 
     return NextResponse.json(portfolio);
   } catch (error) {
-    console.error('Error updating portfolio:', error);
+    logger.error({ error }, 'Error updating portfolio:');
     return NextResponse.json(
       { error: 'Failed to update portfolio' },
       { status: 500 }
@@ -73,36 +74,36 @@ export async function PATCH(
 ) {
   const { id } = await params;
   try {
-    console.log('PATCH /api/portfolios/[id] - Portfolio ID:', id);
+    logger.info({ id }, 'PATCH /api/portfolios/[id] - Portfolio ID:');
 
     const session = await getServerSession(authOptions);
     if (!session?.user?.email) {
-      console.log('PATCH /api/portfolios/[id] - Unauthorized');
+      logger.info('PATCH /api/portfolios/[id] - Unauthorized');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    console.log('PATCH /api/portfolios/[id] - User email:', session.user.email);
+    logger.info({ data0: session.user.email }, 'PATCH /api/portfolios/[id] - User email:');
 
     const body = await request.json();
     const { action } = body;
-    console.log('PATCH /api/portfolios/[id] - Action:', action);
+    logger.info({ action }, 'PATCH /api/portfolios/[id] - Action:');
 
     if (action === 'setDefault') {
-      console.log('PATCH /api/portfolios/[id] - Setting default portfolio');
+      logger.info('PATCH /api/portfolios/[id] - Setting default portfolio');
       const portfolio = await portfolioDb.setDefaultPortfolio(id, session.user.email);
-      console.log('PATCH /api/portfolios/[id] - Result:', portfolio);
+      logger.info({ portfolio }, 'PATCH /api/portfolios/[id] - Result:');
 
       if (!portfolio) {
-        console.log('PATCH /api/portfolios/[id] - Portfolio not found');
+        logger.info('PATCH /api/portfolios/[id] - Portfolio not found');
         return NextResponse.json({ error: 'Portfolio not found' }, { status: 404 });
       }
       return NextResponse.json(portfolio);
     }
 
-    console.log('PATCH /api/portfolios/[id] - Invalid action');
+    logger.info('PATCH /api/portfolios/[id] - Invalid action');
     return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
   } catch (error) {
-    console.error('Error updating portfolio:', error);
+    logger.error({ error }, 'Error updating portfolio:');
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Failed to update portfolio' },
       { status: 500 }
@@ -128,7 +129,7 @@ export async function DELETE(
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Error deleting portfolio:', error);
+    logger.error({ error }, 'Error deleting portfolio:');
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Failed to delete portfolio' },
       { status: 500 }

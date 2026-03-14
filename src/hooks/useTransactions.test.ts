@@ -10,15 +10,25 @@ import { useTransactions } from './useTransactions';
 const mockFetch = jest.fn() as jest.MockedFunction<typeof fetch>;
 global.fetch = mockFetch;
 
-// Mock console methods to suppress logs during tests
-const originalConsoleError = console.error;
+// Mock logger securely without hoisting issues
+const mockLoggerError = jest.fn();
+jest.mock('@/lib/logger', () => {
+  return {
+    logger: {
+      error: (...args: any[]) => mockLoggerError(...args),
+      info: jest.fn(),
+      warn: jest.fn(),
+      debug: jest.fn(),
+    },
+  };
+});
+
 beforeEach(() => {
-  console.error = jest.fn();
+  mockLoggerError.mockClear();
   mockFetch.mockClear();
 });
 
 afterEach(() => {
-  console.error = originalConsoleError;
 });
 
 describe('useTransactions hook', () => {
@@ -104,7 +114,7 @@ describe('useTransactions hook', () => {
 
       expect(result.current.transactions).toEqual([]);
       expect(result.current.error).toBe('Network error while fetching transactions');
-      expect(console.error).toHaveBeenCalledWith('Error fetching transactions:', expect.any(Error));
+      expect(mockLoggerError).toHaveBeenCalledWith({ err: expect.any(Error) }, 'Error fetching transactions:');
     });
 
     it('should handle API error response on mount', async () => {

@@ -35,6 +35,7 @@ import StatusMultiSelect from '@/components/StatusMultiSelect';
 import ViewToggle from '@/components/ViewToggle';
 import SymbolGroupedView from '@/components/SymbolGroupedView';
 import Link from 'next/link';
+import { logger } from "@/lib/logger";
 
 // ---------------------------------------------------------------------------
 // Helper: all demo fetches include the session header
@@ -84,7 +85,7 @@ export default function DemoPage() {
                     setSessionId(data.sessionId);
                 }
             } catch (err) {
-                console.error('Failed to initialize demo session:', err);
+                logger.error({ err }, 'Failed to initialize demo session:');
             }
         };
 
@@ -199,7 +200,7 @@ export default function DemoPage() {
                 }
             }
         } catch (err) {
-            console.error('Error fetching demo portfolios:', err);
+            logger.error({ err }, 'Error fetching demo portfolios:');
         } finally {
             setPortfoliosLoading(false);
         }
@@ -217,7 +218,7 @@ export default function DemoPage() {
                 setChains(data);
             }
         } catch (err) {
-            console.error('Error fetching demo trade chains:', err);
+            logger.error({ err }, 'Error fetching demo trade chains:');
         }
     }, [sessionId, selectedPortfolioId]);
 
@@ -252,7 +253,7 @@ export default function DemoPage() {
                         body: JSON.stringify({ chainStatus: cu.status }),
                     });
                 } catch (err) {
-                    console.error(`Error updating demo chain ${cu.id}:`, err);
+                    logger.error({ err }, `Error updating demo chain ${cu.id}:`);
                 }
             }
             if (chainsToUpdate.length > 0) await fetchChains();
@@ -329,7 +330,7 @@ export default function DemoPage() {
             await fetchChains();
             setShowAddModal(false);
         } catch (err) {
-            console.error('Failed to add demo transaction:', err);
+            logger.error({ err }, 'Failed to add demo transaction:');
         }
     };
 
@@ -362,7 +363,7 @@ export default function DemoPage() {
                 await fetchChains();
             }
         } catch (err) {
-            console.error('Failed to save demo edit:', err);
+            logger.error({ err }, 'Failed to save demo edit:');
         }
     };
 
@@ -406,7 +407,7 @@ export default function DemoPage() {
             await refreshTransactions();
             await fetchChains();
         } catch (err) {
-            console.error('Failed to save demo roll:', err);
+            logger.error({ err }, 'Failed to save demo roll:');
             throw err; // Re-throw so the modal can alert the failure
         }
     };
@@ -436,7 +437,7 @@ export default function DemoPage() {
             await deleteTransaction(deletingTransaction.id);
             setDeletingTransaction(null);
         } catch (err) {
-            console.error('Failed to delete demo transaction:', err);
+            logger.error({ err }, 'Failed to delete demo transaction:');
         }
     };
 
@@ -448,7 +449,7 @@ export default function DemoPage() {
             await Promise.all(chainTxns.map(t => deleteTransaction(t.id)));
             setDeletingChainId(null);
         } catch (err) {
-            console.error('Failed to delete demo chain:', err);
+            logger.error({ err }, 'Failed to delete demo chain:');
         }
     };
 

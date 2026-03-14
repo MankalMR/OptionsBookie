@@ -1,3 +1,5 @@
+import { logger } from "@/lib/logger";
+
 // Stock price service using Finnhub API
 interface StockPriceResponse {
   symbol: string;
@@ -58,7 +60,7 @@ export class FinnhubStockService implements StockPriceService {
     this.isRateLimited = true;
     // Set reset time to 1 minute from now (Finnhub typically has minute-based rate limits)
     this.rateLimitResetTime = Date.now() + (60 * 1000);
-    console.warn('Finnhub API rate limited. Will retry in 1 minute.');
+    logger.warn('Finnhub API rate limited. Will retry in 1 minute.');
   }
 
   public getRateLimitStatus(): { isLimited: boolean; resetTime?: Date } {
@@ -71,29 +73,29 @@ export class FinnhubStockService implements StockPriceService {
   async getStockPrice(symbol: string): Promise<StockPriceResponse | null> {
     try {
       if (!this.apiKey) {
-        console.warn('FINNHUB_API_KEY not configured. Stock prices will not be available.');
+        logger.warn('FINNHUB_API_KEY not configured. Stock prices will not be available.');
         return null;
       }
 
       // Check if we're currently rate limited
       if (this.isCurrentlyRateLimited()) {
-        console.log(`Skipping ${symbol} - Finnhub API is rate limited`);
+        logger.info(`Skipping ${symbol} - Finnhub API is rate limited`);
         return null;
       }
 
       const url = `${this.baseUrl}/quote?symbol=${symbol}&token=${this.apiKey}`;
-      console.log(`Finnhub API URL: ${url}`);
+      logger.info(`Finnhub API URL: ${url}`);
 
       const response = await fetch(url);
 
       if (!response.ok) {
         if (response.status === 429) {
-          console.warn('Finnhub API rate limit exceeded (429). Too many requests.');
+          logger.warn('Finnhub API rate limit exceeded (429). Too many requests.');
           this.setRateLimited();
           return null;
         }
         if (response.status === 403) {
-          console.warn('Finnhub API key is invalid or expired. Please check your FINNHUB_API_KEY environment variable.');
+          logger.warn('Finnhub API key is invalid or expired. Please check your FINNHUB_API_KEY environment variable.');
           return null;
         }
         throw new Error(`Finnhub API error: ${response.status}`);
@@ -113,7 +115,7 @@ export class FinnhubStockService implements StockPriceService {
         timestamp: new Date(data.t ? data.t * 1000 : Date.now()).toISOString()
       };
     } catch (error) {
-      console.error('Error fetching stock price from Finnhub:', error);
+      logger.error({ error }, 'Error fetching stock price from Finnhub:');
       return null;
     }
   }
@@ -122,7 +124,7 @@ export class FinnhubStockService implements StockPriceService {
     const results: Record<string, StockPriceResponse | null> = {};
 
     if (!this.apiKey) {
-      console.warn('FINNHUB_API_KEY not configured. Stock prices will not be available.');
+      logger.warn('FINNHUB_API_KEY not configured. Stock prices will not be available.');
       symbols.forEach(symbol => {
         results[symbol] = null;
       });
@@ -131,7 +133,7 @@ export class FinnhubStockService implements StockPriceService {
 
     // Check if we're rate limited before making any calls
     if (this.isCurrentlyRateLimited()) {
-      console.log('Finnhub API is rate limited, returning null for all symbols');
+      logger.info('Finnhub API is rate limited, returning null for all symbols');
       symbols.forEach(symbol => {
         results[symbol] = null;
       });
@@ -144,7 +146,7 @@ export class FinnhubStockService implements StockPriceService {
       try {
         // Check rate limit before each call
         if (this.isCurrentlyRateLimited()) {
-          console.log(`Rate limit hit, skipping remaining symbols: ${symbols.slice(symbols.indexOf(symbol)).join(', ')}`);
+          logger.info(`Rate limit hit, skipping remaining symbols: ${symbols.slice(symbols.indexOf(symbol)).join(', ')}`);
           // Set remaining symbols to null
           symbols.slice(symbols.indexOf(symbol)).forEach(remainingSymbol => {
             results[remainingSymbol] = null;
@@ -158,7 +160,7 @@ export class FinnhubStockService implements StockPriceService {
         // Add a small delay to respect rate limits (60 API calls/minute on free tier)
         await new Promise(resolve => setTimeout(resolve, 1100)); // Just over 1 second
       } catch (error) {
-        console.error(`Error fetching price for ${symbol}:`, error);
+        logger.error({ error }, `Error fetching price for ${symbol}:`);
         results[symbol] = null;
       }
     }

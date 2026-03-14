@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { logger } from "@/lib/logger";
 
 export interface StockPrice {
   symbol: string;
@@ -58,7 +59,7 @@ export function useStockPrices(symbols: string[]): UseStockPricesReturn {
         setLastUpdated(new Date());
       }
     } catch (err) {
-      console.error('Error fetching stock prices:', err);
+      logger.error({ err }, 'Error fetching stock prices:');
       setError(err instanceof Error ? err.message : 'Failed to fetch stock prices');
       // Don't retry on error - this prevents infinite loops
     } finally {

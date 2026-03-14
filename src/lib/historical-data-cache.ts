@@ -1,5 +1,6 @@
 // Historical data cache using Supabase
 import { createClient } from '@supabase/supabase-js';
+import { logger } from "@/lib/logger";
 
 export interface HistoricalDataPoint {
   date: string;
@@ -43,14 +44,14 @@ export class HistoricalDataCache {
         .single();
 
       if (error || !data) {
-        console.log(`No cached historical data found for ${symbol}`);
+        logger.info(`No cached historical data found for ${symbol}`);
         return null;
       }
 
-      console.log(`Retrieved cached historical data for ${symbol} (${data.data.length} data points)`);
+      logger.info(`Retrieved cached historical data for ${symbol} (${data.data.length} data points)`);
       return data.data;
     } catch (error) {
-      console.error('Error fetching cached historical data:', error);
+      logger.error({ error }, 'Error fetching cached historical data:');
       return null;
     }
   }
@@ -76,12 +77,12 @@ export class HistoricalDataCache {
         .upsert(cacheData, { onConflict: 'symbol' });
 
       if (error) {
-        console.error('Error caching historical data:', error);
+        logger.error({ error }, 'Error caching historical data:');
       } else {
-        console.log(`Cached historical data for ${symbol} (${historicalData.length} data points) until ${expiresAt.toISOString()}`);
+        logger.info(`Cached historical data for ${symbol} (${historicalData.length} data points) until ${expiresAt.toISOString()}`);
       }
     } catch (error) {
-      console.error('Error caching historical data:', error);
+      logger.error({ error }, 'Error caching historical data:');
     }
   }
 
@@ -96,12 +97,12 @@ export class HistoricalDataCache {
         .lt('expires_at', new Date().toISOString());
 
       if (error) {
-        console.error('Error clearing expired historical data cache:', error);
+        logger.error({ error }, 'Error clearing expired historical data cache:');
       } else {
-        console.log('Cleared expired historical data cache entries');
+        logger.info('Cleared expired historical data cache entries');
       }
     } catch (error) {
-      console.error('Error clearing expired historical data cache:', error);
+      logger.error({ error }, 'Error clearing expired historical data cache:');
     }
   }
 
@@ -124,7 +125,7 @@ export class HistoricalDataCache {
         .lt('expires_at', new Date().toISOString());
 
       if (totalError || expiredError) {
-        console.error('Error getting historical data cache stats:', totalError || expiredError);
+        logger.error({ data0: totalError || expiredError }, 'Error getting historical data cache stats:');
         return { totalEntries: 0, expiredEntries: 0, validEntries: 0 };
       }
 
@@ -134,7 +135,7 @@ export class HistoricalDataCache {
 
       return { totalEntries, expiredEntries, validEntries };
     } catch (error) {
-      console.error('Error getting historical data cache stats:', error);
+      logger.error({ error }, 'Error getting historical data cache stats:');
       return { totalEntries: 0, expiredEntries: 0, validEntries: 0 };
     }
   }
@@ -150,12 +151,12 @@ export class HistoricalDataCache {
         .eq('symbol', symbol.toUpperCase());
 
       if (error) {
-        console.error(`Error force refreshing cache for ${symbol}:`, error);
+        logger.error({ error }, `Error force refreshing cache for ${symbol}:`);
       } else {
-        console.log(`Force refreshed cache for ${symbol}`);
+        logger.info(`Force refreshed cache for ${symbol}`);
       }
     } catch (error) {
-      console.error(`Error force refreshing cache for ${symbol}:`, error);
+      logger.error({ error }, `Error force refreshing cache for ${symbol}:`);
     }
   }
 }

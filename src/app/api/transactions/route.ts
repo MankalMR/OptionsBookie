@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { secureDb } from '@/lib/database-secure';
 import { OptionsTransaction } from '@/types/options';
+import { logger } from "@/lib/logger";
 
 // GET /api/transactions - Get all transactions
 export async function GET() {
@@ -20,7 +21,7 @@ export async function GET() {
     const transactions = await secureDb.getTransactions(session.user.email);
     return NextResponse.json({ success: true, data: transactions });
   } catch (error) {
-    console.error('Error fetching transactions:', error);
+    logger.error({ error }, 'Error fetching transactions:');
     return NextResponse.json(
       { success: false, error: 'Failed to fetch transactions' },
       { status: 500 }
@@ -47,7 +48,7 @@ export async function POST(request: Request) {
     const newTransaction = await secureDb.createTransaction(transactionData, session.user.email);
     return NextResponse.json({ success: true, data: newTransaction });
   } catch (error) {
-    console.error('Error creating transaction:', error);
+    logger.error({ error }, 'Error creating transaction:');
     return NextResponse.json(
       { success: false, error: 'Failed to create transaction' },
       { status: 500 }

@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { secureDb } from '@/lib/database-secure';
 import { OptionsTransaction } from '@/types/options';
+import { logger } from "@/lib/logger";
 
 // GET /api/transactions/[id] - Get a specific transaction
 export async function GET(
@@ -31,7 +32,7 @@ export async function GET(
 
     return NextResponse.json({ success: true, data: transaction });
   } catch (error) {
-    console.error('Error fetching transaction:', error);
+    logger.error({ error }, 'Error fetching transaction:');
     return NextResponse.json(
       { success: false, error: 'Failed to fetch transaction' },
       { status: 500 }
@@ -69,7 +70,7 @@ export async function PUT(
 
     return NextResponse.json({ success: true, data: updatedTransaction });
   } catch (error) {
-    console.error('Error updating transaction:', error);
+    logger.error({ error }, 'Error updating transaction:');
     return NextResponse.json(
       { success: false, error: 'Failed to update transaction' },
       { status: 500 }
@@ -97,7 +98,7 @@ export async function DELETE(
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Error deleting transaction:', error);
+    logger.error({ error }, 'Error deleting transaction:');
     return NextResponse.json(
       { success: false, error: 'Failed to delete transaction' },
       { status: 500 }

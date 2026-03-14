@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { OptionsTransaction } from '@/types/options';
+import { logger } from "@/lib/logger";
 
 interface UseTransactionsReturn {
   transactions: OptionsTransaction[];
@@ -32,7 +33,7 @@ export function useTransactions(): UseTransactionsReturn {
       }
     } catch (err) {
       setError('Network error while fetching transactions');
-      console.error('Error fetching transactions:', err);
+      logger.error({ err }, 'Error fetching transactions:');
     } finally {
       setLoading(false);
     }
@@ -61,7 +62,7 @@ export function useTransactions(): UseTransactionsReturn {
       }
     } catch (err) {
       setError('Network error while adding transaction');
-      console.error('Error adding transaction:', err);
+      logger.error({ err }, 'Error adding transaction:');
       throw err;
     }
   }, []);
@@ -91,7 +92,7 @@ export function useTransactions(): UseTransactionsReturn {
       }
     } catch (err) {
       setError('Network error while updating transaction');
-      console.error('Error updating transaction:', err);
+      logger.error({ err }, 'Error updating transaction:');
       throw err;
     }
   }, []);
@@ -115,7 +116,7 @@ export function useTransactions(): UseTransactionsReturn {
       }
     } catch (err) {
       setError('Network error while deleting transaction');
-      console.error('Error deleting transaction:', err);
+      logger.error({ err }, 'Error deleting transaction:');
       throw err;
     }
   }, []);

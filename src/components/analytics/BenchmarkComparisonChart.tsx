@@ -10,6 +10,7 @@ import {
   ResponsiveContainer,
   ReferenceLine
 } from 'recharts';
+import { logger } from "@/lib/logger";
 
 interface BenchmarkDataPoint {
   date: string;
@@ -97,7 +98,7 @@ export default function BenchmarkComparisonChart({
         setMetadata(result.metadata || null);
       }
     } catch (err) {
-      console.error('Error fetching benchmark data:', err);
+      logger.error({ err }, 'Error fetching benchmark data:');
       setError(err instanceof Error ? err.message : 'Unknown error occurred');
     } finally {
       setLoading(false);

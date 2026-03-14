@@ -1,3 +1,5 @@
+import { logger } from "@/lib/logger";
+
 // Stock price service using Alpha Vantage API
 interface StockPriceResponse {
   symbol: string;
@@ -81,7 +83,7 @@ export class AlphaVantageStockService implements StockPriceService {
     this.isRateLimited = true;
     // Set reset time to 1 minute from now (Alpha Vantage has minute-based rate limits)
     this.rateLimitResetTime = Date.now() + (60 * 1000);
-    console.warn('Alpha Vantage API rate limited. Will retry in 1 minute.');
+    logger.warn('Alpha Vantage API rate limited. Will retry in 1 minute.');
   }
 
   public getRateLimitStatus(): { isLimited: boolean; resetTime?: Date } {
@@ -94,29 +96,29 @@ export class AlphaVantageStockService implements StockPriceService {
   async getStockPrice(symbol: string): Promise<StockPriceResponse | null> {
     try {
       if (!this.apiKey) {
-        console.warn('ALPHA_VANTAGE_KEY not configured. Stock prices will not be available.');
+        logger.warn('ALPHA_VANTAGE_KEY not configured. Stock prices will not be available.');
         return null;
       }
 
       // Check if we're currently rate limited
       if (this.isCurrentlyRateLimited()) {
-        console.log(`Skipping ${symbol} - Alpha Vantage API is rate limited`);
+        logger.info(`Skipping ${symbol} - Alpha Vantage API is rate limited`);
         return null;
       }
 
       const url = `${this.baseUrl}?function=GLOBAL_QUOTE&symbol=${symbol}&apikey=${this.apiKey}`;
-      console.log(`Alpha Vantage API URL: ${url.replace(this.apiKey, '[REDACTED]')}`);
+      logger.info(`Alpha Vantage API URL: ${url.replace(this.apiKey, '[REDACTED]')}`);
 
       const response = await fetch(url);
 
       if (!response.ok) {
         if (response.status === 429) {
-          console.warn('Alpha Vantage API rate limit exceeded (429). Too many requests.');
+          logger.warn('Alpha Vantage API rate limit exceeded (429). Too many requests.');
           this.setRateLimited();
           return null;
         }
         if (response.status === 403) {
-          console.warn('Alpha Vantage API key is invalid or expired. Please check your ALPHA_VANTAGE_KEY environment variable.');
+          logger.warn('Alpha Vantage API key is invalid or expired. Please check your ALPHA_VANTAGE_KEY environment variable.');
           return null;
         }
         throw new Error(`Alpha Vantage API error: ${response.status}`);
@@ -130,13 +132,13 @@ export class AlphaVantageStockService implements StockPriceService {
       }
 
       if ('Note' in data || 'Information' in data) {
-        console.warn('Alpha Vantage API limit reached/info:', (data as any)['Note'] || (data as any)['Information']);
+        logger.warn({ data0: (data as any)['Note'] || (data as any)['Information'] }, 'Alpha Vantage API limit reached/info:');
         this.setRateLimited();
         return null;
       }
 
       if (!data['Global Quote'] || !data['Global Quote']['05. price']) {
-        console.warn(`Unrecognized Alpha Vantage response for ${symbol}:`, JSON.stringify(data).substring(0, 100));
+        logger.warn({ data0: JSON.stringify(data).substring(0, 100) }, `Unrecognized Alpha Vantage response for ${symbol}:`);
         return null; // Fall back gracefully
       }
 
@@ -154,7 +156,7 @@ export class AlphaVantageStockService implements StockPriceService {
         timestamp: new Date().toISOString() // Alpha Vantage doesn't provide timestamp in quote
       };
     } catch (error) {
-      console.error('Error fetching stock price from Alpha Vantage:', error);
+      logger.error({ error }, 'Error fetching stock price from Alpha Vantage:');
       return null;
     }
   }
@@ -163,7 +165,7 @@ export class AlphaVantageStockService implements StockPriceService {
     const results: Record<string, StockPriceResponse | null> = {};
 
     if (!this.apiKey) {
-      console.warn('ALPHA_VANTAGE_KEY not configured. Stock prices will not be available.');
+      logger.warn('ALPHA_VANTAGE_KEY not configured. Stock prices will not be available.');
       symbols.forEach(symbol => {
         results[symbol] = null;
       });
@@ -172,7 +174,7 @@ export class AlphaVantageStockService implements StockPriceService {
 
     // Check if we're rate limited before making any calls
     if (this.isCurrentlyRateLimited()) {
-      console.log('Alpha Vantage API is rate limited, returning null for all symbols');
+      logger.info('Alpha Vantage API is rate limited, returning null for all symbols');
       symbols.forEach(symbol => {
         results[symbol] = null;
       });
@@ -185,7 +187,7 @@ export class AlphaVantageStockService implements StockPriceService {
       try {
         // Check rate limit before each call
         if (this.isCurrentlyRateLimited()) {
-          console.log(`Rate limit hit, skipping remaining symbols: ${symbols.slice(symbols.indexOf(symbol)).join(', ')}`);
+          logger.info(`Rate limit hit, skipping remaining symbols: ${symbols.slice(symbols.indexOf(symbol)).join(', ')}`);
           // Set remaining symbols to null
           symbols.slice(symbols.indexOf(symbol)).forEach(remainingSymbol => {
             results[remainingSymbol] = null;
@@ -199,7 +201,7 @@ export class AlphaVantageStockService implements StockPriceService {
         // Add a delay to respect rate limits (5 API calls/minute on free tier)
         await new Promise(resolve => setTimeout(resolve, 12500)); // 12.5 seconds between calls
       } catch (error) {
-        console.error(`Error fetching price for ${symbol}:`, error);
+        logger.error({ error }, `Error fetching price for ${symbol}:`);
         results[symbol] = null;
       }
     }
@@ -213,23 +215,23 @@ export class AlphaVantageStockService implements StockPriceService {
   async getHistoricalMonthlyData(symbol: string, months: number = 24): Promise<HistoricalDataPoint[]> {
     try {
       if (!this.apiKey) {
-        console.warn('ALPHA_VANTAGE_KEY not configured. Historical data will not be available.');
+        logger.warn('ALPHA_VANTAGE_KEY not configured. Historical data will not be available.');
         return [];
       }
 
       if (this.isCurrentlyRateLimited()) {
-        console.log(`Skipping historical data for ${symbol} - Alpha Vantage API is rate limited`);
+        logger.info(`Skipping historical data for ${symbol} - Alpha Vantage API is rate limited`);
         return [];
       }
 
       const url = `${this.baseUrl}?function=TIME_SERIES_MONTHLY&symbol=${symbol}&apikey=${this.apiKey}`;
-      console.log(`Alpha Vantage Historical API URL: ${url.replace(this.apiKey, '[REDACTED]')}`);
+      logger.info(`Alpha Vantage Historical API URL: ${url.replace(this.apiKey, '[REDACTED]')}`);
 
       const response = await fetch(url);
 
       if (!response.ok) {
         if (response.status === 429) {
-          console.warn('Alpha Vantage API rate limit exceeded (429). Too many requests.');
+          logger.warn('Alpha Vantage API rate limit exceeded (429). Too many requests.');
           this.setRateLimited();
           return [];
         }
@@ -244,13 +246,13 @@ export class AlphaVantageStockService implements StockPriceService {
       }
 
       if ('Note' in data || 'Information' in data) {
-        console.warn('Alpha Vantage API limit reached/info:', (data as any)['Note'] || (data as any)['Information']);
+        logger.warn({ data0: (data as any)['Note'] || (data as any)['Information'] }, 'Alpha Vantage API limit reached/info:');
         this.setRateLimited();
         return [];
       }
 
       if (!data['Monthly Time Series']) {
-        console.warn(`Unrecognized Alpha Vantage historical response for ${symbol}:`, JSON.stringify(data).substring(0, 100));
+        logger.warn({ data0: JSON.stringify(data).substring(0, 100) }, `Unrecognized Alpha Vantage historical response for ${symbol}:`);
         return [];
       }
 
@@ -286,7 +288,7 @@ export class AlphaVantageStockService implements StockPriceService {
       // Return in reverse chronological order (most recent first)
       return historicalData.reverse();
     } catch (error) {
-      console.error('Error fetching historical data from Alpha Vantage:', error);
+      logger.error({ error }, 'Error fetching historical data from Alpha Vantage:');
       return [];
     }
   }

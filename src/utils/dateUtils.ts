@@ -1,3 +1,5 @@
+import { logger } from "@/lib/logger";
+
 /**
  * Date utility functions to handle timezone-safe date operations
  */
@@ -70,7 +72,7 @@ export function formatDisplayDate(date: Date | string): string {
       year: 'numeric'
     }).format(dateObj);
   } catch (error) {
-    console.error('Error formatting date:', error, 'Input:', date);
+    logger.error({ error, data1: 'Input:', date }, 'Error formatting date:');
     return 'Invalid Date';
   }
 }
@@ -99,7 +101,7 @@ export function formatDisplayDateShort(date: Date | string): { monthDay: string;
 
     return { monthDay, year };
   } catch (error) {
-    console.error('Error formatting date:', error, 'Input:', date);
+    logger.error({ error, data1: 'Input:', date }, 'Error formatting date:');
     return { monthDay: 'Invalid', year: 'Date' };
   }
 }

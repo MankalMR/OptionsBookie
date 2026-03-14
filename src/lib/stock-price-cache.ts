@@ -1,5 +1,6 @@
 // Shared stock price cache using Supabase
 import { createClient } from '@supabase/supabase-js';
+import { logger } from "@/lib/logger";
 
 interface StockPriceResponse {
   symbol: string;
@@ -59,7 +60,7 @@ export class SharedStockPriceCache {
         timestamp: data.timestamp
       };
     } catch (error) {
-      console.error('Error fetching cached price:', error);
+      logger.error({ error }, 'Error fetching cached price:');
       return null;
     }
   }
@@ -88,12 +89,12 @@ export class SharedStockPriceCache {
         .upsert(cacheData, { onConflict: 'symbol' });
 
       if (error) {
-        console.error('Error caching price:', error);
+        logger.error({ error }, 'Error caching price:');
       } else {
-        console.log(`Cached price for ${symbol} until ${expiresAt.toISOString()}`);
+        logger.info(`Cached price for ${symbol} until ${expiresAt.toISOString()}`);
       }
     } catch (error) {
-      console.error('Error caching price:', error);
+      logger.error({ error }, 'Error caching price:');
     }
   }
 
@@ -111,7 +112,7 @@ export class SharedStockPriceCache {
         .gt('expires_at', new Date().toISOString());
 
       if (error) {
-        console.error('Error fetching cached prices:', error);
+        logger.error({ error }, 'Error fetching cached prices:');
         symbols.forEach(symbol => {
           results[symbol] = null;
         });
@@ -135,7 +136,7 @@ export class SharedStockPriceCache {
       });
 
     } catch (error) {
-      console.error('Error fetching multiple cached prices:', error);
+      logger.error({ error }, 'Error fetching multiple cached prices:');
       symbols.forEach(symbol => {
         results[symbol] = null;
       });
@@ -174,12 +175,12 @@ export class SharedStockPriceCache {
           .upsert(cacheData, { onConflict: 'symbol' });
 
         if (error) {
-          console.error('Error caching multiple prices:', error);
+          logger.error({ error }, 'Error caching multiple prices:');
         } else {
-          console.log(`Cached ${cacheData.length} prices until ${expiresAt.toISOString()}`);
+          logger.info(`Cached ${cacheData.length} prices until ${expiresAt.toISOString()}`);
         }
       } catch (error) {
-        console.error('Error caching multiple prices:', error);
+        logger.error({ error }, 'Error caching multiple prices:');
       }
     }
   }
@@ -195,12 +196,12 @@ export class SharedStockPriceCache {
         .lt('expires_at', new Date().toISOString());
 
       if (error) {
-        console.error('Error clearing expired cache:', error);
+        logger.error({ error }, 'Error clearing expired cache:');
       } else {
-        console.log('Cleared expired cache entries');
+        logger.info('Cleared expired cache entries');
       }
     } catch (error) {
-      console.error('Error clearing expired cache:', error);
+      logger.error({ error }, 'Error clearing expired cache:');
     }
   }
 
@@ -223,7 +224,7 @@ export class SharedStockPriceCache {
         .lt('expires_at', new Date().toISOString());
 
       if (totalError || expiredError) {
-        console.error('Error getting cache stats:', totalError || expiredError);
+        logger.error({ data0: totalError || expiredError }, 'Error getting cache stats:');
         return { totalEntries: 0, expiredEntries: 0, validEntries: 0 };
       }
 
@@ -233,7 +234,7 @@ export class SharedStockPriceCache {
 
       return { totalEntries, expiredEntries, validEntries };
     } catch (error) {
-      console.error('Error getting cache stats:', error);
+      logger.error({ error }, 'Error getting cache stats:');
       return { totalEntries: 0, expiredEntries: 0, validEntries: 0 };
     }
   }

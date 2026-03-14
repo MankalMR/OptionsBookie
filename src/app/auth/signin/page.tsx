@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { BarChart3, Shield, Zap, Target, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
+import { logger } from "@/lib/logger";
 
 export default function SignIn() {
   const [isLoading, setIsLoading] = useState(false);
@@ -24,7 +25,7 @@ export default function SignIn() {
     try {
       await signIn('google', { callbackUrl: '/' });
     } catch (error) {
-      console.error('Sign in error:', error);
+      logger.error({ error }, 'Sign in error:');
     } finally {
       setIsLoading(false);
     }

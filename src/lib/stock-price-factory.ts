@@ -2,6 +2,7 @@
 import { cachedStockService, CachedStockService } from './stock-price-cached';
 import { finnhubStockService, FinnhubStockService } from './stock-price-finnhub';
 import { alphaVantageStockService, AlphaVantageStockService } from './stock-price-alphavantage';
+import { logger } from "@/lib/logger";
 
 export interface StockPriceResponse {
   symbol: string;
@@ -116,7 +117,7 @@ export class StockPriceFactory {
  */
 class NoOpStockService implements StockPriceService {
   async getStockPrice(symbol: string): Promise<StockPriceResponse | null> {
-    console.warn('No stock price provider configured');
+    logger.warn('No stock price provider configured');
     return null;
   }
 

@@ -1,6 +1,7 @@
 import { OptionsTransaction, TradeChain } from '@/types/options';
 import { parseLocalDate } from '@/utils/dateUtils';
 import { detectOverlapsByStock } from './timeOverlapDetection';
+import { logger } from "@/lib/logger";
 
 export const calculateProfitLoss = (transaction: OptionsTransaction, exitPrice?: number): number => {
   // Universal P&L calculation: always deduct fees for consistency
@@ -1220,7 +1221,7 @@ export const calculateDaysHeld = (openDate: string | Date, closeDate?: string | 
 
     return Math.max(0, diffDays); // Don't show negative days
   } catch (error) {
-    console.error('Error calculating days held:', error);
+    logger.error({ error }, 'Error calculating days held:');
     return 0;
   }
 };
@@ -1327,7 +1328,7 @@ export const calculateDaysToExpiry = (expiryDate: string | Date): number => {
     // - Don't show negative DTE for expired options
     return Math.max(0, diffDays);
   } catch (error) {
-    console.error('Error calculating days to expiry:', error);
+    logger.error({ error }, 'Error calculating days to expiry:');
     return 0;
   }
 };

@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label';
 import { Plus, Trash2, Star, StarOff } from 'lucide-react';
 import { useIsMobile } from '@/hooks/useMediaQuery';
+import { logger } from "@/lib/logger";
 
 interface PortfolioSelectorProps {
   portfolios: Portfolio[];
@@ -66,7 +67,7 @@ export default function PortfolioSelector({
     try {
       await onSetDefaultPortfolio(portfolioId);
     } catch (error) {
-      console.error('Failed to set default portfolio:', error);
+      logger.error({ error }, 'Failed to set default portfolio:');
     }
   };
 

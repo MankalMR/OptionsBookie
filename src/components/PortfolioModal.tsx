@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import Modal from '@/components/ui/Modal';
+import { logger } from "@/lib/logger";
 
 interface PortfolioModalProps {
   isOpen: boolean;
@@ -95,7 +96,7 @@ export default function PortfolioModal({
         setErrors({ submit: errorData.error || 'Failed to save portfolio' });
       }
     } catch (error) {
-      console.error('Error saving portfolio:', error);
+      logger.error({ error }, 'Error saving portfolio:');
       setErrors({ submit: 'Failed to save portfolio' });
     } finally {
       setLoading(false);

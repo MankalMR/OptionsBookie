@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { portfolioDb } from '@/lib/database-portfolios';
+import { logger } from "@/lib/logger";
 
 export async function GET() {
   try {
@@ -13,7 +14,7 @@ export async function GET() {
     const portfolios = await portfolioDb.getPortfolios(session.user.email);
     return NextResponse.json(portfolios);
   } catch (error) {
-    console.error('Error fetching portfolios:', error);
+    logger.error({ error }, 'Error fetching portfolios:');
     return NextResponse.json(
       { error: 'Failed to fetch portfolios' },
       { status: 500 }
@@ -50,7 +51,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(portfolio, { status: 201 });
   } catch (error) {
-    console.error('Error creating portfolio:', error);
+    logger.error({ error }, 'Error creating portfolio:');
     return NextResponse.json(
       { error: 'Failed to create portfolio' },
       { status: 500 }
