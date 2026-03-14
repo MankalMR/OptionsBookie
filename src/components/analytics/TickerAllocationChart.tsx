@@ -73,22 +73,22 @@ export default function TickerAllocationChart({ data }: TickerAllocationChartPro
     );
   }
 
-  // Group top 5 and bundle the rest into "Other"
+  // Group top 10 and bundle the rest into "Other"
   let chartData = [...data];
-  if (chartData.length > 5) {
-    const top5 = chartData.slice(0, 5);
-    const others = chartData.slice(5);
+  if (chartData.length > 10) {
+    const top10 = chartData.slice(0, 10);
+    const others = chartData.slice(10);
 
     const otherCollateral = others.reduce((sum, item) => sum + item.totalCollateral, 0);
     const otherPercentage = others.reduce((sum, item) => sum + item.percentage, 0);
 
-    top5.push({
+    top10.push({
       ticker: 'Other',
       totalCollateral: otherCollateral,
       percentage: otherPercentage
     });
 
-    chartData = top5;
+    chartData = top10;
   }
 
   return (
