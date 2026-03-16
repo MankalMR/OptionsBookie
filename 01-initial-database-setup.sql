@@ -3,9 +3,80 @@
 -- =====================================================
 -- This script creates the complete database schema for the OptionsBookie application
 -- Run this script in your Supabase SQL Editor to set up the database from scratch
--- =====================================================
+-- =====================================================-- =====================================================
 
--- Step 1: Create profiles table (recommended by Supabase)
+-- Step 1: Create NextAuth Schema and Permissions
+-- This is required for NextAuth @auth/supabase-adapter to function
+CREATE SCHEMA IF NOT EXISTS next_auth;
+
+-- Grant usage of the schema to service_role (needed for NextAuth server-side)
+GRANT USAGE ON SCHEMA next_auth TO service_role;
+GRANT USAGE ON SCHEMA next_auth TO postgres;
+
+-- Create users table
+CREATE TABLE IF NOT EXISTS next_auth.users (
+  id uuid not null default gen_random_uuid(),
+  name text,
+  email text,
+  "emailVerified" timestamp with time zone,
+  image text,
+  primary key (id)
+);
+
+-- Create accounts table
+CREATE TABLE IF NOT EXISTS next_auth.accounts (
+  id uuid not null default gen_random_uuid(),
+  "userId" uuid not null references next_auth.users(id) on delete cascade,
+  type text not null,
+  provider text not null,
+  "providerAccountId" text not null,
+  refresh_token text,
+  access_token text,
+  expires_at bigint,
+  token_type text,
+  scope text,
+  id_token text,
+  session_state text,
+  oauth_token_secret text,
+  oauth_token text,
+  primary key (id),
+  unique(provider, "providerAccountId")
+);
+
+-- Create sessions table
+CREATE TABLE IF NOT EXISTS next_auth.sessions (
+  id uuid not null default gen_random_uuid(),
+  expires timestamp with time zone not null,
+  "sessionToken" text not null,
+  "userId" uuid not null references next_auth.users(id) on delete cascade,
+  primary key (id),
+  unique("sessionToken")
+);
+
+-- Create verification_tokens table
+CREATE TABLE IF NOT EXISTS next_auth.verification_tokens (
+  identifier text,
+  token text,
+  expires timestamp with time zone not null,
+  primary key (identifier, token)
+);
+
+-- Grant all privileges on all current tables in the schema
+GRANT ALL ON ALL TABLES IN SCHEMA next_auth TO service_role;
+GRANT ALL ON ALL TABLES IN SCHEMA next_auth TO postgres;
+
+-- Grant all privileges on all current routines/sequences
+GRANT ALL ON ALL ROUTINES IN SCHEMA next_auth TO service_role;
+GRANT ALL ON ALL ROUTINES IN SCHEMA next_auth TO postgres;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA next_auth TO service_role;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA next_auth TO postgres;
+
+-- Ensure future tables also get these permissions automatically
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA next_auth GRANT ALL ON TABLES TO service_role;
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA next_auth GRANT ALL ON ROUTINES TO service_role;
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA next_auth GRANT ALL ON SEQUENCES TO service_role;
+
+-- Step 2: Create profiles table (recommended by Supabase)
 CREATE TABLE IF NOT EXISTS public.profiles (
   id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   full_name TEXT,
@@ -28,7 +99,7 @@ CREATE POLICY "Users can update their own profile" ON public.profiles
   FOR UPDATE USING (auth.uid() = id)
   WITH CHECK (auth.uid() = id);
 
--- Step 2: Create options_transactions table
+-- Step 3: Create options_transactions table
 CREATE TABLE IF NOT EXISTS public.options_transactions (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   user_id TEXT NOT NULL, -- Using TEXT to store email addresses
@@ -57,7 +128,7 @@ CREATE TABLE IF NOT EXISTS public.options_transactions (
   updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
 );
 
--- Step 3: Create portfolios table
+-- Step 4: Create portfolios table
 CREATE TABLE IF NOT EXISTS public.portfolios (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   user_id TEXT NOT NULL, -- Using TEXT to store email addresses
@@ -71,15 +142,15 @@ CREATE TABLE IF NOT EXISTS public.portfolios (
   CONSTRAINT unique_default_portfolio_per_user UNIQUE (user_id, is_default) DEFERRABLE INITIALLY DEFERRED
 );
 
--- Step 4: Add portfolio_id column to options_transactions
+-- Step 5: Add portfolio_id column to options_transactions
 ALTER TABLE public.options_transactions
 ADD COLUMN IF NOT EXISTS portfolio_id UUID REFERENCES public.portfolios(id) ON DELETE CASCADE;
 
--- Step 5: Enable RLS on all tables
+-- Step 6: Enable RLS on all tables
 ALTER TABLE public.options_transactions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.portfolios ENABLE ROW LEVEL SECURITY;
 
--- Step 6: Create RLS policies for options_transactions (email-based)
+-- Step 7: Create RLS policies for options_transactions (email-based)
 CREATE POLICY "Users can view their own transactions" ON public.options_transactions
   FOR SELECT USING (user_id = auth.email());
 
@@ -92,7 +163,7 @@ CREATE POLICY "Users can update their own transactions" ON public.options_transa
 CREATE POLICY "Users can delete their own transactions" ON public.options_transactions
   FOR DELETE USING (user_id = auth.email());
 
--- Step 7: Create RLS policies for portfolios (email-based)
+-- Step 8: Create RLS policies for portfolios (email-based)
 CREATE POLICY "Users can view their own portfolios" ON public.portfolios
   FOR SELECT USING (user_id = auth.email());
 
@@ -106,7 +177,7 @@ CREATE POLICY "Users can update their own portfolios" ON public.portfolios
 CREATE POLICY "Users can delete their own portfolios" ON public.portfolios
   FOR DELETE USING (user_id = auth.email());
 
--- Step 8: Create indexes for better performance
+-- Step 9: Create indexes for better performance
 CREATE INDEX IF NOT EXISTS idx_options_transactions_user_id ON public.options_transactions(user_id);
 CREATE INDEX IF NOT EXISTS idx_options_transactions_stock_symbol ON public.options_transactions(stock_symbol);
 CREATE INDEX IF NOT EXISTS idx_options_transactions_status ON public.options_transactions(status);
@@ -115,7 +186,7 @@ CREATE INDEX IF NOT EXISTS idx_options_transactions_expiry_date ON public.option
 CREATE INDEX IF NOT EXISTS idx_options_transactions_portfolio_id ON public.options_transactions(portfolio_id);
 CREATE INDEX IF NOT EXISTS idx_portfolios_user_id ON public.portfolios(user_id);
 
--- Step 9: Create function to update updated_at timestamp
+-- Step 10: Create function to update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -124,7 +195,7 @@ BEGIN
 END;
 $$ language 'plpgsql';
 
--- Step 10: Create triggers to automatically update updated_at
+-- Step 11: Create triggers to automatically update updated_at
 CREATE TRIGGER update_options_transactions_updated_at
   BEFORE UPDATE ON public.options_transactions
   FOR EACH ROW
@@ -140,7 +211,7 @@ CREATE TRIGGER update_portfolios_updated_at
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 
--- Step 11: Create function to ensure only one default portfolio per user
+-- Step 12: Create function to ensure only one default portfolio per user
 CREATE OR REPLACE FUNCTION ensure_single_default_portfolio()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -155,13 +226,13 @@ BEGIN
 END;
 $$ language 'plpgsql';
 
--- Step 12: Create trigger to ensure single default portfolio
+-- Step 13: Create trigger to ensure single default portfolio
 CREATE TRIGGER ensure_single_default_portfolio_trigger
   BEFORE INSERT OR UPDATE ON public.portfolios
   FOR EACH ROW
   EXECUTE FUNCTION ensure_single_default_portfolio();
 
--- Step 13: Create function to create default portfolio for new users
+-- Step 14: Create function to create default portfolio for new users
 CREATE OR REPLACE FUNCTION create_default_portfolio_for_user(user_email TEXT)
 RETURNS UUID AS $$
 DECLARE
@@ -195,4 +266,7 @@ $$ language 'plpgsql';
 --
 -- The application will automatically create default portfolios
 -- for new users when they first log in.
+--
+-- IMPORTANT: Make sure to Expose the `next_auth` schema in your 
+-- Supabase Dashboard -> Settings -> API -> Exposed schemas.
 -- =====================================================
