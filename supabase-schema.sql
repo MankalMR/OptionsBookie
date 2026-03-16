@@ -1,4 +1,77 @@
--- Create profiles table (recommended by Supabase)
+-- =====================================================
+-- Step 1: Create NextAuth Schema and Permissions
+-- This is required for NextAuth @auth/supabase-adapter to function
+-- =====================================================
+CREATE SCHEMA IF NOT EXISTS next_auth;
+
+-- Grant usage of the schema to service_role (needed for NextAuth server-side)
+GRANT USAGE ON SCHEMA next_auth TO service_role;
+GRANT USAGE ON SCHEMA next_auth TO postgres;
+
+-- Create users table
+CREATE TABLE IF NOT EXISTS next_auth.users (
+  id uuid not null default gen_random_uuid(),
+  name text,
+  email text,
+  "emailVerified" timestamp with time zone,
+  image text,
+  primary key (id)
+);
+
+-- Create accounts table
+CREATE TABLE IF NOT EXISTS next_auth.accounts (
+  id uuid not null default gen_random_uuid(),
+  "userId" uuid not null references next_auth.users(id) on delete cascade,
+  type text not null,
+  provider text not null,
+  "providerAccountId" text not null,
+  refresh_token text,
+  access_token text,
+  expires_at bigint,
+  token_type text,
+  scope text,
+  id_token text,
+  session_state text,
+  oauth_token_secret text,
+  oauth_token text,
+  primary key (id),
+  unique(provider, "providerAccountId")
+);
+
+-- Create sessions table
+CREATE TABLE IF NOT EXISTS next_auth.sessions (
+  id uuid not null default gen_random_uuid(),
+  expires timestamp with time zone not null,
+  "sessionToken" text not null,
+  "userId" uuid not null references next_auth.users(id) on delete cascade,
+  primary key (id),
+  unique("sessionToken")
+);
+
+-- Create verification_tokens table
+CREATE TABLE IF NOT EXISTS next_auth.verification_tokens (
+  identifier text,
+  token text,
+  expires timestamp with time zone not null,
+  primary key (identifier, token)
+);
+
+-- Grant all privileges on all current tables in the schema
+GRANT ALL ON ALL TABLES IN SCHEMA next_auth TO service_role;
+GRANT ALL ON ALL TABLES IN SCHEMA next_auth TO postgres;
+
+-- Grant all privileges on all current routines/sequences
+GRANT ALL ON ALL ROUTINES IN SCHEMA next_auth TO service_role;
+GRANT ALL ON ALL ROUTINES IN SCHEMA next_auth TO postgres;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA next_auth TO service_role;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA next_auth TO postgres;
+
+-- Ensure future tables also get these permissions automatically
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA next_auth GRANT ALL ON TABLES TO service_role;
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA next_auth GRANT ALL ON ROUTINES TO service_role;
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA next_auth GRANT ALL ON SEQUENCES TO service_role;
+
+-- Step 2: Create profiles table (recommended by Supabase)
 CREATE TABLE IF NOT EXISTS public.profiles (
   id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   full_name TEXT,
@@ -21,7 +94,7 @@ CREATE POLICY "Users can update their own profile" ON public.profiles
   FOR UPDATE USING (auth.uid() = id)
   WITH CHECK (auth.uid() = id);
 
--- Create options_transactions table
+-- Step 3: Create options_transactions table
 CREATE TABLE IF NOT EXISTS options_transactions (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
