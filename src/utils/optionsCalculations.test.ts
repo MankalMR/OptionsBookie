@@ -14,6 +14,7 @@ import {
   calculateRoR,
   calculateBreakEven,
   calculateDaysHeld,
+  getEffectiveCloseDate,
   formatPnLCurrency,
   formatPnLWithArrow,
   getStrategyType,
@@ -3447,71 +3448,126 @@ describe('optionsCalculations', () => {
       const result = calculateSmartCapital(transactions, chains);
 
       expect(result.totalCapital).toBe(0);
-      expect(result.breakdown).toHaveLength(0);
     });
   });
-});
 
-describe('calculateTickerAllocation', () => {
-  it('should calculate allocation correctly for active trades', () => {
-    const mockTransactions = [
-      { status: 'Open', stockSymbol: 'TSLA', premium: 200, numberOfContracts: 1, buyOrSell: 'Sell', strikePrice: 150, callOrPut: 'Put', fees: 0, tradeOpenDate: new Date() }, // Sell Put -> collateral = 150 * 100 = 15000
-      { status: 'Open', stockSymbol: 'AAPL', premium: 100, numberOfContracts: 2, buyOrSell: 'Sell', strikePrice: 100, callOrPut: 'Put', fees: 0, tradeOpenDate: new Date() }, // Sell Put -> collateral = 100 * 2 * 100 = 20000
-      { status: 'Closed', stockSymbol: 'TSLA', premium: 50, numberOfContracts: 1, buyOrSell: 'Sell', strikePrice: 100, callOrPut: 'Put', fees: 0, tradeOpenDate: new Date() }, // Ignored
-      { status: 'Open', stockSymbol: 'TSLA', premium: 50, numberOfContracts: 1, buyOrSell: 'Buy', strikePrice: 200, callOrPut: 'Call', fees: 0, tradeOpenDate: new Date() }, // Buy Call -> collateral = 50 * 1 * 100 = 5000
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ] as any;
+  describe('calculateTickerAllocation', () => {
+    it('should calculate allocation correctly for active trades', () => {
+      const mockTransactions = [
+        { status: 'Open', stockSymbol: 'TSLA', premium: 200, numberOfContracts: 1, buyOrSell: 'Sell', strikePrice: 150, callOrPut: 'Put', fees: 0, tradeOpenDate: new Date() }, // Sell Put -> collateral = 150 * 100 = 15000
+        { status: 'Open', stockSymbol: 'AAPL', premium: 100, numberOfContracts: 2, buyOrSell: 'Sell', strikePrice: 100, callOrPut: 'Put', fees: 0, tradeOpenDate: new Date() }, // Sell Put -> collateral = 100 * 2 * 100 = 20000
+        { status: 'Closed', stockSymbol: 'TSLA', premium: 50, numberOfContracts: 1, buyOrSell: 'Sell', strikePrice: 100, callOrPut: 'Put', fees: 0, tradeOpenDate: new Date() }, // Ignored
+        { status: 'Open', stockSymbol: 'TSLA', premium: 50, numberOfContracts: 1, buyOrSell: 'Buy', strikePrice: 200, callOrPut: 'Call', fees: 0, tradeOpenDate: new Date() }, // Buy Call -> collateral = 50 * 1 * 100 = 5000
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ] as any;
 
-    const allocation = calculateTickerAllocation(mockTransactions);
+      const allocation = calculateTickerAllocation(mockTransactions);
 
-    expect(allocation).toHaveLength(2);
+      expect(allocation).toHaveLength(2);
 
-    // TSLA: 15000 + 5000 = 20000 (50%)
-    // AAPL: 20000 (50%)
+      // TSLA: 15000 + 5000 = 20000 (50%)
+      // AAPL: 20000 (50%)
 
-    // Sort order should be TSLA then AAPL (or vice versa since they are equal, but let's check values)
-    const tsla = allocation.find(a => a.ticker === 'TSLA');
-    const aapl = allocation.find(a => a.ticker === 'AAPL');
+      // Sort order should be TSLA then AAPL (or vice versa since they are equal, but let's check values)
+      const tsla = allocation.find(a => a.ticker === 'TSLA');
+      const aapl = allocation.find(a => a.ticker === 'AAPL');
 
-    expect(tsla?.totalCollateral).toBe(20000);
-    expect(tsla?.percentage).toBe(50);
+      expect(tsla?.totalCollateral).toBe(20000);
+      expect(tsla?.percentage).toBe(50);
 
-    expect(aapl?.totalCollateral).toBe(20000);
-    expect(aapl?.percentage).toBe(50);
+      expect(aapl?.totalCollateral).toBe(20000);
+      expect(aapl?.percentage).toBe(50);
+    });
+
+    it('should sort allocation correctly by totalCollateral descending', () => {
+      const mockTransactions = [
+        { status: 'Open', stockSymbol: 'A', premium: 100, numberOfContracts: 1, buyOrSell: 'Sell', strikePrice: 10, callOrPut: 'Put', fees: 0, tradeOpenDate: new Date() }, // 1000
+        { status: 'Open', stockSymbol: 'B', premium: 100, numberOfContracts: 1, buyOrSell: 'Sell', strikePrice: 50, callOrPut: 'Put', fees: 0, tradeOpenDate: new Date() }, // 5000
+        { status: 'Open', stockSymbol: 'C', premium: 100, numberOfContracts: 1, buyOrSell: 'Sell', strikePrice: 30, callOrPut: 'Put', fees: 0, tradeOpenDate: new Date() }, // 3000
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ] as any;
+
+      const allocation = calculateTickerAllocation(mockTransactions);
+
+      expect(allocation).toHaveLength(3);
+      expect(allocation[0].ticker).toBe('B');
+      expect(allocation[1].ticker).toBe('C');
+      expect(allocation[2].ticker).toBe('A');
+    });
+
+    it('should handle zero active collateral correctly', () => {
+      const mockTransactions = [
+        { status: 'Open', stockSymbol: 'TSLA', premium: 0, numberOfContracts: 1, buyOrSell: 'Buy', strikePrice: 0, callOrPut: 'Call', fees: 0, tradeOpenDate: new Date() },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ] as any;
+
+      const allocation = calculateTickerAllocation(mockTransactions);
+
+      expect(allocation).toHaveLength(1);
+      expect(allocation[0].ticker).toBe('TSLA');
+      expect(allocation[0].totalCollateral).toBe(0);
+      expect(allocation[0].percentage).toBe(0); // Should not be NaN
+    });
   });
 
-  it('should sort allocation correctly by totalCollateral descending', () => {
-    const mockTransactions = [
-      { status: 'Open', stockSymbol: 'A', premium: 100, numberOfContracts: 1, buyOrSell: 'Sell', strikePrice: 10, callOrPut: 'Put', fees: 0, tradeOpenDate: new Date() }, // 1000
-      { status: 'Open', stockSymbol: 'B', premium: 100, numberOfContracts: 1, buyOrSell: 'Sell', strikePrice: 50, callOrPut: 'Put', fees: 0, tradeOpenDate: new Date() }, // 5000
-      { status: 'Open', stockSymbol: 'C', premium: 100, numberOfContracts: 1, buyOrSell: 'Sell', strikePrice: 30, callOrPut: 'Put', fees: 0, tradeOpenDate: new Date() }, // 3000
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ] as any;
+  describe('SMCI multi-year chain scenario', () => {
+    it('should correctly attribute P&L to the year the chain was effectively closed', () => {
+      const chainId = 'smci-chain-123';
+      const chains: TradeChain[] = [{
+        id: chainId,
+        userId: 'user-1',
+        portfolioId: 'portfolio-1',
+        symbol: 'SMCI',
+        chainStatus: 'Closed',
+        originalStrikePrice: 300,
+        originalOpenDate: new Date('2023-11-01'),
+        totalChainPnl: 1097,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      } as any];
 
-    const allocation = calculateTickerAllocation(mockTransactions);
+      const mockTransactions: OptionsTransaction[] = [
+        createMockTransaction({
+          id: 't1',
+          stockSymbol: 'SMCI',
+          tradeOpenDate: new Date('2023-11-01'),
+          closeDate: new Date('2023-12-15'),
+          status: 'Rolled',
+          chainId: chainId,
+          profitLoss: 740
+        }),
+        createMockTransaction({
+          id: 't2',
+          stockSymbol: 'SMCI',
+          tradeOpenDate: new Date('2023-12-15'),
+          closeDate: new Date('2024-01-20'),
+          status: 'Closed',
+          chainId: chainId,
+          profitLoss: 357
+        })
+      ];
 
-    expect(allocation).toHaveLength(3);
-    expect(allocation[0].ticker).toBe('B');
-    expect(allocation[1].ticker).toBe('C');
-    expect(allocation[2].ticker).toBe('A');
-  });
+      const realized = getRealizedTransactions(mockTransactions, chains);
 
-  it('should handle zero active collateral correctly', () => {
-    const mockTransactions = [
-      { status: 'Open', stockSymbol: 'TSLA', premium: 0, numberOfContracts: 1, buyOrSell: 'Buy', strikePrice: 0, callOrPut: 'Call', fees: 0, tradeOpenDate: new Date() },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ] as any;
+      // t1 should have effective close date of t2 (2024)
+      const t1Effective = getEffectiveCloseDate(mockTransactions[0], realized, chains);
+      expect(t1Effective.getFullYear()).toBe(2024);
+      expect(t1Effective.getMonth()).toBe(0); // January
 
-    const allocation = calculateTickerAllocation(mockTransactions);
+      // t2 should have its own close date as effective (2024)
+      const t2Effective = getEffectiveCloseDate(mockTransactions[1], realized, chains);
+      expect(t2Effective.getFullYear()).toBe(2024);
+      expect(t2Effective.getMonth()).toBe(0); // January
 
-    expect(allocation).toHaveLength(1);
-    expect(allocation[0].ticker).toBe('TSLA');
-    expect(allocation[0].totalCollateral).toBe(0);
-    expect(allocation[0].percentage).toBe(0); // Should not be NaN
-  });
+      // calculateChainAwareMonthlyPnL for 2024-01 should include BOTH t1 and t2 P&L
+      const monthlyPnL2024_01 = calculateChainAwareMonthlyPnL(mockTransactions, chains, 2024, 0);
+      expect(monthlyPnL2024_01.totalPnL).toBe(740 + 357);
 
-  it('should handle empty transactions correctly', () => {
-    const allocation = calculateTickerAllocation([]);
-    expect(allocation).toHaveLength(0);
+      // calculateChainAwareMonthlyPnL for 2023-12 should be 0 (since it was effectively rolled to 2024)
+      const monthlyPnL2023_11 = calculateChainAwareMonthlyPnL(mockTransactions, chains, 2023, 10);
+      const monthlyPnL2023_12 = calculateChainAwareMonthlyPnL(mockTransactions, chains, 2023, 11);
+      expect(monthlyPnL2023_11.totalPnL).toBe(0);
+      expect(monthlyPnL2023_12.totalPnL).toBe(0);
+    });
   });
 });

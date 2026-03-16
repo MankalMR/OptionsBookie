@@ -294,8 +294,8 @@ export default function SummaryView({ transactions, selectedPortfolioName, chain
   const getAllTickersForYear = (year: number) => {
     const realizedTransactions = getRealizedTransactions(transactions, chains).filter(t => {
       if (!t.closeDate) return false;
-      const closeDate = parseLocalDate(t.closeDate);
-      return closeDate.getFullYear() === year;
+      const effectiveCloseDate = getEffectiveCloseDate(t, getRealizedTransactions(transactions, chains), chains);
+      return effectiveCloseDate.getFullYear() === year;
     });
 
     // For YEARLY stock views, we CAN use overlap detection because all trades
@@ -337,43 +337,38 @@ export default function SummaryView({ transactions, selectedPortfolioName, chain
 
   // Calculate best stocks overall
   const bestStocks = useMemo(() => {
-    const realizedTransactions = getRealizedTransactions(transactions);
-    const stockTotals = new Map<string, { pnl: number; collateral: number; trades: number }>();
+    const yearTickerTotals = calculateChainAwareStockPerformance(getRealizedTransactions(transactions, chains), chains);
+    const capitalResult = calculateSmartCapital(getRealizedTransactions(transactions, chains), chains);
 
-    realizedTransactions.forEach(transaction => {
-      const ticker = transaction.stockSymbol;
-      const pnl = transaction.profitLoss || 0;
-      const collateral = calculateCollateral(transaction);
-
-      if (!stockTotals.has(ticker)) {
-        stockTotals.set(ticker, { pnl: 0, collateral: 0, trades: 0 });
-      }
-
-      const stockData = stockTotals.get(ticker)!;
-      stockData.pnl += pnl;
-      stockData.collateral += collateral;
-      stockData.trades += 1;
+    // Create a map of stock to capital from the breakdown
+    const stockCapitalMap = new Map<string, number>();
+    capitalResult.breakdown.forEach(item => {
+      stockCapitalMap.set(item.stock, item.capital);
     });
 
-    // Calculate RoR for each stock and find best performers
-    const stockPerformance = Array.from(stockTotals.entries()).map(([ticker, data]) => ({
-      ticker,
-      pnl: data.pnl,
-      ror: data.collateral > 0 ? (data.pnl / data.collateral * 100) : 0,
-      trades: data.trades
-    }));
+    const stockPerformance = Array.from(yearTickerTotals.entries()).map(([ticker, data]) => {
+      const capital = stockCapitalMap.get(ticker) || data.totalCollateral;
+      return {
+        ticker,
+        pnl: data.pnl,
+        ror: capital > 0 ? (data.pnl / capital * 100) : 0,
+        trades: data.trades
+      };
+    });
 
-    const bestByPnL = stockPerformance.reduce((best, stock) =>
-      stock.pnl > best.pnl ? stock : best, { ticker: '', pnl: -Infinity, ror: 0, trades: 0 });
+    const bestByPnL = stockPerformance.length > 0
+      ? stockPerformance.reduce((best, stock) => stock.pnl > best.pnl ? stock : best, { ticker: '', pnl: -Infinity, ror: 0, trades: 0 })
+      : { ticker: '', pnl: 0, ror: 0, trades: 0 };
 
-    const bestByRoR = stockPerformance.reduce((best, stock) =>
-      stock.ror > best.ror ? stock : best, { ticker: '', pnl: 0, ror: -Infinity, trades: 0 });
+    const bestByRoR = stockPerformance.length > 0
+      ? stockPerformance.reduce((best, stock) => stock.ror > best.ror ? stock : best, { ticker: '', pnl: 0, ror: -Infinity, trades: 0 })
+      : { ticker: '', pnl: 0, ror: 0, trades: 0 };
 
     return {
       bestByPnL: bestByPnL.pnl > -Infinity ? { ticker: bestByPnL.ticker, pnl: bestByPnL.pnl } : null,
       bestByRoR: bestByRoR.ror > -Infinity ? { ticker: bestByRoR.ticker, ror: bestByRoR.ror } : null
     };
-  }, [transactions]);
+  }, [transactions, chains]);
 
   // Calculate quick stats data
   const preciseAvgRoR = calculateSmartPortfolioRoR(transactions, chains);

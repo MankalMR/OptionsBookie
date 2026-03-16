@@ -90,28 +90,9 @@ export default function YearlySummaryCard({
   // Calculate year-specific strategy performance
   const yearStrategyPerformance = calculateStrategyPerformance(yearTransactions, chains);
 
-  // Calculate best stock by P&L and RoR for this year
-  const stockPerformance = new Map<string, { pnl: number; trades: number; totalCollateral: number }>();
-  realizedTransactions.forEach(t => {
-    const symbol = t.stockSymbol;
-    if (!stockPerformance.has(symbol)) {
-      stockPerformance.set(symbol, { pnl: 0, trades: 0, totalCollateral: 0 });
-    }
-    const perf = stockPerformance.get(symbol)!;
-    perf.pnl += t.profitLoss || 0;
-    perf.trades += 1;
-    perf.totalCollateral += calculateCollateral(t);
-  });
-
-  const bestStockByPnL = Array.from(stockPerformance.entries())
-    .sort((a, b) => b[1].pnl - a[1].pnl)[0];
-
-  const bestStockByRoR = Array.from(stockPerformance.entries())
-    .map(([ticker, data]) => ({
-      ticker,
-      ror: data.totalCollateral > 0 ? (data.pnl / data.totalCollateral * 100) : 0
-    }))
-    .sort((a, b) => b.ror - a.ror)[0];
+  // Get best stock by P&L and RoR using the already calculated yearAllTickers
+  const bestStockByPnL = [...yearAllTickers].sort((a, b) => b.pnl - a.pnl)[0];
+  const bestStockByRoR = [...yearAllTickers].sort((a, b) => b.ror - a.ror)[0];
 
   // Use the common function to calculate yearly annualized RoR with active months
   const yearlyRoRData = calculateYearlyAnnualizedRoRWithActiveMonths(yearTransactions, chains, yearData.year);
@@ -126,7 +107,7 @@ export default function YearlySummaryCard({
     bestStrategy: yearStrategyPerformance.filter(s => s.realizedCount > 0).length > 0
       ? { name: yearStrategyPerformance.filter(s => s.realizedCount > 0)[0].strategy, ror: yearStrategyPerformance.filter(s => s.realizedCount > 0)[0].avgRoR }
       : null,
-    bestStockByPnL: bestStockByPnL ? { ticker: bestStockByPnL[0], pnl: bestStockByPnL[1].pnl } : null,
+    bestStockByPnL: bestStockByPnL ? { ticker: bestStockByPnL.ticker, pnl: bestStockByPnL.pnl } : null,
     bestStockByRoR: bestStockByRoR ? { ticker: bestStockByRoR.ticker, ror: bestStockByRoR.ror } : null
   };
 
