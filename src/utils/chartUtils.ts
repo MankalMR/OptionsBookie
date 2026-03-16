@@ -1,5 +1,9 @@
 export type AxisDomain = [number | 'auto', number | 'auto'];
 
+/**
+ * Ensures the zero-line aligns on dual-axis charts while keeping ticks on clean multiples.
+ * It forces exactly 4 intervals (5 ticks) so that the zero-line hits a tick exactly.
+ */
 export function getSyncDomains(pnlValues: number[], rorValues: number[]): { pnlDomain: AxisDomain; rorDomain: AxisDomain } {
     if (pnlValues.length === 0 || rorValues.length === 0) {
         return { pnlDomain: [0, 'auto'], rorDomain: [0, 'auto'] };
@@ -14,33 +18,52 @@ export function getSyncDomains(pnlValues: number[], rorValues: number[]): { pnlD
         return { pnlDomain: [0, 'auto'], rorDomain: [0, 'auto'] };
     }
 
-    const r1 = max1 === 0 ? Number.NEGATIVE_INFINITY : min1 / max1;
-    const r2 = max2 === 0 ? Number.NEGATIVE_INFINITY : min2 / max2;
+    // Define total number of intervals (tickCount - 1)
+    const totalIntervals = 4;
 
-    let finalMin1 = min1;
-    let finalMax1 = max1;
-    let finalMin2 = min2;
-    let finalMax2 = max2;
-
-    if (r1 !== r2) {
-        if (r1 === Number.NEGATIVE_INFINITY) {
-            finalMax1 = finalMin1 / r2;
-        } else if (r2 === Number.NEGATIVE_INFINITY) {
-            finalMax2 = finalMin2 / r1;
-        } else {
-            const targetR = Math.min(r1, r2);
-            if (r1 > targetR) finalMin1 = finalMax1 * targetR;
-            if (r2 > targetR) finalMin2 = finalMax2 * targetR;
-        }
-    }
-
-    const bufferFn = (val: number, isMax: boolean) => {
-        if (val === 0) return 0;
-        return isMax ? (val > 0 ? val * 1.1 : val * 0.9) : (val < 0 ? val * 1.1 : val * 0.9);
+    // Determine how many intervals should be below zero to accommodate the data.
+    // We want n_neg / totalIntervals to be at least the ratio of (min / span).
+    const getRequiredNegIntervals = (min: number, max: number) => {
+        const span = max - min;
+        if (span === 0) return 0;
+        const ratio = Math.abs(min) / span;
+        return Math.ceil(ratio * totalIntervals);
     };
 
+    const nNeg1 = getRequiredNegIntervals(min1, max1);
+    const nNeg2 = getRequiredNegIntervals(min2, max2);
+
+    // Use the larger number of negative intervals to ensure both axes include all negative data.
+    const nNeg = Math.max(nNeg1, nNeg2);
+    const nPos = totalIntervals - nNeg;
+
+    // Find a "nice" step size for each axis.
+    const getNiceStep = (min: number, max: number, nN: number, nP: number) => {
+        // Current step needed to cover the range
+        const stepNeg = nN > 0 ? Math.abs(min) / nN : 0;
+        const stepPos = nP > 0 ? max / nP : 0;
+        let rawStep = Math.max(stepNeg, stepPos);
+
+        if (rawStep === 0) rawStep = 1;
+
+        // Nice interval candidates
+        const Magnitude = Math.pow(10, Math.floor(Math.log10(rawStep)));
+        const rem = rawStep / Magnitude;
+        let step;
+        if (rem <= 1) step = 1;
+        else if (rem <= 2) step = 2;
+        else if (rem <= 2.5) step = 2.5;
+        else if (rem <= 5) step = 5;
+        else step = 10;
+
+        return step * Magnitude;
+    };
+
+    const step1 = getNiceStep(min1, max1, nNeg, nPos);
+    const step2 = getNiceStep(min2, max2, nNeg, nPos);
+
     return {
-        pnlDomain: [bufferFn(finalMin1, false), bufferFn(finalMax1, true)],
-        rorDomain: [bufferFn(finalMin2, false), bufferFn(finalMax2, true)],
+        pnlDomain: [nNeg === 0 ? 0 : -nNeg * step1, nPos === 0 ? 0 : nPos * step1],
+        rorDomain: [nNeg === 0 ? 0 : -nNeg * step2, nPos === 0 ? 0 : nPos * step2],
     };
 }

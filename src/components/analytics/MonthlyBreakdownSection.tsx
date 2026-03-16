@@ -147,14 +147,16 @@ export default function MonthlyBreakdownSection({
                     return rounded < 0 ? `-$${Math.abs(rounded)}` : `$${rounded}`;
                   }}
                   domain={pnlDomain}
+                  tickCount={5}
                 />
                 <YAxis
                   yAxisId="ror"
                   orientation="right"
                   tick={{ fontSize: 12, fill: 'currentColor' }}
                   className="text-muted-foreground"
-                  tickFormatter={(value: number) => `${Math.round(value / 10) * 10}%`}
+                  tickFormatter={(value: number) => `${Math.round(value)}%`}
                   domain={rorDomain}
+                  tickCount={5}
                 />
                 <Tooltip
                   content={({ active, payload, label }) => {

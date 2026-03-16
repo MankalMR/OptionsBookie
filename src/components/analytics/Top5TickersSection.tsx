@@ -127,14 +127,16 @@ export default function Top5TickersSection({ yearTop5Tickers, yearAllTickers, ye
                     return rounded < 0 ? `-$${Math.abs(rounded)}` : `$${rounded}`;
                   }}
                   domain={pnlDomain}
+                  tickCount={5}
                 />
                 <YAxis
                   yAxisId="ror"
                   orientation="right"
                   tick={{ fontSize: 12, fill: 'currentColor' }}
                   className="text-muted-foreground"
-                  tickFormatter={(value) => `${Math.round(value / 10) * 10}%`}
+                  tickFormatter={(value) => `${Math.round(value)}%`}
                   domain={rorDomain}
+                  tickCount={5}
                 />
                 <Tooltip
                   formatter={(value: number, name: string) => {
