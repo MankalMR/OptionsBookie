@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { formatPnLCurrency, getRealizedTransactions, calculateDaysHeld, calculateStrategyPerformance, calculateMonthlyAnnualizedRoR, getEffectiveCloseDate, calculateSmartCapital } from '@/utils/optionsCalculations';
+import { getSyncDomains } from '@/utils/chartUtils';
 import { RegularRoRTooltip, AnnualizedRoRTooltip } from '@/components/ui/RoRTooltip';
 import { ResponsiveContainer, ComposedChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend, Bar } from 'recharts';
 import { ChevronDown, ChevronRight, Plus, Minus } from 'lucide-react';
@@ -95,6 +96,11 @@ export default function MonthlyBreakdownSection({
   const getMonthTransactions = (month: number): OptionsTransaction[] => {
     return transactionsByMonth.get(month) || [];
   };
+
+  const chartPnlValues = chartData?.map(d => d.pnl) || [];
+  const chartRorValues = chartData?.map(d => d.ror) || [];
+  const { pnlDomain, rorDomain } = getSyncDomains(chartPnlValues, chartRorValues);
+
   const formatCurrency = formatPnLCurrency;
 
   return (
@@ -136,14 +142,19 @@ export default function MonthlyBreakdownSection({
                   orientation="left"
                   tick={{ fontSize: 12, fill: 'currentColor' }}
                   className="text-muted-foreground"
-                  tickFormatter={(value) => `$${value}`}
+                  tickFormatter={(value: number) => {
+                    const rounded = Math.round(value / 10) * 10;
+                    return rounded < 0 ? `-$${Math.abs(rounded)}` : `$${rounded}`;
+                  }}
+                  domain={pnlDomain}
                 />
                 <YAxis
                   yAxisId="ror"
                   orientation="right"
                   tick={{ fontSize: 12, fill: 'currentColor' }}
                   className="text-muted-foreground"
-                  tickFormatter={(value) => `${value}%`}
+                  tickFormatter={(value: number) => `${Math.round(value / 10) * 10}%`}
+                  domain={rorDomain}
                 />
                 <Tooltip
                   content={({ active, payload, label }) => {
@@ -162,11 +173,13 @@ export default function MonthlyBreakdownSection({
                           <div className="space-y-1 text-sm">
                             <div className="flex justify-between items-center">
                               <span className="text-emerald-600 dark:text-emerald-400">P&L:</span>
-                              <span className="font-medium">${pnlValue}</span>
+                              <span className="font-medium">
+                                {pnlValue < 0 ? `-$${Math.abs(Math.round(pnlValue))}` : `$${Math.round(pnlValue)}`}
+                              </span>
                             </div>
                             <div className="flex justify-between items-center">
                               <span className="text-sky-600 dark:text-sky-400">RoR:</span>
-                              <span className="font-medium">{rorValue}%</span>
+                              <span className="font-medium">{(rorValue as number).toFixed(1)}%</span>
                             </div>
                             {topTickers && (
                               <div className="mt-2 pt-2 border-t border-border">

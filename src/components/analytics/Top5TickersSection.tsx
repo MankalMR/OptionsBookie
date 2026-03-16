@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
-import { formatPnLCurrency, calculateCollateral } from '@/utils/optionsCalculations';
+import { formatPnLCurrency } from '@/utils/optionsCalculations';
+import { getSyncDomains } from '@/utils/chartUtils';
 import { ResponsiveContainer, ComposedChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend, Bar } from 'recharts';
 import { ChevronDown, ChevronRight, Plus, Minus } from 'lucide-react';
 import { OptionsTransaction, TradeChain } from '@/types/options';
@@ -48,6 +49,11 @@ export default function Top5TickersSection({ yearTop5Tickers, yearAllTickers, ye
       return next;
     });
   };
+
+  const { pnlDomain, rorDomain } = getSyncDomains(
+    tickersToDisplay.map(d => d.pnl),
+    tickersToDisplay.map(d => d.ror)
+  );
 
   return (
     <div className="bg-muted/20 rounded-lg border p-6">
@@ -116,19 +122,27 @@ export default function Top5TickersSection({ yearTop5Tickers, yearAllTickers, ye
                   orientation="left"
                   tick={{ fontSize: 12, fill: 'currentColor' }}
                   className="text-muted-foreground"
-                  tickFormatter={(value) => `$${value}`}
+                  tickFormatter={(value) => {
+                    const rounded = Math.round(value / 10) * 10;
+                    return rounded < 0 ? `-$${Math.abs(rounded)}` : `$${rounded}`;
+                  }}
+                  domain={pnlDomain}
                 />
                 <YAxis
                   yAxisId="ror"
                   orientation="right"
                   tick={{ fontSize: 12, fill: 'currentColor' }}
                   className="text-muted-foreground"
-                  tickFormatter={(value) => `${value}%`}
+                  tickFormatter={(value) => `${Math.round(value / 10) * 10}%`}
+                  domain={rorDomain}
                 />
                 <Tooltip
                   formatter={(value: number, name: string) => {
-                    if (name === 'pnl') return [`$${value}`, 'P&L'];
-                    if (name === 'ror') return [`${value}%`, 'RoR'];
+                    if (name === 'pnl') {
+                      const formatted = value < 0 ? `-$${Math.abs(Math.round(value))}` : `$${Math.round(value)}`;
+                      return [formatted, 'P&L'];
+                    }
+                    if (name === 'ror') return [`${value.toFixed(1)}%`, 'RoR'];
                     return [value, name];
                   }}
                   contentStyle={{
