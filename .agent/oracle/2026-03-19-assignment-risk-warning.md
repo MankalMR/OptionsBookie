@@ -1,63 +1,76 @@
-# Feature Ticket: Assignment Risk Warning
+# Feature Ticket: Capital at Assignment Risk Summary
 
 ## Status
 pending-implementation
 
 ## Context
-Options traders face significant risk when selling options (short positions), specifically when the position is nearing expiration and is close to or in-the-money. This is called assignment risk. Currently, OptionsBookie allows users to track their open trades and capital usage, but it does not proactively highlight short trades that are dangerously close to expiration. Without this visual cue, a user might miss a critical deadline and be assigned hundreds of shares unexpectedly, disrupting their account balance and strategy.
+Options traders face significant risk when selling options (short positions), specifically when the position is nearing expiration. Currently, OptionsBookie allows users to track their open trades in the Transactions tab. However, looking at individual rows doesn't quickly tell a trader "How much total capital or how many shares are at risk this week?" Users need a dashboard view that aggregates their near-term assignment risk across all open short positions, rather than manually scanning a table.
 
 ## Objective
-Provide a clear, visual warning in the "Current Risk" tab for any open short option position that is expiring within the next 7 days, allowing the user to quickly identify and manage their assignment risk.
+Provide a "Capital at Assignment Risk" summary widget in the `CurrentRiskTab`. This widget must aggregate the total collateral tied up in short options expiring within the next 7 days, and list the specific tickers driving that risk as clickable links that navigate the user directly to the relevant trades in the Transactions tab.
 
 ## Scope
 - In scope:
-  - Add a visual indicator (e.g., a warning icon with a tooltip, or a highlighted row/section) in the `CurrentRiskTab` for open trades that meet the risk criteria.
-  - The risk criteria are strictly: the transaction is a short option (e.g., Sold to Open or part of a strategy involving short legs like a Credit Spread), `status === 'Open'`, and the time to expiration (DTE) is 7 days or less.
-  - Create a new pure function `checkAssignmentRisk` in `src/utils/optionsCalculations.ts` to encapsulate this logic.
+  - Add an aggregated metric to `CurrentRiskTab`: "Total Capital at Risk (Next 7 Days): $X".
+  - Below the total metric, list the specific tickers that make up this risk bucket.
+  - Make each ticker in the list a clickable link that navigates the user to the "Options Trades" (Transactions) tab, pre-filtered or scrolled to those specific open trades (or simply navigating to the tab if filtering is too complex).
+  - The risk criteria are strictly: the transaction is a short option, `status === 'Open'`, and the time to expiration (DTE) is 7 days or less.
+  - Create pure functions in `src/utils/optionsCalculations.ts` to calculate the total capital at risk and extract the list of at-risk tickers.
 - Out of scope:
-  - Fetching live underlying prices to determine exact "moneyness" (we will base the warning purely on DTE for open short positions).
+  - Fetching live underlying prices to determine exact "moneyness".
   - Adding new pages or altering the historical analytics views.
   - Sending push notifications or emails.
 
 ## UX & Entry Points
 - Primary entry: The "Current Risk" tab (`src/components/analytics/CurrentRiskTab.tsx`).
 - Components to touch:
-  - `src/components/analytics/CurrentRiskTab.tsx`: Add a new section, list, or visual flag for "Positions at Risk" or simply augment the existing view to highlight these specific trades.
-  - Tooltip components (`src/components/ui/tooltip.tsx`) if using an icon to explain the risk.
-- UX notes: The warning should be noticeable but not overwhelming. If using a list, it could be a small "Attention Required" section at the top of the Current Risk tab displaying only the risky trades. A red or yellow alert icon from `lucide-react` is appropriate.
+  - `src/components/analytics/CurrentRiskTab.tsx`: Add the new "Capital at Risk (Next 7 Days)" summary widget/section.
+  - The main dashboard or tab navigation logic (if needed to handle the click-through from a ticker to the Transactions tab).
+- UX notes: The widget should act as a proactive "Next Action Required" dashboard element. The total dollar amount should be prominent. The list of tickers underneath should look like interactive badges or links. Clicking a ticker badge should ideally switch the active tab to the Transactions view so the user can immediately manage the trade.
 
 ## Tech Plan
 - Data sources / utils:
   - Existing `transactions` array passed to `CurrentRiskTab`.
-  - Add `checkAssignmentRisk(transaction: Transaction, currentDate: Date): boolean` to `src/utils/optionsCalculations.ts`. This function will check if it's an open, short position with <= 7 DTE. Use existing `calculateDTE` or similar logic from `dateUtils.ts` if available, or write a simple date difference calculation.
+  - Add `calculateCapitalAtRisk(transactions: Transaction[], daysThreshold: number = 7): number` to `src/utils/optionsCalculations.ts` to sum the collateral of open short trades expiring within the threshold.
+  - Add `getAtRiskTickers(transactions: Transaction[], daysThreshold: number = 7): string[]` to `src/utils/optionsCalculations.ts` to return a unique list of tickers meeting the criteria.
 - Files to modify / add:
-  - `src/components/analytics/CurrentRiskTab.tsx` (to render the warnings).
-  - `src/utils/optionsCalculations.ts` (to add `checkAssignmentRisk`).
-  - `src/utils/optionsCalculations.test.ts` (to add tests for the new utility).
+  - `src/components/analytics/CurrentRiskTab.tsx` (to render the summary widget and ticker links).
+  - `src/app/page.tsx` or the relevant parent component managing tab state (to allow `CurrentRiskTab` to trigger a tab change when a ticker is clicked).
+  - `src/utils/optionsCalculations.ts` (to add the new aggregation functions).
+  - `src/utils/optionsCalculations.test.ts` (to add tests for the new utilities).
 - Risks / constraints:
-  - The calculation must remain a pure function in `src/utils/` to adhere to the Thick Client architecture.
-  - Date comparisons must be robust against timezone issues (e.g., comparing local dates to UTC expiration dates).
+  - Tab navigation state might need to be lifted up or passed down via props so `CurrentRiskTab` can programmatically switch to the Transactions tab.
+  - The calculations must remain pure functions in `src/utils/` to adhere to the Thick Client architecture.
 
 ## Sequence Diagram (High-Level)
 
 ```mermaid
 sequenceDiagram
     actor User
+    participant Parent as Dashboard (Tab State)
     participant UI as CurrentRiskTab
     participant Store as Data Layer (demo-store / Supabase DAL)
     participant Utils as optionsCalculations.ts
+    participant TransUI as TransactionsTable
 
     User->>UI: Views "Current Risk" Tab
-    UI->>Store: Fetch transaction data
+    UI->>Store: Fetch transaction data (or receive via props)
     Store-->>UI: Return transaction data
-    UI->>Utils: Call checkAssignmentRisk(transaction) for each open trade
-    Utils-->>UI: Return boolean indicating risk status
-    UI-->>User: Render visual warning for at-risk positions
+    UI->>Utils: calculateCapitalAtRisk(transactions)
+    Utils-->>UI: Returns total $ at risk
+    UI->>Utils: getAtRiskTickers(transactions)
+    Utils-->>UI: Returns list of tickers (e.g., AAPL, TSLA)
+    UI-->>User: Renders $ summary and clickable ticker badges
+    User->>UI: Clicks "AAPL" badge
+    UI->>Parent: triggerTabChange('transactions', filter='AAPL')
+    Parent->>TransUI: Render Transactions tab (ideally filtered)
+    TransUI-->>User: Shows specific at-risk trades
 ```
 
 ## Acceptance Criteria
-- [ ] In the "Current Risk" tab, there is a clear visual warning for open short positions expiring in 7 days or less.
-- [ ] Open long positions (bought options) do NOT show this warning, even if expiring soon, as assignment risk primarily affects short positions.
-- [ ] Positions expiring in more than 7 days do NOT show the warning.
-- [ ] The `checkAssignmentRisk` function is thoroughly tested with unit tests in `src/utils/optionsCalculations.test.ts`.
+- [ ] In the "Current Risk" tab, an aggregated "Total Capital at Risk (Next 7 Days)" metric is correctly displayed.
+- [ ] The view lists unique tickers that contribute to this risk bucket.
+- [ ] Clicking a ticker navigates the user to the Transactions tab.
+- [ ] The aggregated calculation correctly sums collateral ONLY for open short positions expiring in 7 days or less.
+- [ ] The calculation utilities are thoroughly tested in `src/utils/optionsCalculations.test.ts`.
 - [ ] The feature works coherently with the mock data in the `/demo` sandbox.
