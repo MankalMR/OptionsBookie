@@ -411,11 +411,11 @@ describe('/api/transactions API routes', () => {
       const promises = Array.from({ length: 5 }, () => GET());
       const responses = await Promise.all(promises);
 
-      responses.forEach(async (response) => {
+      await Promise.all(responses.map(async (response) => {
         expect(response.status).toBe(200);
         const data = await response.json();
         expect(data.success).toBe(true);
-      });
+      }));
 
       expect(mockSecureDb.getTransactions).toHaveBeenCalledTimes(5);
     });
