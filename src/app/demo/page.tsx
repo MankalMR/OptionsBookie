@@ -245,7 +245,7 @@ export default function DemoPage() {
                     chainsToUpdate.push({ id: chain.id, status: 'Active' });
                 }
             }
-            for (const cu of chainsToUpdate) {
+            await Promise.all(chainsToUpdate.map(async (cu) => {
                 try {
                     await fetch(`/api/demo/trade-chains/${cu.id}`, {
                         method: 'PUT',
@@ -255,7 +255,7 @@ export default function DemoPage() {
                 } catch (err) {
                     logger.error({ err }, `Error updating demo chain ${cu.id}:`);
                 }
-            }
+            }));
             if (chainsToUpdate.length > 0) await fetchChains();
         };
 
