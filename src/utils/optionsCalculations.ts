@@ -1450,3 +1450,17 @@ export const calculateTickerAllocation = (transactions: OptionsTransaction[]) =>
 
   return allocation;
 };
+
+export const calculateCapitalAtRisk = (transactions: OptionsTransaction[], daysThreshold: number = 7): number => {
+  return transactions
+    .filter(t => t.status === 'Open' && t.buyOrSell === 'Sell' && calculateDaysToExpiry(t.expiryDate) <= daysThreshold)
+    .reduce((total, t) => total + calculateCollateral(t), 0);
+};
+
+export const getAtRiskTickers = (transactions: OptionsTransaction[], daysThreshold: number = 7): string[] => {
+  const atRiskTransactions = transactions
+    .filter(t => t.status === 'Open' && t.buyOrSell === 'Sell' && calculateDaysToExpiry(t.expiryDate) <= daysThreshold);
+
+  const uniqueTickers = new Set(atRiskTransactions.map(t => t.stockSymbol));
+  return Array.from(uniqueTickers).sort();
+};
