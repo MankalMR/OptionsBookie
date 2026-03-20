@@ -32,6 +32,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Plus, LogIn } from 'lucide-react';
 import StatusMultiSelect from '@/components/StatusMultiSelect';
+import TickerMultiSelect from '@/components/TickerMultiSelect';
 import ViewToggle from '@/components/ViewToggle';
 import SymbolGroupedView from '@/components/SymbolGroupedView';
 import Link from 'next/link';
@@ -112,10 +113,20 @@ export default function DemoPage() {
     const [viewMode, setViewMode] = useState<'grouped' | 'flat'>('grouped');
     const [selectedPortfolioId, setSelectedPortfolioId] = useState<string | null>(null);
     const [selectedStatuses, setSelectedStatuses] = useState<string[]>(['Open', 'Rolled']);
+    const [selectedTickers, setSelectedTickers] = useState<string[]>([]);
 
     // --- Filtered views (identical logic to main page) -----------------------
     const [filteredTransactions, setFilteredTransactions] = useState<OptionsTransaction[]>([]);
     const [portfolioFilteredTransactions, setPortfolioFilteredTransactions] = useState<OptionsTransaction[]>([]);
+
+    // Extract unique available tickers based on portfolio
+    const availableTickers = useMemo(() => {
+        let baseTransactions = transactions;
+        if (selectedPortfolioId) {
+            baseTransactions = baseTransactions.filter(t => t.portfolioId === selectedPortfolioId);
+        }
+        return [...new Set(baseTransactions.map(t => t.stockSymbol))];
+    }, [transactions, selectedPortfolioId]);
 
     useEffect(() => {
         let filtered = transactions;
@@ -134,8 +145,14 @@ export default function DemoPage() {
                 return statusMatches;
             });
         }
+
+        // Filter by tickers
+        if (selectedTickers.length > 0) {
+            filtered = filtered.filter(t => selectedTickers.includes(t.stockSymbol));
+        }
+
         setFilteredTransactions(filtered);
-    }, [transactions, selectedPortfolioId, selectedStatuses, chains]);
+    }, [transactions, selectedPortfolioId, selectedStatuses, selectedTickers, chains]);
 
     useEffect(() => {
         let filtered = transactions;
@@ -318,6 +335,18 @@ export default function DemoPage() {
 
     const handleStatusChange = (statuses: string[]) => {
         setSelectedStatuses(statuses);
+    };
+
+    const handleTickerChange = (tickers: string[]) => {
+        setSelectedTickers(tickers);
+    };
+
+    const handleTickerClickFromRisk = (ticker: string) => {
+        setActiveTab('trades');
+        if (!selectedStatuses.includes('Open')) {
+            setSelectedStatuses([...selectedStatuses, 'Open']);
+        }
+        setSelectedTickers([ticker]);
     };
 
     const handleAddTransaction = async (transaction: Omit<OptionsTransaction, 'id' | 'createdAt' | 'updatedAt'>) => {
@@ -623,6 +652,7 @@ export default function DemoPage() {
                         <CurrentRiskTab
                             transactions={portfolioOverviewTransactions}
                             selectedPortfolioName={selectedPortfolioId ? portfolios.find(p => p.id === selectedPortfolioId)?.name : null}
+                            onTickerClick={handleTickerClickFromRisk}
                         />
                     ) : activeTab === 'trades' ? (
                         <div className="space-y-8">
@@ -633,12 +663,21 @@ export default function DemoPage() {
                                     <div className="flex justify-between items-center">
                                         <div className="flex items-center space-x-4">
                                             <CardTitle className="text-xl">Recent Trades</CardTitle>
+                                            {/* Filters */}
                                             {!isMobile && (
-                                                <StatusMultiSelect
-                                                    selectedStatuses={selectedStatuses}
-                                                    onStatusChange={handleStatusChange}
-                                                    className="w-48"
-                                                />
+                                                <div className="flex items-center space-x-2">
+                                                    <TickerMultiSelect
+                                                        availableTickers={availableTickers}
+                                                        selectedTickers={selectedTickers}
+                                                        onTickerChange={handleTickerChange}
+                                                        className="w-48"
+                                                    />
+                                                    <StatusMultiSelect
+                                                        selectedStatuses={selectedStatuses}
+                                                        onStatusChange={handleStatusChange}
+                                                        className="w-48"
+                                                    />
+                                                </div>
                                             )}
                                             {!isMobile && (
                                                 <ViewToggle viewMode={viewMode} onViewChange={setViewMode} />

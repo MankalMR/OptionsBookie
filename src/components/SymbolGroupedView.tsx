@@ -12,8 +12,8 @@ interface SymbolGroupedViewProps {
   onDelete: (id: string) => void;
   onDeleteChain: (chainId: string) => void;
   onEdit: (transaction: OptionsTransaction) => void;
-  chains: any[];
-  portfolios: any[];
+  chains: import('@/types/options').TradeChain[];
+  portfolios: import('@/types/options').Portfolio[];
   showPortfolioColumn: boolean;
 }
 

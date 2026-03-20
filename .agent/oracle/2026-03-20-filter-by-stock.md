@@ -1,7 +1,7 @@
 # Feature Ticket: Ticker Filter & Deep Linking in Transactions Table
 
 ## Status
-pending-implementation
+done
 
 ## Context
 In a previous update to the "Current Risk" tab, we added clickable badges for at-risk tickers (e.g., AAPL, TSLA). However, clicking a badge currently only navigates the user to the "Transactions" tab and ensures "Open" trades are visible. The user is still forced to manually scan a mixed list of all their open trades to find the specific ticker they just clicked. This is because the `TransactionsTable` lacks a dedicated ticker filter and the ability to accept a pre-selected ticker via props or context.
@@ -65,3 +65,13 @@ sequenceDiagram
 - [ ] The ticker filter options dynamically populate based on the unique tickers present in the user's data.
 - [ ] The filter works conjunctively with existing filters (e.g., filtering for "TSLA" AND status "Open").
 - [ ] The feature works seamlessly with the mock data in the `/demo` sandbox without requiring server-side changes.
+
+## Implementation Notes
+- Files changed: `src/components/TickerMultiSelect.tsx`, `src/app/page.tsx`, `src/app/demo/page.tsx`, `src/components/SymbolGroupedView.tsx`
+- Behavior:
+  - Created a new `TickerMultiSelect` component utilizing Shadcn UI components for multi-select functionality.
+  - Added `selectedTickers` state to manage ticker filtering in the parent components (`src/app/page.tsx` and `src/app/demo/page.tsx`).
+  - Updated the filtering logic to include the new `selectedTickers` array alongside existing filters.
+  - Modified the interaction from the `CurrentRiskTab` (`handleTickerClickFromRisk`) to pass the clicked ticker down to the `TransactionsTable` so it automatically applies the filter upon navigation.
+- Tests: Re-ran existing tests to ensure no regressions were introduced.
+- Known follow-ups: None currently.
