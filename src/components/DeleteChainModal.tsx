@@ -47,14 +47,16 @@ export default function DeleteChainModal({
               <AlertTriangle className="h-5 w-5" />
               <h3 className="text-lg font-medium">Delete Chain</h3>
             </div>
-            <button
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={onClose}
               disabled={isDeleting}
-              className="text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+              className="h-8 w-8 text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
               aria-label="Close modal"
             >
               <X className="h-5 w-5" />
-            </button>
+            </Button>
           </div>
 
           <div className="space-y-4">
