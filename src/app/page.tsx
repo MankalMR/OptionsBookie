@@ -213,22 +213,25 @@ export default function Home() {
         }
       }
 
-      // Update chains that need status changes
-      for (const chainUpdate of chainsToUpdate) {
-        try {
-          const chainResponse = await fetch(`/api/trade-chains/${chainUpdate.id}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ chainStatus: chainUpdate.status })
-          });
+      // Update chains that need status changes concurrently
+      if (chainsToUpdate.length > 0) {
+        await Promise.all(
+          chainsToUpdate.map(async (chainUpdate) => {
+            try {
+              const chainResponse = await fetch(`/api/trade-chains/${chainUpdate.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ chainStatus: chainUpdate.status })
+              });
 
-          if (chainResponse.ok) {
-          } else {
-            logger.error({ data0: await chainResponse.text() }, `Failed to update chain ${chainUpdate.id}:`);
-          }
-        } catch (error) {
-          logger.error({ error }, `Error updating chain ${chainUpdate.id}:`);
-        }
+              if (!chainResponse.ok) {
+                logger.error({ data0: await chainResponse.text() }, `Failed to update chain ${chainUpdate.id}:`);
+              }
+            } catch (error) {
+              logger.error({ error }, `Error updating chain ${chainUpdate.id}:`);
+            }
+          })
+        );
       }
 
       // Refresh chains if any were updated
