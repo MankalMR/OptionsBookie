@@ -52,7 +52,9 @@ import {
   formatPnLNumber,
   calculateSmartCapital,
   calculateChainAwareStockPerformance,
-  calculateChainAwareMonthlyPnL
+  calculateChainAwareMonthlyPnL,
+  calculateCapitalAtRisk,
+  getAtRiskTickers
 } from './optionsCalculations';
 import { OptionsTransaction, TradeChain } from '@/types/options';
 
@@ -3510,6 +3512,123 @@ describe('optionsCalculations', () => {
     });
   });
 
+  describe('Assignment Risk Warning Utilities', () => {
+    beforeEach(() => {
+      jest.useFakeTimers();
+      jest.setSystemTime(new Date(2025, 8, 18)); // September 18th, 2025 (Thursday)
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    const mockTransactions = [
+      // 1. Short Put, Open, DTE = 1 (at risk)
+      createMockTransaction({
+        stockSymbol: 'AAPL',
+        status: 'Open',
+        buyOrSell: 'Sell',
+        callOrPut: 'Put',
+        expiryDate: new Date(2025, 8, 19), // Sept 19th, 2025 (Tomorrow)
+        strikePrice: 150,
+        numberOfContracts: 2,
+        // Collateral = 150 * 2 * 100 = 30000
+      }),
+      // 2. Short Call, Open, DTE = 0 (at risk)
+      createMockTransaction({
+        stockSymbol: 'TSLA',
+        status: 'Open',
+        buyOrSell: 'Sell',
+        callOrPut: 'Call',
+        expiryDate: new Date(2025, 8, 18), // Sept 18th, 2025 (Today)
+        strikePrice: 200,
+        numberOfContracts: 1,
+        // Collateral = 200 * 1 * 100 = 20000
+      }),
+      // 3. Short Put, Open, DTE = 8 (not at risk, threshold is 7)
+      createMockTransaction({
+        stockSymbol: 'MSFT',
+        status: 'Open',
+        buyOrSell: 'Sell',
+        callOrPut: 'Put',
+        expiryDate: new Date(2025, 8, 26), // Sept 26th, 2025
+        strikePrice: 300,
+        numberOfContracts: 1,
+      }),
+      // 4. Long Put, Open, DTE = 1 (not at risk, it's a long position)
+      createMockTransaction({
+        stockSymbol: 'NVDA',
+        status: 'Open',
+        buyOrSell: 'Buy',
+        callOrPut: 'Put',
+        expiryDate: new Date(2025, 8, 19), // Sept 19th, 2025
+        strikePrice: 100,
+        numberOfContracts: 1,
+      }),
+      // 5. Short Put, Closed, DTE = 1 (not at risk, it's closed)
+      createMockTransaction({
+        stockSymbol: 'META',
+        status: 'Closed',
+        buyOrSell: 'Sell',
+        callOrPut: 'Put',
+        expiryDate: new Date(2025, 8, 19), // Sept 19th, 2025
+        strikePrice: 250,
+        numberOfContracts: 1,
+      }),
+      // 6. Another Short Put for AAPL, Open, DTE = 7 (at risk, testing grouping by ticker)
+      createMockTransaction({
+        stockSymbol: 'AAPL',
+        status: 'Open',
+        buyOrSell: 'Sell',
+        callOrPut: 'Put',
+        expiryDate: new Date(2025, 8, 25), // Sept 25th, 2025 (7 days)
+        strikePrice: 140,
+        numberOfContracts: 1,
+        // Collateral = 140 * 1 * 100 = 14000
+      }),
+    ];
+
+    describe('calculateCapitalAtRisk', () => {
+      it('should calculate total capital at risk within default 7 days', () => {
+        const capital = calculateCapitalAtRisk(mockTransactions);
+        // AAPL (30000) + TSLA (20000) + AAPL (14000) = 64000
+        expect(capital).toBe(64000);
+      });
+
+      it('should calculate total capital at risk within custom days threshold', () => {
+        const capital = calculateCapitalAtRisk(mockTransactions, 1);
+        // Threshold = 1. Only AAPL (30000) and TSLA (20000) match. AAPL (14000) is 7 days.
+        expect(capital).toBe(50000);
+      });
+
+      it('should return 0 if no transactions match the risk criteria', () => {
+        // Threshold = 0, but mock current time is 0 days, so TSLA (0 DTE) matches.
+        // Let's test with no short options.
+        const safeTransactions = [mockTransactions[3], mockTransactions[4]];
+        expect(calculateCapitalAtRisk(safeTransactions)).toBe(0);
+      });
+    });
+
+    describe('getAtRiskTickers', () => {
+      it('should return unique tickers at risk within default 7 days', () => {
+        const tickers = getAtRiskTickers(mockTransactions);
+        // Expect AAPL and TSLA (sorted)
+        expect(tickers).toEqual(['AAPL', 'TSLA']);
+      });
+
+      it('should return unique tickers at risk within custom days threshold', () => {
+        // Change threshold to 0. Only TSLA has DTE = 0.
+        const tickers = getAtRiskTickers(mockTransactions, 0);
+        expect(tickers).toEqual(['TSLA']);
+      });
+
+      it('should return empty array if no tickers match criteria', () => {
+        const safeTransactions = [mockTransactions[3], mockTransactions[4]];
+        expect(getAtRiskTickers(safeTransactions)).toEqual([]);
+      });
+    });
+  });
+
   describe('SMCI multi-year chain scenario', () => {
     it('should correctly attribute P&L to the year the chain was effectively closed', () => {
       const chainId = 'smci-chain-123';
@@ -3519,12 +3638,13 @@ describe('optionsCalculations', () => {
         portfolioId: 'portfolio-1',
         symbol: 'SMCI',
         chainStatus: 'Closed',
+        optionType: 'Put',
         originalStrikePrice: 300,
         originalOpenDate: new Date('2023-11-01'),
         totalChainPnl: 1097,
         createdAt: new Date(),
         updatedAt: new Date()
-      } as any];
+      }];
 
       const mockTransactions: OptionsTransaction[] = [
         createMockTransaction({

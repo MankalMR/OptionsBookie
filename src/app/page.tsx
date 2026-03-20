@@ -310,6 +310,19 @@ export default function Home() {
     setSelectedStatuses(statuses);
   };
 
+  const handleTickerClickFromRisk = (_ticker: string) => {
+    // If a user clicks a ticker from the risk tab, we send them to the trades tab
+    // and make sure they are viewing "Open" trades.
+    // Currently, we don't have a ticker filter in the trades view, so we just
+    // jump to the tab and ensure "Open" trades are visible.
+    setActiveTab('trades');
+
+    // Ensure "Open" is selected in statuses, so they see the at-risk trades
+    if (!selectedStatuses.includes('Open')) {
+      setSelectedStatuses([...selectedStatuses, 'Open']);
+    }
+  };
+
   const handleAddPortfolio = () => {
     setShowPortfolioModal(true);
   };
@@ -635,6 +648,7 @@ export default function Home() {
               <CurrentRiskTab
                 transactions={portfolioOverviewTransactions}
                 selectedPortfolioName={selectedPortfolioId ? portfolios.find(p => p.id === selectedPortfolioId)?.name : null}
+                onTickerClick={handleTickerClickFromRisk}
               />
             ) : activeTab === 'trades' ? (
               <div className="space-y-8">

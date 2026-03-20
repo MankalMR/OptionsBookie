@@ -3,15 +3,16 @@
 import React, { useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { OptionsTransaction } from '@/types/options';
-import { calculateTickerAllocation, formatPnLCurrency } from '@/utils/optionsCalculations';
+import { calculateTickerAllocation, formatPnLCurrency, calculateCapitalAtRisk, getAtRiskTickers } from '@/utils/optionsCalculations';
 import TickerAllocationChart from './TickerAllocationChart';
 
 interface CurrentRiskTabProps {
   transactions: OptionsTransaction[];
   selectedPortfolioName?: string | null;
+  onTickerClick?: (ticker: string) => void;
 }
 
-export default function CurrentRiskTab({ transactions, selectedPortfolioName }: CurrentRiskTabProps) {
+export default function CurrentRiskTab({ transactions, selectedPortfolioName, onTickerClick }: CurrentRiskTabProps) {
   const allocationData = useMemo(() => calculateTickerAllocation(transactions), [transactions]);
 
   const totalActiveCollateral = useMemo(() => {
@@ -19,6 +20,9 @@ export default function CurrentRiskTab({ transactions, selectedPortfolioName }: 
   }, [allocationData]);
 
   const openTradesCount = useMemo(() => transactions.filter(t => t.status === 'Open').length, [transactions]);
+
+  const capitalAtRisk = useMemo(() => calculateCapitalAtRisk(transactions), [transactions]);
+  const atRiskTickers = useMemo(() => getAtRiskTickers(transactions), [transactions]);
 
   return (
     <div className="space-y-8">
@@ -38,6 +42,47 @@ export default function CurrentRiskTab({ transactions, selectedPortfolioName }: 
           </div>
         </div>
       </div>
+
+      {/* Capital at Assignment Risk (Next 7 Days) */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Capital at Assignment Risk (Next 7 Days)</CardTitle>
+          <CardDescription>
+            Total collateral tied up in short options expiring within the next 7 days
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col md:flex-row gap-6 items-start md:items-center">
+            <div className="bg-destructive/10 text-destructive px-6 py-4 rounded-lg border border-destructive/20 min-w-48 text-center">
+              <div className="text-sm font-medium mb-1">Total at Risk</div>
+              <div className="text-3xl font-bold">
+                {formatPnLCurrency(capitalAtRisk)}
+              </div>
+            </div>
+
+            <div className="flex-1">
+              <div className="text-sm font-medium text-muted-foreground mb-3">At-Risk Tickers</div>
+              {atRiskTickers.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {atRiskTickers.map(ticker => (
+                    <button
+                      key={ticker}
+                      onClick={() => onTickerClick && onTickerClick(ticker)}
+                      className="px-3 py-1.5 bg-background border hover:bg-muted hover:border-border transition-colors rounded-full text-sm font-semibold flex items-center gap-1 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      {ticker}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-sm text-muted-foreground flex items-center gap-2">
+                  <span className="text-emerald-500">✓</span> No positions at immediate risk
+                </div>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card className="col-span-1 md:col-span-2 lg:col-span-1">

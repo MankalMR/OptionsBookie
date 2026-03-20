@@ -1,7 +1,12 @@
 # Feature Ticket: Capital at Assignment Risk Summary
 
 ## Status
-pending-implementation
+done
+
+## Implementation Notes
+- Files changed: `src/utils/optionsCalculations.ts`, `src/utils/optionsCalculations.test.ts`, `src/components/analytics/CurrentRiskTab.tsx`, `src/app/page.tsx`
+- Behavior: Added "Capital at Assignment Risk" widget to CurrentRiskTab to display total short collateral with <=7 DTE, and clickable ticker badges which jump to the trades tab and ensure "Open" filter is active.
+- Tests: Added test suite in `optionsCalculations.test.ts` for Assignment Risk Warning Utilities covering different thresholds and long/short configurations.
 
 ## Context
 Options traders face significant risk when selling options (short positions), specifically when the position is nearing expiration. Currently, OptionsBookie allows users to track their open trades in the Transactions tab. However, looking at individual rows doesn't quickly tell a trader "How much total capital or how many shares are at risk this week?" Users need a dashboard view that aggregates their near-term assignment risk across all open short positions, rather than manually scanning a table.
