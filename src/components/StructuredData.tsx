@@ -3,8 +3,17 @@
 import { useEffect } from 'react';
 import { getBaseUrl, getSiteName, getSiteDescription, getAuthorInfo, buildImageUrl } from '@/lib/url-utils';
 
+/**
+ * Type definition for JSON-LD structured data schemas
+ */
+export interface StructuredDataSchema {
+  '@context': string;
+  '@type': string;
+  [key: string]: unknown;
+}
+
 interface StructuredDataProps {
-  data: any;
+  data: StructuredDataSchema;
 }
 
 export default function StructuredData({ data }: StructuredDataProps) {
@@ -34,7 +43,7 @@ export default function StructuredData({ data }: StructuredDataProps) {
 }
 
 // Predefined structured data schemas
-export const organizationSchema = {
+export const organizationSchema: StructuredDataSchema = {
   "@context": "https://schema.org",
   "@type": "Organization",
   "name": getSiteName(),
@@ -57,7 +66,7 @@ export const organizationSchema = {
   }
 };
 
-export const webApplicationSchema = {
+export const webApplicationSchema: StructuredDataSchema = {
   "@context": "https://schema.org",
   "@type": "WebApplication",
   "name": getSiteName(),
@@ -88,7 +97,7 @@ export const webApplicationSchema = {
   }
 };
 
-export const breadcrumbSchema = (items: Array<{ name: string; url: string }>) => ({
+export const breadcrumbSchema = (items: Array<{ name: string; url: string }>): StructuredDataSchema => ({
   "@context": "https://schema.org",
   "@type": "BreadcrumbList",
   "itemListElement": items.map((item, index) => ({
@@ -98,4 +107,3 @@ export const breadcrumbSchema = (items: Array<{ name: string; url: string }>) =>
     "item": item.url
   }))
 });
-
