@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { OptionsTransaction, TradeChain } from '@/types/options';
 import { calculateRoR, calculateDaysHeld, calculateCollateral, formatPnLCurrency, getRealizedTransactions, calculateStrategyPerformance, calculatePortfolioRoR, calculateAnnualizedRoR, calculateMonthlyPortfolioAnnualizedRoR, getRoRColorClasses, calculateChainPnL, calculateChainAwareStockPerformance } from '@/utils/optionsCalculations';
 import RoRDisplay from '@/components/ui/RoRDisplay';
@@ -32,8 +32,13 @@ export default function TransactionsTable({ transactions, chains = [] }: Transac
     return transaction.profitLoss || 0;
   };
 
+  // ⚡ Bolt Performance Optimization:
+  // Memoize heavy aggregations and data transformations to prevent O(N) recalculations on every render.
+  // Expected impact: significantly smoother UI interactions and faster rendering of the Transactions Table,
+  // especially with large portfolios and active trading histories.
+
   // Filter out rolled transactions for cleaner display
-  const displayTransactions = transactions.filter(t => t.status !== 'Rolled');
+  const displayTransactions = useMemo(() => transactions.filter(t => t.status !== 'Rolled'), [transactions]);
 
   // Helper function to check if transaction is part of a closed chain
   const isClosedChainTransaction = (transaction: OptionsTransaction): boolean => {
@@ -45,28 +50,28 @@ export default function TransactionsTable({ transactions, chains = [] }: Transac
   };
 
   // Calculate month-specific metrics for Quick Stats
-  const realizedTransactions = getRealizedTransactions(transactions, chains);
-  const totalPnL = realizedTransactions.reduce((sum, t) => sum + (t.profitLoss || 0), 0);
-  const winningTrades = realizedTransactions.filter(t => (t.profitLoss || 0) > 0);
-  const winRate = realizedTransactions.length > 0 ? (winningTrades.length / realizedTransactions.length) * 100 : 0;
+  const realizedTransactions = useMemo(() => getRealizedTransactions(transactions, chains), [transactions, chains]);
+  const totalPnL = useMemo(() => realizedTransactions.reduce((sum, t) => sum + (t.profitLoss || 0), 0), [realizedTransactions]);
+  const winningTrades = useMemo(() => realizedTransactions.filter(t => (t.profitLoss || 0) > 0), [realizedTransactions]);
+  const winRate = useMemo(() => realizedTransactions.length > 0 ? (winningTrades.length / realizedTransactions.length) * 100 : 0, [realizedTransactions, winningTrades]);
 
   // Calculate month-specific strategy performance
-  const monthStrategyPerformance = calculateStrategyPerformance(transactions, chains);
+  const monthStrategyPerformance = useMemo(() => calculateStrategyPerformance(transactions, chains), [transactions, chains]);
 
   // Calculate best stock by P&L and RoR for this month using chain-aware logic
-  const stockPerformance = calculateChainAwareStockPerformance(transactions, chains);
+  const stockPerformance = useMemo(() => calculateChainAwareStockPerformance(transactions, chains), [transactions, chains]);
 
-  const bestStockByPnL = Array.from(stockPerformance.entries())
-    .sort((a, b) => b[1].pnl - a[1].pnl)[0];
+  const bestStockByPnL = useMemo(() => Array.from(stockPerformance.entries())
+    .sort((a, b) => b[1].pnl - a[1].pnl)[0], [stockPerformance]);
 
-  const bestStockByRoR = Array.from(stockPerformance.entries())
+  const bestStockByRoR = useMemo(() => Array.from(stockPerformance.entries())
     .map(([ticker, data]) => ({
       ticker,
       ror: data.totalCollateral > 0 ? (data.pnl / data.totalCollateral * 100) : 0
     }))
-    .sort((a, b) => b.ror - a.ror)[0];
+    .sort((a, b) => b.ror - a.ror)[0], [stockPerformance]);
 
-  const quickStatsData = {
+  const quickStatsData = useMemo(() => ({
     totalPnL,
     totalTrades: realizedTransactions.length,
     winRate,
@@ -76,14 +81,21 @@ export default function TransactionsTable({ transactions, chains = [] }: Transac
       : null,
     bestStockByPnL: bestStockByPnL ? { ticker: bestStockByPnL[0], pnl: bestStockByPnL[1].pnl } : null,
     bestStockByRoR: bestStockByRoR ? { ticker: bestStockByRoR.ticker, ror: bestStockByRoR.ror } : null
-  };
+  }), [totalPnL, realizedTransactions.length, winRate, monthStrategyPerformance, bestStockByPnL, bestStockByRoR, transactions]);
 
   // Sort display transactions by close date (most recent first)
-  const sortedTransactions = [...displayTransactions].sort((a, b) => {
+  const sortedTransactions = useMemo(() => [...displayTransactions].sort((a, b) => {
     const dateA = parseLocalDate(a.closeDate!).getTime();
     const dateB = parseLocalDate(b.closeDate!).getTime();
     return dateB - dateA;
-  });
+  }), [displayTransactions]);
+
+  // Mobile view metrics
+  const totalCollateral = useMemo(() => transactions.reduce((sum, t) => sum + calculateCollateral(t), 0), [transactions]);
+  const averageDays = useMemo(() => transactions.length > 0 ? transactions.reduce((sum, t) =>
+    sum + calculateDaysHeld(t.tradeOpenDate, t.closeDate!), 0
+  ) / transactions.length : 0, [transactions]);
+  const portfolioAnnualizedRoR = useMemo(() => calculateMonthlyPortfolioAnnualizedRoR(transactions), [transactions]);
 
   return (
     <div className="bg-muted/30 px-4 py-3 space-y-6">
@@ -243,11 +255,8 @@ export default function TransactionsTable({ transactions, chains = [] }: Transac
               </div>
               <div className="text-center">
                 <RoRDisplay
-                  ror={(() => {
-                    const totalCollateral = transactions.reduce((sum, t) => sum + calculateCollateral(t), 0);
-                    return totalCollateral > 0 ? (totalPnL / totalCollateral * 100) : 0;
-                  })()}
-                  annualizedRoR={calculateMonthlyPortfolioAnnualizedRoR(transactions)}
+                  ror={totalCollateral > 0 ? (totalPnL / totalCollateral * 100) : 0}
+                  annualizedRoR={portfolioAnnualizedRoR}
                   size="base"
                   showLabel={true}
                 />
@@ -258,15 +267,13 @@ export default function TransactionsTable({ transactions, chains = [] }: Transac
             <div className="grid grid-cols-2 gap-4">
               <div className="text-center">
                 <p className="text-sm font-medium text-card-foreground">
-                  {Math.round(transactions.reduce((sum, t) =>
-                    sum + calculateDaysHeld(t.tradeOpenDate, t.closeDate!), 0
-                  ) / transactions.length)} days
+                  {Math.round(averageDays)} days
                 </p>
                 <p className="text-xs text-muted-foreground">Avg Days</p>
               </div>
               <div className="text-center">
                 <p className="text-sm font-medium text-card-foreground">
-                  {formatPnLCurrency(transactions.reduce((sum, t) => sum + calculateCollateral(t), 0))}
+                  {formatPnLCurrency(totalCollateral)}
                 </p>
                 <p className="text-xs text-muted-foreground">Capital</p>
               </div>
