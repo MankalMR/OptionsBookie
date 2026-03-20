@@ -34,32 +34,36 @@ export class CachedStockService {
    * Fetch current stock price for a given symbol
    */
   async getStockPrice(symbol: string): Promise<StockPriceResponse | null> {
+    if (!symbol) return null;
+
+    const normalizedSymbol = symbol.toUpperCase();
+
     try {
       // Check shared cache first
-      logger.info(`Checking cache for ${symbol}`);
-      const cached = await this.getCachedPrice(symbol);
+      logger.info(`Checking cache for ${normalizedSymbol}`);
+      const cached = await this.getCachedPrice(normalizedSymbol);
       if (cached) {
-        logger.info(`✅ Using cached price for ${symbol}: $${cached.price}`);
+        logger.info(`✅ Using cached price for ${normalizedSymbol}: $${cached.price}`);
         return cached;
       }
 
       // If not cached and Alpha Vantage is available, try to fetch from Alpha Vantage
       if (process.env.ALPHA_VANTAGE_KEY) {
-        logger.info(`Fetching fresh price for ${symbol} from Alpha Vantage`);
+        logger.info(`Fetching fresh price for ${normalizedSymbol} from Alpha Vantage`);
         try {
-          const priceData = await alphaVantageStockService.getStockPrice(symbol);
+          const priceData = await alphaVantageStockService.getStockPrice(normalizedSymbol);
 
           if (priceData) {
             // Cache the result in shared cache
-            logger.info(`💾 Caching price for ${symbol}: $${priceData.price} for 1 day`);
-            await this.cachePrice(symbol, priceData);
+            logger.info(`💾 Caching price for ${normalizedSymbol}: $${priceData.price} for 1 day`);
+            await this.cachePrice(normalizedSymbol, priceData);
             return priceData;
           }
         } catch (error) {
-          logger.info({ error }, `Alpha Vantage failed for ${symbol}, returning null:`);
+          logger.info({ error }, `Alpha Vantage failed for ${normalizedSymbol}, returning null:`);
         }
       } else {
-        logger.info(`ALPHA_VANTAGE_KEY not available, returning null for ${symbol}`);
+        logger.info(`ALPHA_VANTAGE_KEY not available, returning null for ${normalizedSymbol}`);
       }
 
       return null;
