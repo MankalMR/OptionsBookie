@@ -23,7 +23,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Plus, TrendingUp } from 'lucide-react';
 import { useStockPrices } from '@/hooks/useStockPrices';
 import StatusMultiSelect from '@/components/StatusMultiSelect';
-import TickerMultiSelect from '@/components/TickerMultiSelect';
 import ViewToggle from '@/components/ViewToggle';
 import SymbolGroupedView from '@/components/SymbolGroupedView';
 import StructuredData, { webApplicationSchema, organizationSchema } from '@/components/StructuredData';
@@ -686,12 +685,6 @@ export default function Home() {
                         {/* Filters */}
                         {!isMobile && (
                           <div className="flex items-center space-x-2">
-                            <TickerMultiSelect
-                              availableTickers={availableTickers}
-                              selectedTickers={selectedTickers}
-                              onTickerChange={handleTickerChange}
-                              className="w-48"
-                            />
                             <StatusMultiSelect
                               selectedStatuses={selectedStatuses}
                               onStatusChange={handleStatusChange}
@@ -752,6 +745,9 @@ export default function Home() {
                         chains={chains}
                         portfolios={portfolios}
                         showPortfolioColumn={!selectedPortfolioId}
+                        availableTickers={availableTickers}
+                        selectedTickers={selectedTickers}
+                        onTickerChange={handleTickerChange}
                       />
                     ) : (
                       <TransactionTable

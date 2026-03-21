@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import TransactionTable from './TransactionTable';
 import Tooltip from './ui/tooltip';
+import TickerMultiSelect from './TickerMultiSelect';
+
 
 interface SymbolGroupedViewProps {
   transactions: OptionsTransaction[];
@@ -15,6 +17,9 @@ interface SymbolGroupedViewProps {
   chains: import('@/types/options').TradeChain[];
   portfolios: import('@/types/options').Portfolio[];
   showPortfolioColumn: boolean;
+  availableTickers?: string[];
+  selectedTickers?: string[];
+  onTickerChange?: (tickers: string[]) => void;
 }
 
 interface SymbolGroup {
@@ -29,7 +34,10 @@ export default function SymbolGroupedView({
   onEdit,
   chains,
   portfolios,
-  showPortfolioColumn
+  showPortfolioColumn,
+  availableTickers = [],
+  selectedTickers = [],
+  onTickerChange
 }: SymbolGroupedViewProps) {
   const [expandedSymbols, setExpandedSymbols] = useState<Set<string>>(new Set());
   const [allExpanded, setAllExpanded] = useState(true);
@@ -94,7 +102,17 @@ export default function SymbolGroupedView({
     <div className="space-y-4">
       {/* Header with controls */}
             <div className="flex justify-between items-center">
-              <h3 className="text-lg font-semibold">Trades by Symbol</h3>
+              <div className="flex items-center space-x-4">
+                <h3 className="text-lg font-semibold">Trades by Symbol</h3>
+                {availableTickers.length > 0 && onTickerChange && (
+                  <TickerMultiSelect
+                    availableTickers={availableTickers}
+                    selectedTickers={selectedTickers}
+                    onTickerChange={onTickerChange}
+                    className="w-48"
+                  />
+                )}
+              </div>
               <Tooltip content="Expand or collapse all symbol groups">
                 <Button
                   variant="outline"

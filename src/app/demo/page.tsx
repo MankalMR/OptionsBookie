@@ -32,7 +32,6 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Plus, LogIn } from 'lucide-react';
 import StatusMultiSelect from '@/components/StatusMultiSelect';
-import TickerMultiSelect from '@/components/TickerMultiSelect';
 import ViewToggle from '@/components/ViewToggle';
 import SymbolGroupedView from '@/components/SymbolGroupedView';
 import Link from 'next/link';
@@ -666,12 +665,6 @@ export default function DemoPage() {
                                             {/* Filters */}
                                             {!isMobile && (
                                                 <div className="flex items-center space-x-2">
-                                                    <TickerMultiSelect
-                                                        availableTickers={availableTickers}
-                                                        selectedTickers={selectedTickers}
-                                                        onTickerChange={handleTickerChange}
-                                                        className="w-48"
-                                                    />
                                                     <StatusMultiSelect
                                                         selectedStatuses={selectedStatuses}
                                                         onStatusChange={handleStatusChange}
