@@ -9,35 +9,6 @@ export interface Portfolio {
   updatedAt: Date;
 }
 
-export interface OptionsTransactionRow {
-  id: string;
-  user_id: string;
-  portfolio_id: string;
-  stock_symbol: string;
-  trade_open_date: string;
-  expiry_date: string;
-  call_or_put: 'Call' | 'Put';
-  buy_or_sell: 'Buy' | 'Sell';
-  stock_price_current: number | string;
-  break_even_price: number | string;
-  strike_price: number | string;
-  premium: number | string;
-  number_of_contracts: number;
-  fees?: number | string;
-  status: 'Open' | 'Closed' | 'Expired' | 'Assigned' | 'Rolled';
-  exit_price?: number | string;
-  close_date?: string;
-  profit_loss?: number | string;
-  annualized_ror?: number | string;
-  cash_reserve?: number | string;
-  margin_cash_reserve?: number | string;
-  cost_basis_per_share?: number | string;
-  chain_id?: string;
-  collateral_amount?: number | string;
-  created_at: string;
-  updated_at: string;
-}
-
 export interface OptionsTransaction {
   id: string;
   portfolioId: string;

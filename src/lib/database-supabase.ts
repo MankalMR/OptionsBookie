@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { OptionsTransaction, OptionsTransactionRow } from '@/types/options';
+import { OptionsTransaction } from '@/types/options';
 import { parseLocalDate } from '@/utils/dateUtils';
 
 // Create a service role client for server-side operations (bypasses RLS)
@@ -14,7 +14,7 @@ const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
 
 // Helper function to convert Supabase row to OptionsTransaction
-function rowToTransaction(row: OptionsTransactionRow): OptionsTransaction {
+function rowToTransaction(row: any): OptionsTransaction {
   return {
     id: row.id,
     portfolioId: row.portfolio_id,
@@ -23,21 +23,21 @@ function rowToTransaction(row: OptionsTransactionRow): OptionsTransaction {
     expiryDate: parseLocalDate(row.expiry_date),
     callOrPut: row.call_or_put,
     buyOrSell: row.buy_or_sell,
-    stockPriceCurrent: parseFloat(row.stock_price_current as string),
-    breakEvenPrice: parseFloat(row.break_even_price as string),
-    strikePrice: parseFloat(row.strike_price as string),
-    premium: parseFloat(row.premium as string),
+    stockPriceCurrent: parseFloat(row.stock_price_current),
+    breakEvenPrice: parseFloat(row.break_even_price),
+    strikePrice: parseFloat(row.strike_price),
+    premium: parseFloat(row.premium),
     numberOfContracts: row.number_of_contracts,
-    fees: parseFloat((row.fees || 0) as string),
+    fees: parseFloat(row.fees),
     status: row.status,
-    exitPrice: row.exit_price ? parseFloat(row.exit_price as string) : undefined,
+    exitPrice: row.exit_price ? parseFloat(row.exit_price) : undefined,
     closeDate: row.close_date ? parseLocalDate(row.close_date) : undefined,
-    profitLoss: parseFloat((row.profit_loss || 0) as string),
-    annualizedROR: row.annualized_ror ? parseFloat(row.annualized_ror as string) : undefined,
-    cashReserve: row.cash_reserve ? parseFloat(row.cash_reserve as string) : undefined,
-    marginCashReserve: row.margin_cash_reserve ? parseFloat(row.margin_cash_reserve as string) : undefined,
-    costBasisPerShare: row.cost_basis_per_share ? parseFloat(row.cost_basis_per_share as string) : undefined,
-    collateralAmount: row.collateral_amount ? parseFloat(row.collateral_amount as string) : undefined,
+    profitLoss: parseFloat(row.profit_loss),
+    annualizedROR: row.annualized_ror ? parseFloat(row.annualized_ror) : undefined,
+    cashReserve: row.cash_reserve ? parseFloat(row.cash_reserve) : undefined,
+    marginCashReserve: row.margin_cash_reserve ? parseFloat(row.margin_cash_reserve) : undefined,
+    costBasisPerShare: row.cost_basis_per_share ? parseFloat(row.cost_basis_per_share) : undefined,
+    collateralAmount: row.collateral_amount ? parseFloat(row.collateral_amount) : undefined,
     createdAt: parseLocalDate(row.created_at),
     updatedAt: parseLocalDate(row.updated_at),
   };
