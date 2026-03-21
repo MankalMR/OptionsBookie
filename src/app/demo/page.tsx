@@ -124,8 +124,23 @@ export default function DemoPage() {
         if (selectedPortfolioId) {
             baseTransactions = baseTransactions.filter(t => t.portfolioId === selectedPortfolioId);
         }
+
+        // Filter by statuses so ticker list only shows tickers with selected statuses
+        if (selectedStatuses.length > 0) {
+            baseTransactions = baseTransactions.filter(t => {
+                const statusMatches = selectedStatuses.includes(t.status);
+                if (t.chainId && statusMatches) {
+                    const chain = chains.find(c => c.id === t.chainId);
+                    if (chain && chain.chainStatus === 'Closed' && !selectedStatuses.includes('Closed')) {
+                        return false;
+                    }
+                }
+                return statusMatches;
+            });
+        }
+
         return [...new Set(baseTransactions.map(t => t.stockSymbol))];
-    }, [transactions, selectedPortfolioId]);
+    }, [transactions, selectedPortfolioId, selectedStatuses, chains]);
 
     useEffect(() => {
         let filtered = transactions;
