@@ -62,7 +62,7 @@ export default function SummaryView({ transactions, selectedPortfolioName, chain
   const isMobile = useIsMobile();
   const yearlySummaries = useMemo(() => {
     const completedTransactions = getRealizedTransactions(transactions, chains).filter(t =>
-      t.closeDate
+      t.closeDate || t.status === 'Assigned' || t.status === 'Expired'
     );
 
 

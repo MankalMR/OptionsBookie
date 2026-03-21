@@ -3690,4 +3690,77 @@ describe('optionsCalculations', () => {
       expect(monthlyPnL2023_12.totalPnL).toBe(0);
     });
   });
+
+  describe('getEffectiveCloseDate fallback logic', () => {
+    it('should fallback to expiryDate for Assigned transactions if closeDate is missing', () => {
+      const expiryDate = new Date('2025-05-16');
+      const transaction = createMockTransaction({
+        status: 'Assigned',
+        expiryDate: expiryDate,
+        closeDate: undefined
+      });
+
+      const effectiveDate = getEffectiveCloseDate(transaction, []);
+      expect(effectiveDate.toISOString().split('T')[0]).toBe('2025-05-16');
+    });
+
+    it('should fallback to expiryDate for Expired transactions if closeDate is missing', () => {
+      const expiryDate = new Date('2025-06-20');
+      const transaction = createMockTransaction({
+        status: 'Expired',
+        expiryDate: expiryDate,
+        closeDate: undefined
+      });
+
+      const effectiveDate = getEffectiveCloseDate(transaction, []);
+      expect(effectiveDate.toISOString().split('T')[0]).toBe('2025-06-20');
+    });
+
+    it('should use closeDate if present for Assigned transactions', () => {
+      const expiryDate = new Date('2025-05-16');
+      const closeDate = new Date('2025-05-17');
+      const transaction = createMockTransaction({
+        status: 'Assigned',
+        expiryDate: expiryDate,
+        closeDate: closeDate
+      });
+
+      const effectiveDate = getEffectiveCloseDate(transaction, []);
+      expect(effectiveDate.toISOString().split('T')[0]).toBe('2025-05-17');
+    });
+  });
+
+  describe('calculateChainAwareMonthlyPnL with fallback logic', () => {
+    it('should include Assigned transactions even if closeDate is missing', () => {
+      const expiryDate = new Date('2025-03-21'); // March
+      const transactions = [
+        createMockTransaction({
+          status: 'Assigned',
+          expiryDate: expiryDate,
+          closeDate: undefined,
+          profitLoss: 500
+        })
+      ];
+
+      const result = calculateChainAwareMonthlyPnL(transactions, [], 2025, 2); // March is 2
+      expect(result.totalPnL).toBe(500);
+      expect(result.totalTrades).toBe(1);
+    });
+
+    it('should include Expired transactions even if closeDate is missing', () => {
+      const expiryDate = new Date('2025-04-18'); // April
+      const transactions = [
+        createMockTransaction({
+          status: 'Expired',
+          expiryDate: expiryDate,
+          closeDate: undefined,
+          profitLoss: 200
+        })
+      ];
+
+      const result = calculateChainAwareMonthlyPnL(transactions, [], 2025, 3); // April is 3
+      expect(result.totalPnL).toBe(200);
+      expect(result.totalTrades).toBe(1);
+    });
+  });
 });

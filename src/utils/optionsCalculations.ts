@@ -858,7 +858,7 @@ export const calculateChainAwareMonthlyPnL = (
 
   // Get all transactions for this month using chain-aware effective close dates
   const monthTransactions = transactions.filter(t => {
-    if (!t.closeDate) return false;
+    if (!t.closeDate && t.status !== 'Assigned' && t.status !== 'Expired') return false;
     const effectiveCloseDate = getEffectiveCloseDate(t, transactions, chains);
     return effectiveCloseDate.getFullYear() === year && effectiveCloseDate.getMonth() === month;
   });
@@ -905,7 +905,11 @@ export const getEffectiveCloseDate = (
   chains: TradeChain[] = []
 ): Date => {
   if (!transaction.closeDate) {
-    return new Date(); // Fallback for transactions without close date
+    // Fallback for Assigned or Expired transactions without close date: use expiry date
+    if (transaction.status === 'Assigned' || transaction.status === 'Expired') {
+      return parseLocalDate(transaction.expiryDate);
+    }
+    return new Date(); // Fallback for other transactions without close date
   }
 
   const baseCloseDate = parseLocalDate(transaction.closeDate);

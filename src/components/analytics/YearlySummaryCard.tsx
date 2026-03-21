@@ -126,7 +126,14 @@ export default function YearlySummaryCard({
         </div>
 
         {selectedYear === yearData.year && (
-          <div className="mt-6">
+          <div className="mt-6 space-y-6">
+            <Top5TickersSection
+              yearTop5Tickers={yearTop5Tickers}
+              yearAllTickers={yearAllTickers}
+              yearTransactions={yearTransactions}
+              chains={chains}
+            />
+
             <MonthlyBreakdownSection
               yearData={yearData}
               chartData={chartData}

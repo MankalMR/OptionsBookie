@@ -241,7 +241,7 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
       updatedAt: new Date(),
     };
 
-    if (formData.status === 'Closed') {
+    if (formData.status === 'Closed' || formData.status === 'Assigned' || formData.status === 'Expired') {
       updates.exitPrice = formData.exitPrice;
       updates.closeDate = parseLocalDate(formData.closeDate);
       // Calculate days held dynamically for annualized ROR
@@ -270,13 +270,14 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
     if (formData.premium <= 0) newErrors.premium = 'Premium must be greater than 0';
     if (formData.numberOfContracts <= 0) newErrors.numberOfContracts = 'Number of contracts must be greater than 0';
 
-    // If closing the trade, require exit price and close date
-    if (formData.status === 'Closed') {
-      if (!formData.exitPrice || formData.exitPrice <= 0) {
+    // If closing, assigning, or expiring the trade, require exit price and close date
+    if (formData.status === 'Closed' || formData.status === 'Assigned' || formData.status === 'Expired') {
+      // Exit price is required for Closed, but for Assigned/Expired it typically defaults to 0
+      if (formData.status === 'Closed' && (!formData.exitPrice || formData.exitPrice < 0)) {
         newErrors.exitPrice = 'Exit price is required when closing trade';
       }
       if (!formData.closeDate) {
-        newErrors.closeDate = 'Close date is required when closing trade';
+        newErrors.closeDate = 'Close date is required';
       }
       if (formData.closeDate && new Date(formData.closeDate) < new Date(formData.tradeOpenDate)) {
         newErrors.closeDate = 'Close date cannot be before open date';
@@ -326,12 +327,26 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
   };
 
   const handleStatusChange = (newStatus: 'Open' | 'Closed' | 'Expired' | 'Assigned' | 'Rolled') => {
-    setFormData(prev => ({
-      ...prev,
-      status: newStatus,
-      // Clear exit data when opening trade
-      ...(newStatus === 'Open' && { exitPrice: 0, closeDate: '' })
-    }));
+    setFormData(prev => {
+      const updates: any = { status: newStatus };
+
+      if (newStatus === 'Open') {
+        updates.exitPrice = 0;
+        updates.closeDate = '';
+      } else if (newStatus === 'Assigned' || newStatus === 'Expired') {
+        // Set exitPrice to 0 and closeDate to today by default
+        updates.exitPrice = 0;
+        updates.closeDate = dateToInputString(new Date());
+      } else if (newStatus === 'Closed') {
+        // For Closed, keep current values or set today's date if empty
+        updates.closeDate = prev.closeDate || dateToInputString(new Date());
+      }
+
+      return {
+        ...prev,
+        ...updates
+      };
+    });
   };
 
   const handleRollTrade = async () => {
@@ -642,10 +657,13 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
           </div>
         )}
 
-        {/* Exit Information - Only show when closing trade */}
-        {formData.status === 'Closed' && (
+        {/* Exit Information - Only show when closing, assigning, or expiring trade */}
+        {(formData.status === 'Closed' || formData.status === 'Assigned' || formData.status === 'Expired') && (
           <div className="bg-orange-50 dark:bg-orange-950/20 p-4 rounded-lg border border-orange-200 dark:border-orange-800">
-            <h4 className="text-sm font-medium text-orange-800 dark:text-orange-200 mb-3">Exit Information (Required for Closed Trades)</h4>
+            <h4 className="text-sm font-medium text-orange-800 dark:text-orange-200 mb-3">
+              {formData.status === 'Closed' ? 'Exit Information (Required for Closed Trades)' :
+                formData.status === 'Assigned' ? 'Assignment Details' : 'Expiration Details'}
+            </h4>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="exitPrice">Exit Price</Label>
