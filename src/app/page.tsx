@@ -55,6 +55,7 @@ export default function Home() {
   // No longer force mobile users to trades tab - they can access both tabs now
   const [selectedPortfolioId, setSelectedPortfolioId] = useState<string | null>(null);
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>(['Open', 'Rolled']);
+  const [selectedTickers, setSelectedTickers] = useState<string[]>([]);
   const [portfolios, setPortfolios] = useState<Portfolio[]>([]);
   const [portfoliosLoading, setPortfoliosLoading] = useState(true);
   const [chains, setChains] = useState<TradeChain[]>([]);
@@ -93,8 +94,13 @@ export default function Home() {
       });
     }
 
+    // Filter by tickers
+    if (selectedTickers.length > 0) {
+      filtered = filtered.filter(t => selectedTickers.includes(t.stockSymbol));
+    }
+
     setFilteredTransactions(filtered);
-  }, [transactions, selectedPortfolioId, selectedStatuses, chains]);
+  }, [transactions, selectedPortfolioId, selectedStatuses, selectedTickers, chains]);
 
   // Filter transactions for Summary & Analytics tab (portfolio + concluded transactions only)
   useEffect(() => {
@@ -313,17 +319,43 @@ export default function Home() {
     setSelectedStatuses(statuses);
   };
 
-  const handleTickerClickFromRisk = (_ticker: string) => {
-    // If a user clicks a ticker from the risk tab, we send them to the trades tab
-    // and make sure they are viewing "Open" trades.
-    // Currently, we don't have a ticker filter in the trades view, so we just
-    // jump to the tab and ensure "Open" trades are visible.
+  const handleTickerChange = (tickers: string[]) => {
+    setSelectedTickers(tickers);
+  };
+
+  // Extract unique available tickers based on portfolio and status filtering, but before ticker filtering
+  const availableTickers = useMemo(() => {
+    let baseTransactions = transactions;
+    if (selectedPortfolioId) {
+      baseTransactions = baseTransactions.filter(t => t.portfolioId === selectedPortfolioId);
+    }
+
+    // Filter by statuses so ticker list only shows tickers with selected statuses
+    if (selectedStatuses.length > 0) {
+      baseTransactions = baseTransactions.filter(t => {
+        const statusMatches = selectedStatuses.includes(t.status);
+        if (t.chainId && statusMatches) {
+          const chain = chains.find(c => c.id === t.chainId);
+          if (chain && chain.chainStatus === 'Closed' && !selectedStatuses.includes('Closed')) {
+            return false;
+          }
+        }
+        return statusMatches;
+      });
+    }
+
+    return [...new Set(baseTransactions.map(t => t.stockSymbol))];
+  }, [transactions, selectedPortfolioId, selectedStatuses, chains]);
+
+  const handleTickerClickFromRisk = (ticker: string) => {
     setActiveTab('trades');
 
-    // Ensure "Open" is selected in statuses, so they see the at-risk trades
     if (!selectedStatuses.includes('Open')) {
       setSelectedStatuses([...selectedStatuses, 'Open']);
     }
+
+    // Set the specific ticker
+    setSelectedTickers([ticker]);
   };
 
   const handleAddPortfolio = () => {
@@ -665,13 +697,15 @@ export default function Home() {
                       <div className="flex items-center space-x-4">
                         <CardTitle className="text-xl">Recent Trades</CardTitle>
 
-                        {/* Status Filter */}
+                        {/* Filters */}
                         {!isMobile && (
-                          <StatusMultiSelect
-                            selectedStatuses={selectedStatuses}
-                            onStatusChange={handleStatusChange}
-                            className="w-48"
-                          />
+                          <div className="flex items-center space-x-2">
+                            <StatusMultiSelect
+                              selectedStatuses={selectedStatuses}
+                              onStatusChange={handleStatusChange}
+                              className="w-48"
+                            />
+                          </div>
                         )}
 
                         {/* View Toggle - Only show for trades tab and desktop */}
@@ -709,6 +743,11 @@ export default function Home() {
                           with status{selectedStatuses.length > 1 ? 'es' : ''}: {selectedStatuses.join(', ')}
                         </span>
                       )}
+                      {selectedTickers.length > 0 && (
+                        <span className="ml-1">
+                          for {selectedTickers.length} ticker{selectedTickers.length > 1 ? 's' : ''}
+                        </span>
+                      )}
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
@@ -721,6 +760,9 @@ export default function Home() {
                         chains={chains}
                         portfolios={portfolios}
                         showPortfolioColumn={!selectedPortfolioId}
+                        availableTickers={availableTickers}
+                        selectedTickers={selectedTickers}
+                        onTickerChange={handleTickerChange}
                       />
                     ) : (
                       <TransactionTable

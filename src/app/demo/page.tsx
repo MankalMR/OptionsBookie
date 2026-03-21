@@ -112,10 +112,35 @@ export default function DemoPage() {
     const [viewMode, setViewMode] = useState<'grouped' | 'flat'>('grouped');
     const [selectedPortfolioId, setSelectedPortfolioId] = useState<string | null>(null);
     const [selectedStatuses, setSelectedStatuses] = useState<string[]>(['Open', 'Rolled']);
+    const [selectedTickers, setSelectedTickers] = useState<string[]>([]);
 
     // --- Filtered views (identical logic to main page) -----------------------
     const [filteredTransactions, setFilteredTransactions] = useState<OptionsTransaction[]>([]);
     const [portfolioFilteredTransactions, setPortfolioFilteredTransactions] = useState<OptionsTransaction[]>([]);
+
+    // Extract unique available tickers based on portfolio
+    const availableTickers = useMemo(() => {
+        let baseTransactions = transactions;
+        if (selectedPortfolioId) {
+            baseTransactions = baseTransactions.filter(t => t.portfolioId === selectedPortfolioId);
+        }
+
+        // Filter by statuses so ticker list only shows tickers with selected statuses
+        if (selectedStatuses.length > 0) {
+            baseTransactions = baseTransactions.filter(t => {
+                const statusMatches = selectedStatuses.includes(t.status);
+                if (t.chainId && statusMatches) {
+                    const chain = chains.find(c => c.id === t.chainId);
+                    if (chain && chain.chainStatus === 'Closed' && !selectedStatuses.includes('Closed')) {
+                        return false;
+                    }
+                }
+                return statusMatches;
+            });
+        }
+
+        return [...new Set(baseTransactions.map(t => t.stockSymbol))];
+    }, [transactions, selectedPortfolioId, selectedStatuses, chains]);
 
     useEffect(() => {
         let filtered = transactions;
@@ -134,8 +159,14 @@ export default function DemoPage() {
                 return statusMatches;
             });
         }
+
+        // Filter by tickers
+        if (selectedTickers.length > 0) {
+            filtered = filtered.filter(t => selectedTickers.includes(t.stockSymbol));
+        }
+
         setFilteredTransactions(filtered);
-    }, [transactions, selectedPortfolioId, selectedStatuses, chains]);
+    }, [transactions, selectedPortfolioId, selectedStatuses, selectedTickers, chains]);
 
     useEffect(() => {
         let filtered = transactions;
@@ -318,6 +349,18 @@ export default function DemoPage() {
 
     const handleStatusChange = (statuses: string[]) => {
         setSelectedStatuses(statuses);
+    };
+
+    const handleTickerChange = (tickers: string[]) => {
+        setSelectedTickers(tickers);
+    };
+
+    const handleTickerClickFromRisk = (ticker: string) => {
+        setActiveTab('trades');
+        if (!selectedStatuses.includes('Open')) {
+            setSelectedStatuses([...selectedStatuses, 'Open']);
+        }
+        setSelectedTickers([ticker]);
     };
 
     const handleAddTransaction = async (transaction: Omit<OptionsTransaction, 'id' | 'createdAt' | 'updatedAt'>) => {
@@ -623,6 +666,7 @@ export default function DemoPage() {
                         <CurrentRiskTab
                             transactions={portfolioOverviewTransactions}
                             selectedPortfolioName={selectedPortfolioId ? portfolios.find(p => p.id === selectedPortfolioId)?.name : null}
+                            onTickerClick={handleTickerClickFromRisk}
                         />
                     ) : activeTab === 'trades' ? (
                         <div className="space-y-8">
@@ -633,12 +677,15 @@ export default function DemoPage() {
                                     <div className="flex justify-between items-center">
                                         <div className="flex items-center space-x-4">
                                             <CardTitle className="text-xl">Recent Trades</CardTitle>
+                                            {/* Filters */}
                                             {!isMobile && (
-                                                <StatusMultiSelect
-                                                    selectedStatuses={selectedStatuses}
-                                                    onStatusChange={handleStatusChange}
-                                                    className="w-48"
-                                                />
+                                                <div className="flex items-center space-x-2">
+                                                    <StatusMultiSelect
+                                                        selectedStatuses={selectedStatuses}
+                                                        onStatusChange={handleStatusChange}
+                                                        className="w-48"
+                                                    />
+                                                </div>
                                             )}
                                             {!isMobile && (
                                                 <ViewToggle viewMode={viewMode} onViewChange={setViewMode} />
@@ -680,6 +727,9 @@ export default function DemoPage() {
                                             chains={chains}
                                             portfolios={portfolios}
                                             showPortfolioColumn={!selectedPortfolioId}
+                                            availableTickers={availableTickers}
+                                            selectedTickers={selectedTickers}
+                                            onTickerChange={handleTickerChange}
                                         />
                                     ) : (
                                         <TransactionTable
