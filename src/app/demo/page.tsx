@@ -712,6 +712,9 @@ export default function DemoPage() {
                                             chains={chains}
                                             portfolios={portfolios}
                                             showPortfolioColumn={!selectedPortfolioId}
+                                            availableTickers={availableTickers}
+                                            selectedTickers={selectedTickers}
+                                            onTickerChange={handleTickerChange}
                                         />
                                     ) : (
                                         <TransactionTable
