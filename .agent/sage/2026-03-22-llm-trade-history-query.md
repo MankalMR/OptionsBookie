@@ -1,5 +1,10 @@
 ## Status
-pending-implementation
+pending-clarification
+
+## Questions from Atlas
+- Q1: The implementation requires calling an AI provider (e.g., OpenAI/Anthropic), but there is no specific LLM provider instructed. Which provider and model should be used?
+- Q2: I am not allowed to add new dependencies to `package.json` without explicit instruction. Should I add the Vercel AI SDK and the specific provider SDK to the project?
+- Q3: Where should the API key for the chosen LLM provider be configured in the environment?
 
 ## Context
 Traders currently rely on manual dropdowns and input fields to filter their trade history. When analyzing past performance, they often have specific, nuanced questions in mind (e.g., "Show me all losing puts on AAPL this year" or "What were my winning iron condors last month?"). Translating these questions into manual UI filters is cumbersome and slows down post-trade analysis.
