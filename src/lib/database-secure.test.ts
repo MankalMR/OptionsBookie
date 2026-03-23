@@ -24,11 +24,13 @@ const originalEnv = process.env;
 
 // Set environment variables before importing the module
 process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://test.supabase.co';
+process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'test-anon-key';
 process.env.SUPABASE_SERVICE_ROLE_KEY = 'test-service-key';
 
 beforeAll(() => {
   // Ensure environment variables are set
   process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://test.supabase.co';
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'test-anon-key';
   process.env.SUPABASE_SERVICE_ROLE_KEY = 'test-service-key';
 });
 
@@ -41,24 +43,6 @@ import { secureDb } from './database-secure';
 
 describe('database-secure', () => {
   const mockUserEmail = 'test@example.com';
-  const mockTransaction: OptionsTransaction = {
-    id: 'test-id',
-    stockSymbol: 'AAPL',
-    tradeOpenDate: new Date('2025-01-15'),
-    expiryDate: new Date('2025-02-21'),
-    callOrPut: 'Call',
-    buyOrSell: 'Sell',
-    stockPriceCurrent: 150.50,
-    breakEvenPrice: 145.75,
-    strikePrice: 150.00,
-    premium: 4.25,
-    numberOfContracts: 2,
-    fees: 1.32,
-    status: 'Open',
-    portfolioId: 'portfolio-1',
-    createdAt: new Date('2025-01-15T12:00:00Z'),
-    updatedAt: new Date('2025-01-15T12:00:00Z'),
-  };
 
   const mockDbRow = {
     id: 'test-id',
