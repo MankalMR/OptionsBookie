@@ -1,4 +1,12 @@
 // Options Trading Data Types
+export interface AIFilterSchema {
+  symbol?: string;
+  type?: 'Call' | 'Put';
+  action?: 'Buy' | 'Sell';
+  outcome?: 'win' | 'loss';
+  timeframe?: string;
+}
+
 export interface Portfolio {
   id: string;
   userId: string;
