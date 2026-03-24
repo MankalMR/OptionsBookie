@@ -101,6 +101,14 @@ export const shouldUpdateTradeStatus = (transaction: OptionsTransaction): boolea
 // Centralized utility to get all realized transactions
 // Only truly completed trades count as realized - rolled trades are ongoing strategies
 export const getRealizedTransactions = (transactions: OptionsTransaction[], chains: TradeChain[] = []) => {
+  // Pre-compute closed chain IDs for O(1) lookup to improve performance
+  const closedChainIds = new Set<string>();
+  for (let i = 0; i < chains.length; i++) {
+    if (chains[i].chainStatus === 'Closed') {
+      closedChainIds.add(chains[i].id);
+    }
+  }
+
   return transactions.filter(t => {
     // Include standard realized transactions
     if (t.status === 'Closed' || t.status === 'Expired' || t.status === 'Assigned') {
@@ -109,11 +117,8 @@ export const getRealizedTransactions = (transactions: OptionsTransaction[], chai
 
     // Include ALL transactions that are part of closed chains (Rolled, Open, etc.)
     // If the chain is closed, the trade is effectively part of a realized strategy history
-    if (t.chainId) {
-      const chain = chains.find(c => c.id === t.chainId);
-      if (chain && chain.chainStatus === 'Closed') {
-        return true;
-      }
+    if (t.chainId && closedChainIds.has(t.chainId)) {
+      return true;
     }
 
     return false;
