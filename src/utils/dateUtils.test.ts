@@ -8,7 +8,9 @@ import {
   dateToInputString,
   parseLocalDate,
   formatDisplayDate,
-  formatDisplayDateShort
+  formatDisplayDateShort,
+  formatDateForStorage,
+  isSameDay
 } from './dateUtils';
 import { logger } from "@/lib/logger";
 
@@ -303,6 +305,44 @@ describe('dateUtils', () => {
       expect(displayDate).toBe('Sep 18, 2025');
       expect(shortDate.monthDay).toBe('Sep 18');
       expect(shortDate.year).toBe('2025');
+    });
+  });
+
+  describe('isSameDay', () => {
+    it('should return true for dates on the same day with different times', () => {
+      const date1 = new Date(2025, 8, 18, 10, 30, 0);
+      const date2 = new Date(2025, 8, 18, 22, 15, 0);
+      expect(isSameDay(date1, date2)).toBe(true);
+    });
+
+    it('should return false for different days in the same month', () => {
+      const date1 = new Date(2025, 8, 18);
+      const date2 = new Date(2025, 8, 19);
+      expect(isSameDay(date1, date2)).toBe(false);
+    });
+
+    it('should return false for the same day in different months', () => {
+      const date1 = new Date(2025, 8, 18);
+      const date2 = new Date(2025, 9, 18);
+      expect(isSameDay(date1, date2)).toBe(false);
+    });
+
+    it('should return false for the same day and month in different years', () => {
+      const date1 = new Date(2025, 8, 18);
+      const date2 = new Date(2026, 8, 18);
+      expect(isSameDay(date1, date2)).toBe(false);
+    });
+  });
+
+  describe('formatDateForStorage', () => {
+    it('should format Date object to YYYY-MM-DD string', () => {
+      const date = new Date(2025, 8, 18);
+      expect(formatDateForStorage(date)).toBe('2025-09-18');
+    });
+
+    it('should pad single-digit months and days with zero', () => {
+      const date = new Date(2025, 0, 5); // January 5th
+      expect(formatDateForStorage(date)).toBe('2025-01-05');
     });
   });
 });
