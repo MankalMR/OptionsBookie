@@ -200,9 +200,19 @@ export default function Home() {
 
       const chainsToUpdate = [];
 
+      // Pre-group transactions by chainId to avoid O(N*M) performance bottleneck
+      const txnsByChain = new Map<string, OptionsTransaction[]>();
+      for (const t of transactions) {
+        if (!t.chainId) continue;
+        if (!txnsByChain.has(t.chainId)) {
+          txnsByChain.set(t.chainId, []);
+        }
+        txnsByChain.get(t.chainId)!.push(t);
+      }
+
       for (const chain of chains) {
         // Get all transactions for this chain
-        const chainTransactions = transactions.filter(t => t.chainId === chain.id);
+        const chainTransactions = txnsByChain.get(chain.id) || [];
         const hasOpenTransactions = chainTransactions.some(t => t.status === 'Open');
 
 
