@@ -267,8 +267,19 @@ export default function DemoPage() {
 
         const updateChainStatuses = async () => {
             const chainsToUpdate: { id: string; status: string }[] = [];
+
+            // Pre-group transactions by chainId to avoid O(N*M) performance bottleneck
+            const txnsByChain = new Map<string, OptionsTransaction[]>();
+            for (const t of transactions) {
+                if (!t.chainId) continue;
+                if (!txnsByChain.has(t.chainId)) {
+                    txnsByChain.set(t.chainId, []);
+                }
+                txnsByChain.get(t.chainId)!.push(t);
+            }
+
             for (const chain of chains) {
-                const chainTxns = transactions.filter(t => t.chainId === chain.id);
+                const chainTxns = txnsByChain.get(chain.id) || [];
                 const hasOpen = chainTxns.some(t => t.status === 'Open');
                 if (chain.chainStatus === 'Active' && !hasOpen && chainTxns.length > 0) {
                     chainsToUpdate.push({ id: chain.id, status: 'Closed' });
