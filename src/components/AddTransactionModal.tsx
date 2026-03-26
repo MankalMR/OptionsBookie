@@ -8,10 +8,11 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import Modal from '@/components/ui/Modal';
+import { Loader2 } from 'lucide-react';
 
 interface AddTransactionModalProps {
   onClose: () => void;
-  onSave: (transaction: Omit<OptionsTransaction, 'id' | 'createdAt' | 'updatedAt'>) => void;
+  onSave: (transaction: Omit<OptionsTransaction, 'id' | 'createdAt' | 'updatedAt'>) => void | Promise<void>;
   portfolios?: Array<{ id: string; name: string; isDefault: boolean }>;
   selectedPortfolioId?: string | null;
 }
@@ -34,6 +35,7 @@ export default function AddTransactionModal({ onClose, onSave, portfolios = [], 
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Update portfolioId when selectedPortfolioId changes
   useEffect(() => {
@@ -87,7 +89,7 @@ export default function AddTransactionModal({ onClose, onSave, portfolios = [], 
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     // Validation
@@ -115,7 +117,12 @@ export default function AddTransactionModal({ onClose, onSave, portfolios = [], 
       annualizedROR: undefined, // No ROR for new trades since P&L is 0
     };
 
-    onSave(transaction);
+    setIsSubmitting(true);
+    try {
+      await onSave(transaction);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleChange = (field: string, value: string | number) => {
@@ -365,14 +372,23 @@ export default function AddTransactionModal({ onClose, onSave, portfolios = [], 
                 type="button"
                 variant="outline"
                 onClick={onClose}
+                disabled={isSubmitting}
               >
                 Cancel
               </Button>
               <Button
                 type="submit"
                 variant="default"
+                disabled={isSubmitting}
               >
-                Save Trade
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  'Save Trade'
+                )}
               </Button>
             </div>
           </form>
