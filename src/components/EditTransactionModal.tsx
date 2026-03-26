@@ -10,11 +10,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Button } from '@/components/ui/button';
 import Modal from '@/components/ui/Modal';
 import { logger } from "@/lib/logger";
+import { Loader2 } from 'lucide-react';
 
 interface EditTransactionModalProps {
   transaction: OptionsTransaction;
   onClose: () => void;
-  onSave: (id: string, updates: Partial<OptionsTransaction>) => void;
+  onSave: (id: string, updates: Partial<OptionsTransaction>) => void | Promise<void>;
   portfolios?: Portfolio[];
   /** Optional override for the roll flow. When provided, replaces the internal
    *  hardcoded API calls — used by the demo page to redirect to /api/demo/* */
@@ -77,6 +78,7 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const formatCurrency = (amount: number) => {
     return amount < 0 ? `-$${Math.abs(amount).toFixed(2)}` : `$${amount.toFixed(2)}`;
@@ -213,7 +215,7 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
     return Object.keys(newErrors).length === 0;
   }, [formData]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!validateAndSetErrors()) {
@@ -241,22 +243,27 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
       updatedAt: new Date(),
     };
 
-    if (formData.status === 'Closed' || formData.status === 'Assigned' || formData.status === 'Expired') {
-      updates.exitPrice = formData.exitPrice;
-      updates.closeDate = parseLocalDate(formData.closeDate);
-      // Calculate days held dynamically for annualized ROR
-      const daysHeld = Math.max(1, Math.floor((new Date().getTime() - new Date(formData.tradeOpenDate).getTime()) / (1000 * 60 * 60 * 24)));
-      updates.annualizedROR = daysHeld > 0 && profitLoss !== 0 ?
-        ((profitLoss / (formData.premium * formData.numberOfContracts * 100)) * (365 / daysHeld)) * 100 :
-        undefined;
-      onSave(transaction.id, updates);
-    } else if (formData.status === 'Rolled') {
-      handleRollTrade();
-    } else {
-      updates.exitPrice = undefined;
-      updates.closeDate = undefined;
-      updates.annualizedROR = undefined;
-      onSave(transaction.id, updates);
+    setIsSubmitting(true);
+    try {
+      if (formData.status === 'Closed' || formData.status === 'Assigned' || formData.status === 'Expired') {
+        updates.exitPrice = formData.exitPrice;
+        updates.closeDate = parseLocalDate(formData.closeDate);
+        // Calculate days held dynamically for annualized ROR
+        const daysHeld = Math.max(1, Math.floor((new Date().getTime() - new Date(formData.tradeOpenDate).getTime()) / (1000 * 60 * 60 * 24)));
+        updates.annualizedROR = daysHeld > 0 && profitLoss !== 0 ?
+          ((profitLoss / (formData.premium * formData.numberOfContracts * 100)) * (365 / daysHeld)) * 100 :
+          undefined;
+        await onSave(transaction.id, updates);
+      } else if (formData.status === 'Rolled') {
+        await handleRollTrade();
+      } else {
+        updates.exitPrice = undefined;
+        updates.closeDate = undefined;
+        updates.annualizedROR = undefined;
+        await onSave(transaction.id, updates);
+      }
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -843,14 +850,22 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
             type="button"
             variant="outline"
             onClick={onClose}
+            disabled={isSubmitting}
           >
             Cancel
           </Button>
           <Button
             type="submit"
-            disabled={!isFormValid}
+            disabled={!isFormValid || isSubmitting}
           >
-            Save Changes
+            {isSubmitting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              'Save Changes'
+            )}
           </Button>
         </div>
       </form>
