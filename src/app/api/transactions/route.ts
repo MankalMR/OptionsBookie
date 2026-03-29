@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth';
 import { secureDb } from '@/lib/database-secure';
 import { OptionsTransaction } from '@/types/options';
 import { logger } from "@/lib/logger";
+import { validateTransactionData } from '@/utils/validation';
 
 // GET /api/transactions - Get all transactions
 export async function GET() {
@@ -42,6 +43,16 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
+
+    // Validate incoming transaction data
+    const validation = validateTransactionData(body);
+    if (!validation.isValid) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid transaction data', details: validation.errors },
+        { status: 400 }
+      );
+    }
+
     const transactionData = body as Omit<OptionsTransaction, 'id' | 'createdAt' | 'updatedAt'>;
 
     // Use user email from session for database operations

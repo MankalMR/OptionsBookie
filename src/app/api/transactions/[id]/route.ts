@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth';
 import { secureDb } from '@/lib/database-secure';
 import { OptionsTransaction } from '@/types/options';
 import { logger } from "@/lib/logger";
+import { validateTransactionData } from '@/utils/validation';
 
 // GET /api/transactions/[id] - Get a specific transaction
 export async function GET(
@@ -57,6 +58,16 @@ export async function PUT(
     }
 
     const body = await request.json();
+
+    // Validate updates
+    const validation = validateTransactionData(body, true);
+    if (!validation.isValid) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid transaction data', details: validation.errors },
+        { status: 400 }
+      );
+    }
+
     const updates = body as Partial<OptionsTransaction>;
 
     const updatedTransaction = await secureDb.updateTransaction(id, updates, session.user.email);
