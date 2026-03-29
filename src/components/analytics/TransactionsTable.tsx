@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, KeyboardEvent } from 'react';
 import { OptionsTransaction, TradeChain } from '@/types/options';
 import { calculateRoR, calculateDaysHeld, calculateCollateral, formatPnLCurrency, getRealizedTransactions, calculateStrategyPerformance, calculatePortfolioRoR, calculateAnnualizedRoR, calculateMonthlyPortfolioAnnualizedRoR, getRoRColorClasses, calculateChainPnL, calculateChainAwareStockPerformance } from '@/utils/optionsCalculations';
 import RoRDisplay from '@/components/ui/RoRDisplay';
@@ -6,7 +6,7 @@ import { parseLocalDate } from '@/utils/dateUtils';
 import { formatStrikePrice } from '@/utils/formatUtils';
 import { Badge } from '@/components/ui/badge';
 import { useIsMobile } from '@/hooks/useMediaQuery';
-import { Link } from 'lucide-react';
+import { Link, Sparkles } from 'lucide-react';
 
 interface TransactionsTableProps {
   transactions: OptionsTransaction[];
@@ -17,6 +17,51 @@ interface TransactionsTableProps {
 
 export default function TransactionsTable({ transactions, chains = [] }: TransactionsTableProps) {
   const isMobile = useIsMobile();
+
+  const [aiQuery, setAiQuery] = useState("");
+  const [isAiLoading, setIsAiLoading] = useState(false);
+  const [activeAiFilters, setActiveAiFilters] = useState<{ symbol?: string; type?: string; outcome?: string } | null>(null);
+  const [aiError, setAiError] = useState<string | null>(null);
+
+  const handleAiSearch = async (e?: KeyboardEvent<HTMLInputElement>) => {
+    if (e && e.key !== 'Enter') return;
+    if (!aiQuery.trim()) return;
+
+    setIsAiLoading(true);
+    setAiError(null);
+    try {
+      const res = await fetch("/api/ai/parse-query", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: aiQuery }),
+      });
+
+      if (!res.ok) {
+        if (res.status === 503) {
+          throw new Error("AI service is currently unavailable");
+        }
+        throw new Error("Failed to parse query");
+      }
+
+      const filters = await res.json();
+      setActiveAiFilters(Object.keys(filters).length > 0 ? filters : null);
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setAiError(err.message || "Something went wrong");
+      } else {
+        setAiError("Something went wrong");
+      }
+    } finally {
+      setIsAiLoading(false);
+    }
+  };
+
+  const clearAiFilters = () => {
+    setActiveAiFilters(null);
+    setAiQuery("");
+    setAiError(null);
+  };
+
 
   // Helper function to get chain-aware P&L for display
   const getDisplayPnL = (transaction: OptionsTransaction): number => {
@@ -38,7 +83,25 @@ export default function TransactionsTable({ transactions, chains = [] }: Transac
   // especially with large portfolios and active trading histories.
 
   // Filter out rolled transactions for cleaner display
-  const displayTransactions = useMemo(() => transactions.filter(t => t.status !== 'Rolled'), [transactions]);
+  const displayTransactions = useMemo(() => {
+    let filtered = transactions.filter(t => t.status !== 'Rolled');
+
+    if (activeAiFilters) {
+      filtered = filtered.filter(t => {
+        if (activeAiFilters.symbol && t.stockSymbol.toUpperCase() !== activeAiFilters.symbol.toUpperCase()) return false;
+        if (activeAiFilters.type && t.callOrPut.toLowerCase() !== activeAiFilters.type.toLowerCase()) return false;
+
+        if (activeAiFilters.outcome) {
+          const pnl = getDisplayPnL(t);
+          if (activeAiFilters.outcome === 'win' && pnl <= 0) return false;
+          if (activeAiFilters.outcome === 'loss' && pnl >= 0) return false;
+        }
+        return true;
+      });
+    }
+    return filtered;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [transactions, activeAiFilters]);
 
   // Helper function to check if transaction is part of a closed chain
   const isClosedChainTransaction = (transaction: OptionsTransaction): boolean => {
@@ -100,6 +163,44 @@ export default function TransactionsTable({ transactions, chains = [] }: Transac
   return (
     <div className="bg-muted/30 px-4 py-3 space-y-6">
       {/* Individual Trades Table */}
+      <div className="mb-4">
+        <div className="relative">
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <Sparkles className={`h-4 w-4 ${isAiLoading ? 'text-purple-500 animate-pulse' : 'text-purple-400'}`} />
+          </div>
+          <input
+            type="text"
+            placeholder="Ask AI to filter... (e.g. 'Show me winning TSLA puts')"
+            className="block w-full sm:w-1/2 pl-10 pr-3 py-2 border border-input rounded-md leading-5 bg-background placeholder-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring focus:border-ring sm:text-sm"
+            value={aiQuery}
+            onChange={(e) => setAiQuery(e.target.value)}
+            onKeyDown={handleAiSearch}
+            disabled={isAiLoading}
+          />
+        </div>
+
+        {aiError && (
+          <p className="mt-2 text-sm text-destructive">{aiError}</p>
+        )}
+
+        {activeAiFilters && (
+          <div className="mt-2 flex items-center gap-2 text-sm">
+            <span className="text-muted-foreground">AI Filters applied:</span>
+            {Object.entries(activeAiFilters).map(([key, value]) => (
+              <span key={key} className="px-2 py-1 bg-purple-100 text-purple-800 rounded-md text-xs font-medium dark:bg-purple-900/30 dark:text-purple-300">
+                {key.charAt(0).toUpperCase() + key.slice(1)}: {value as string}
+              </span>
+            ))}
+            <button
+              onClick={clearAiFilters}
+              className="ml-2 text-muted-foreground hover:text-foreground text-xs underline"
+            >
+              Clear
+            </button>
+          </div>
+        )}
+      </div>
+
       <div className="overflow-x-auto">
         <table className="min-w-full text-xs">
           <thead>
