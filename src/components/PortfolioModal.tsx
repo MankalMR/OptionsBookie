@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import Modal from '@/components/ui/Modal';
 import { logger } from "@/lib/logger";
+import { Loader2 } from 'lucide-react';
 
 interface PortfolioModalProps {
   isOpen: boolean;
@@ -176,6 +177,7 @@ export default function PortfolioModal({
                 type="button"
                 variant="outline"
                 onClick={onClose}
+                disabled={loading}
               >
                 Cancel
               </Button>
@@ -183,7 +185,14 @@ export default function PortfolioModal({
                 type="submit"
                 disabled={loading}
               >
-                {loading ? 'Saving...' : (isEdit ? 'Update' : 'Create')}
+                {loading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  isEdit ? 'Update' : 'Create'
+                )}
               </Button>
             </div>
           </form>
