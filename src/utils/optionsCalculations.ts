@@ -101,6 +101,14 @@ export const shouldUpdateTradeStatus = (transaction: OptionsTransaction): boolea
 // Centralized utility to get all realized transactions
 // Only truly completed trades count as realized - rolled trades are ongoing strategies
 export const getRealizedTransactions = (transactions: OptionsTransaction[], chains: TradeChain[] = []) => {
+  // Use a Map for O(1) chain lookups instead of O(C) .find() inside the loop
+  const chainMap = new Map<string, TradeChain>();
+  if (chains.length > 0) {
+    for (const chain of chains) {
+      chainMap.set(chain.id, chain);
+    }
+  }
+
   return transactions.filter(t => {
     // Include standard realized transactions
     if (t.status === 'Closed' || t.status === 'Expired' || t.status === 'Assigned') {
@@ -110,7 +118,7 @@ export const getRealizedTransactions = (transactions: OptionsTransaction[], chai
     // Include ALL transactions that are part of closed chains (Rolled, Open, etc.)
     // If the chain is closed, the trade is effectively part of a realized strategy history
     if (t.chainId) {
-      const chain = chains.find(c => c.id === t.chainId);
+      const chain = chainMap.get(t.chainId);
       if (chain && chain.chainStatus === 'Closed') {
         return true;
       }
@@ -945,6 +953,22 @@ export const calculateChainAwareStockPerformance = (
   const stockPerformance = new Map<string, { pnl: number; trades: number; totalCollateral: number }>();
   const processedChains = new Set<string>();
 
+  // Use Maps for O(1) lookups and pre-grouping to avoid nested O(N*M) bottlenecks
+  const chainMap = new Map<string, TradeChain>();
+  for (const c of chains) {
+    chainMap.set(c.id, c);
+  }
+
+  const txnsByChain = new Map<string, OptionsTransaction[]>();
+  for (const t of transactions) {
+    if (t.chainId) {
+      if (!txnsByChain.has(t.chainId)) {
+        txnsByChain.set(t.chainId, []);
+      }
+      txnsByChain.get(t.chainId)!.push(t);
+    }
+  }
+
   transactions.forEach(transaction => {
     // Skip rolled transactions - they're part of chains
     if (transaction.status === 'Rolled') {
@@ -961,11 +985,11 @@ export const calculateChainAwareStockPerformance = (
 
     if (transaction.chainId && !processedChains.has(transaction.chainId)) {
       // Chain transaction - use entire chain P&L
-      const chain = chains.find(c => c.id === transaction.chainId);
+      const chain = chainMap.get(transaction.chainId);
 
       if (chain && chain.chainStatus === 'Closed') {
-        const chainPnL = calculateChainPnL(transaction.chainId, transactions);
-        const chainTransactions = transactions.filter(t => t.chainId === transaction.chainId);
+        const chainTransactions = txnsByChain.get(transaction.chainId) || [];
+        const chainPnL = chainTransactions.reduce((total, t) => total + (t.profitLoss || 0), 0);
 
         // For chains (rolled positions), use AVERAGE collateral since it's the same capital being redeployed
         const totalChainCollateral = chainTransactions.reduce((sum, t) => sum + calculateCollateral(t), 0);
