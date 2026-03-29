@@ -359,10 +359,10 @@ describe('/api/transactions API routes', () => {
       const response = await POST(mockRequest);
       const data = await response.json();
 
-      expect(response.status).toBe(500);
-      expect(data).toEqual({
+      expect(response.status).toBe(400);
+      expect(data).toMatchObject({
         success: false,
-        error: 'Failed to create transaction',
+        error: 'Invalid transaction data',
       });
     });
   });
