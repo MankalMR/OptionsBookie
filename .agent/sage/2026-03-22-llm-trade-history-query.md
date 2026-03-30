@@ -1,5 +1,5 @@
 ## Status
-pending-implementation
+pending-clarification
 
 ## Context
 Traders currently rely on manual dropdowns and input fields to filter their trade history. When analyzing past performance, they often have specific, nuanced questions in mind (e.g., "Show me all losing puts on AAPL this year" or "What were my winning iron condors last month?"). Translating these questions into manual UI filters is cumbersome and slows down post-trade analysis.
@@ -52,3 +52,6 @@ sequenceDiagram
 - [ ] The UI displays a clear loading indicator during the AI request.
 - [ ] Active AI filters are visibly indicated to the user, with an option to clear them.
 - [ ] If the AI request fails, an unobtrusive error message is shown and the table remains unaffected.
+
+## Questions from Atlas
+- Q1: The tech plan mentions using Vercel AI SDK or similar, but the project prefers using the Gemini API via the `@google/genai` package for AI feature implementations. Moreover, Atlas is prohibited from adding new dependencies to `package.json` without explicit instruction. Should I add `@google/genai` to `package.json`, or should I use an existing library/fetch directly from a REST endpoint instead?
