@@ -1,5 +1,8 @@
 ## Status
-pending-implementation
+pending-clarification
+
+## Questions from Atlas
+- Q1: The tech plan suggests using an AI SDK (like Vercel AI SDK). However, my instructions strictly prohibit adding new dependencies to `package.json` without explicit authorization. The project memory also prefers `@google/genai` over OpenAI. Should I implement this using native `fetch` against the Gemini API directly, or am I authorized to install the `@google/genai` package for this feature?
 
 ## Context
 Traders currently rely on manual dropdowns and input fields to filter their trade history. When analyzing past performance, they often have specific, nuanced questions in mind (e.g., "Show me all losing puts on AAPL this year" or "What were my winning iron condors last month?"). Translating these questions into manual UI filters is cumbersome and slows down post-trade analysis.
