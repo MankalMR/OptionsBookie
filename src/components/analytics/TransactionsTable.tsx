@@ -56,11 +56,7 @@ export default function TransactionsTable({ transactions, chains = [] }: Transac
     }
   };
 
-  const clearAiFilters = () => {
-    setActiveAiFilters(null);
-    setAiQuery("");
-    setAiError(null);
-  };
+
 
 
   // Helper function to get chain-aware P&L for display
@@ -83,25 +79,7 @@ export default function TransactionsTable({ transactions, chains = [] }: Transac
   // especially with large portfolios and active trading histories.
 
   // Filter out rolled transactions for cleaner display
-  const displayTransactions = useMemo(() => {
-    let filtered = transactions.filter(t => t.status !== 'Rolled');
-
-    if (activeAiFilters) {
-      filtered = filtered.filter(t => {
-        if (activeAiFilters.symbol && t.stockSymbol.toUpperCase() !== activeAiFilters.symbol.toUpperCase()) return false;
-        if (activeAiFilters.type && t.callOrPut.toLowerCase() !== activeAiFilters.type.toLowerCase()) return false;
-
-        if (activeAiFilters.outcome) {
-          const pnl = getDisplayPnL(t);
-          if (activeAiFilters.outcome === 'win' && pnl <= 0) return false;
-          if (activeAiFilters.outcome === 'loss' && pnl >= 0) return false;
-        }
-        return true;
-      });
-    }
-    return filtered;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [transactions, activeAiFilters]);
+  const displayTransactions = useMemo(() => transactions.filter(t => t.status !== 'Rolled'), [transactions]);
 
   // Helper function to check if transaction is part of a closed chain
   const isClosedChainTransaction = (transaction: OptionsTransaction): boolean => {
@@ -183,22 +161,7 @@ export default function TransactionsTable({ transactions, chains = [] }: Transac
           <p className="mt-2 text-sm text-destructive">{aiError}</p>
         )}
 
-        {activeAiFilters && (
-          <div className="mt-2 flex items-center gap-2 text-sm">
-            <span className="text-muted-foreground">AI Filters applied:</span>
-            {Object.entries(activeAiFilters).map(([key, value]) => (
-              <span key={key} className="px-2 py-1 bg-purple-100 text-purple-800 rounded-md text-xs font-medium dark:bg-purple-900/30 dark:text-purple-300">
-                {key.charAt(0).toUpperCase() + key.slice(1)}: {value as string}
-              </span>
-            ))}
-            <button
-              onClick={clearAiFilters}
-              className="ml-2 text-muted-foreground hover:text-foreground text-xs underline"
-            >
-              Clear
-            </button>
-          </div>
-        )}
+
       </div>
 
       <div className="overflow-x-auto">
