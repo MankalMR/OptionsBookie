@@ -1,5 +1,5 @@
 ## Status
-pending-implementation
+pending-clarification
 
 ## Context
 Traders currently rely on manual dropdowns and input fields to filter their trade history. When analyzing past performance, they often have specific, nuanced questions in mind (e.g., "Show me all losing puts on AAPL this year" or "What were my winning iron condors last month?"). Translating these questions into manual UI filters is cumbersome and slows down post-trade analysis.
@@ -52,3 +52,5 @@ sequenceDiagram
 - [ ] The UI displays a clear loading indicator during the AI request.
 - [ ] Active AI filters are visibly indicated to the user, with an option to clear them.
 - [ ] If the AI request fails, an unobtrusive error message is shown and the table remains unaffected.
+## Questions from Atlas
+- Q1: The feature requires an AI SDK (like Vercel AI SDK) or an LLM provider package to interact with the AI, but I am strictly prohibited from adding new dependencies to `package.json` without explicit instruction. Can you please clarify which dependencies to add, or provide an alternative approach that only uses existing packages/native `fetch` (and if so, what is the API endpoint and how are keys managed)?
