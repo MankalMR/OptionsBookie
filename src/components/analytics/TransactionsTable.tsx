@@ -1,5 +1,5 @@
-import React, { useMemo } from 'react';
-import { OptionsTransaction, TradeChain } from '@/types/options';
+import React, { useMemo, useState } from 'react';
+import { OptionsTransaction, TradeChain, AIFilter } from '@/types/options';
 import { calculateRoR, calculateDaysHeld, calculateCollateral, formatPnLCurrency, getRealizedTransactions, calculateStrategyPerformance, calculatePortfolioRoR, calculateAnnualizedRoR, calculateMonthlyPortfolioAnnualizedRoR, getRoRColorClasses, calculateChainPnL, calculateChainAwareStockPerformance } from '@/utils/optionsCalculations';
 import RoRDisplay from '@/components/ui/RoRDisplay';
 import { parseLocalDate } from '@/utils/dateUtils';
@@ -13,10 +13,12 @@ interface TransactionsTableProps {
   chains?: TradeChain[];
   monthName?: string;
   selectedPortfolioName?: string | null;
+  aiFilters?: AIFilter | null;
 }
 
-export default function TransactionsTable({ transactions, chains = [] }: TransactionsTableProps) {
+export default function TransactionsTable({ transactions, chains = [], aiFilters = null }: TransactionsTableProps) {
   const isMobile = useIsMobile();
+
 
   // Helper function to get chain-aware P&L for display
   const getDisplayPnL = (transaction: OptionsTransaction): number => {
@@ -37,8 +39,35 @@ export default function TransactionsTable({ transactions, chains = [] }: Transac
   // Expected impact: significantly smoother UI interactions and faster rendering of the Transactions Table,
   // especially with large portfolios and active trading histories.
 
-  // Filter out rolled transactions for cleaner display
-  const displayTransactions = useMemo(() => transactions.filter(t => t.status !== 'Rolled'), [transactions]);
+  // Filter out rolled transactions and apply AI filters
+  const displayTransactions = useMemo(() => {
+    let filtered = transactions.filter(t => t.status !== 'Rolled');
+
+    if (aiFilters) {
+      if (aiFilters.symbol) {
+        filtered = filtered.filter(t => t.stockSymbol.toUpperCase() === aiFilters.symbol?.toUpperCase());
+      }
+      if (aiFilters.type) {
+        filtered = filtered.filter(t => t.callOrPut === aiFilters.type);
+      }
+      if (aiFilters.action) {
+        filtered = filtered.filter(t => t.buyOrSell === aiFilters.action);
+      }
+      if (aiFilters.status) {
+        filtered = filtered.filter(t => t.status === aiFilters.status);
+      }
+      if (aiFilters.outcome) {
+        filtered = filtered.filter(t => {
+          const pnl = getDisplayPnL(t);
+          if (aiFilters.outcome === 'win') return pnl > 0;
+          if (aiFilters.outcome === 'loss') return pnl < 0;
+          return true;
+        });
+      }
+    }
+
+    return filtered;
+  }, [transactions, aiFilters, chains]); // include chains because getDisplayPnL depends on it implicitly now, although ideally it should be refactored, but this is safe
 
   // Helper function to check if transaction is part of a closed chain
   const isClosedChainTransaction = (transaction: OptionsTransaction): boolean => {

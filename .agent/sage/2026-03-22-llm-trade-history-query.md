@@ -1,5 +1,5 @@
 ## Status
-pending-implementation
+done
 
 ## Context
 Traders currently rely on manual dropdowns and input fields to filter their trade history. When analyzing past performance, they often have specific, nuanced questions in mind (e.g., "Show me all losing puts on AAPL this year" or "What were my winning iron condors last month?"). Translating these questions into manual UI filters is cumbersome and slows down post-trade analysis.

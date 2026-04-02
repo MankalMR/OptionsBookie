@@ -5,10 +5,13 @@ import { formatPnLCurrency, getRealizedTransactions, calculateDaysHeld, calculat
 import { getSyncDomains } from '@/utils/chartUtils';
 import { RegularRoRTooltip, AnnualizedRoRTooltip } from '@/components/ui/RoRTooltip';
 import { ResponsiveContainer, ComposedChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend, Bar } from 'recharts';
-import { ChevronDown, ChevronRight, Plus, Minus } from 'lucide-react';
-import { OptionsTransaction, TradeChain } from '@/types/options';
+import { ChevronDown, ChevronRight, Plus, Minus, Sparkles, X, Loader2 } from 'lucide-react';
+import { OptionsTransaction, TradeChain, AIFilter } from '@/types/options';
 import TransactionsTable from './TransactionsTable';
 import { useIsMobile } from '@/hooks/useMediaQuery';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 
 interface MonthlyData {
   month: number;
@@ -68,10 +71,156 @@ export default function MonthlyBreakdownSection({
     setExpandedMonths(newExpanded);
   };
 
+  // AI Filter State
+  const [aiSearchQuery, setAiSearchQuery] = useState('');
+  const [aiFilters, setAiFilters] = useState<AIFilter | null>(null);
+  const [isAILoading, setIsAILoading] = useState(false);
+  const [aiError, setAiError] = useState('');
+
+  const handleAISearch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!aiSearchQuery.trim()) return;
+
+    setIsAILoading(true);
+    setAiError('');
+
+    try {
+      const res = await fetch('/api/ai/parse-query', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: aiSearchQuery })
+      });
+
+      if (!res.ok) {
+        throw new Error('Failed to parse query');
+      }
+
+      const data = await res.json();
+      if (data.filter && data.filter.unavailable) {
+        setAiError('AI filtering is currently unavailable. Please check the API configuration.');
+        setAiFilters(null);
+      } else if (data.filter && Object.keys(data.filter).length > 0) {
+        setAiFilters(data.filter);
+        // Automatically expand all months when a filter is applied to make it easier to see results
+        const allMonths = new Set(yearData.monthlyBreakdown.map(m => m.month));
+        setExpandedMonths(allMonths);
+      } else {
+        setAiError('Could not understand the query. Please try again.');
+        setAiFilters(null);
+      }
+    } catch (err) {
+      setAiError('AI service is temporarily unavailable. Please use manual filters.');
+      setAiFilters(null);
+    } finally {
+      setIsAILoading(false);
+    }
+  };
+
+  const clearAIFilters = () => {
+    setAiSearchQuery('');
+    setAiFilters(null);
+    setAiError('');
+    setExpandedMonths(new Set()); // Collapse all when cleared
+  };
+
+  // Helper function to get chain-aware P&L for filtering
+  const getDisplayPnL = (transaction: OptionsTransaction): number => {
+    if (transaction.chainId) {
+      const chain = chains.find((c: TradeChain) => c.id === transaction.chainId);
+      if (chain && chain.chainStatus === 'Closed') {
+        // Simple recalculation here for filtering purposes.
+        return transactions
+          .filter(t => t.chainId === transaction.chainId)
+          .reduce((sum, t) => sum + (t.profitLoss || 0), 0);
+      }
+    }
+    return transaction.profitLoss || 0;
+  };
+
+  // Pre-filter transactions based on AI criteria before grouping
+  const aiFilteredTransactions = React.useMemo(() => {
+    let filtered = transactions;
+
+    if (aiFilters) {
+      if (aiFilters.symbol) {
+        filtered = filtered.filter(t => t.stockSymbol.toUpperCase() === aiFilters.symbol?.toUpperCase());
+      }
+      if (aiFilters.type) {
+        filtered = filtered.filter(t => t.callOrPut === aiFilters.type);
+      }
+      if (aiFilters.action) {
+        filtered = filtered.filter(t => t.buyOrSell === aiFilters.action);
+      }
+      if (aiFilters.status) {
+        filtered = filtered.filter(t => t.status === aiFilters.status);
+      }
+      if (aiFilters.outcome) {
+        filtered = filtered.filter(t => {
+          const pnl = getDisplayPnL(t);
+          if (aiFilters.outcome === 'win') return pnl > 0;
+          if (aiFilters.outcome === 'loss') return pnl < 0;
+          return true;
+        });
+      }
+
+      if (aiFilters.timeframe) {
+        const tf = aiFilters.timeframe.toLowerCase();
+        const now = new Date();
+
+        filtered = filtered.filter(t => {
+          const tradeDate = getEffectiveCloseDate(t, transactions, chains);
+
+          if (tf.includes('this year')) {
+            return tradeDate.getFullYear() === now.getFullYear();
+          } else if (tf.includes('last year')) {
+            return tradeDate.getFullYear() === now.getFullYear() - 1;
+          } else if (tf.includes('this month')) {
+            return tradeDate.getFullYear() === now.getFullYear() && tradeDate.getMonth() === now.getMonth();
+          } else if (tf.includes('last month')) {
+            const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+            return tradeDate.getFullYear() === lastMonth.getFullYear() && tradeDate.getMonth() === lastMonth.getMonth();
+          } else if (tf.match(/\b20\d{2}\b/)) { // Match year like 2025
+            const yearMatch = tf.match(/\b20\d{2}\b/);
+            if (yearMatch) {
+              return tradeDate.getFullYear() === parseInt(yearMatch[0]);
+            }
+          }
+          return true;
+        });
+      }
+
+      if (aiFilters.strategy) {
+        const strategy = aiFilters.strategy.toLowerCase();
+
+        filtered = filtered.filter(t => {
+          if (strategy.includes('covered call')) {
+            return t.buyOrSell === 'Sell' && t.callOrPut === 'Call';
+          } else if (strategy.includes('cash-secured put') || strategy.includes('cash secured put') || strategy.includes('csp')) {
+            return t.buyOrSell === 'Sell' && t.callOrPut === 'Put';
+          } else if (strategy.includes('iron condor')) {
+            // Simple check: part of a chain with 4 legs
+            const chain = chains.find(c => c.id === t.chainId);
+            return chain && chain.transactions && chain.transactions.length >= 4;
+          } else if (strategy.includes('credit spread')) {
+            const chain = chains.find(c => c.id === t.chainId);
+            return chain && chain.transactions && chain.transactions.length === 2;
+          } else if (strategy.includes('long') || strategy.includes('bought')) {
+             return t.buyOrSell === 'Buy';
+          } else if (strategy.includes('short') || strategy.includes('sold')) {
+             return t.buyOrSell === 'Sell';
+          }
+          return true;
+        });
+      }
+    }
+
+    return filtered;
+  }, [transactions, aiFilters, chains]);
+
   // Memoize realized transactions and group them by month to avoid O(N^2) filtering
   // on every render row where N is the total number of transactions.
   const transactionsByMonth = React.useMemo(() => {
-    const realized = getRealizedTransactions(transactions, chains).filter(t => t.closeDate);
+    const realized = getRealizedTransactions(aiFilteredTransactions, chains).filter(t => t.closeDate);
 
     // Pre-calculate effective close date for all realized transactions
     const monthGroups = new Map<number, OptionsTransaction[]>();
@@ -231,6 +380,85 @@ export default function MonthlyBreakdownSection({
         );
       })()}
 
+      {/* AI Filter Search Bar */}
+      <div className="space-y-3 mb-6">
+        <form onSubmit={handleAISearch} className="flex items-center gap-2">
+          <div className="relative flex-1 max-w-xl">
+            <Sparkles className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-primary" />
+            <Input
+              type="text"
+              placeholder="Ask AI to filter... (e.g., 'Show me all losing puts on AAPL')"
+              value={aiSearchQuery}
+              onChange={(e) => setAiSearchQuery(e.target.value)}
+              className="pl-9 pr-4 bg-background"
+              disabled={isAILoading}
+            />
+          </div>
+          <Button type="submit" disabled={isAILoading || !aiSearchQuery.trim()}>
+            {isAILoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+            Filter
+          </Button>
+          {aiFilters && (
+            <Button type="button" variant="outline" onClick={clearAIFilters}>
+              Clear
+            </Button>
+          )}
+        </form>
+
+        {/* AI Error Message */}
+        {aiError && (
+          <p className="text-sm text-destructive">{aiError}</p>
+        )}
+
+        {/* Active AI Filters Badges */}
+        {aiFilters && (
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-sm text-muted-foreground mr-1">AI Filters:</span>
+            {aiFilters.symbol && (
+              <Badge variant="secondary" className="flex items-center gap-1">
+                Symbol: {aiFilters.symbol.toUpperCase()}
+              </Badge>
+            )}
+            {aiFilters.type && (
+              <Badge variant="secondary" className="flex items-center gap-1">
+                Type: {aiFilters.type}
+              </Badge>
+            )}
+            {aiFilters.action && (
+              <Badge variant="secondary" className="flex items-center gap-1">
+                Action: {aiFilters.action}
+              </Badge>
+            )}
+            {aiFilters.outcome && (
+              <Badge variant="secondary" className="flex items-center gap-1">
+                Outcome: {aiFilters.outcome}
+              </Badge>
+            )}
+            {aiFilters.status && (
+              <Badge variant="secondary" className="flex items-center gap-1">
+                Status: {aiFilters.status}
+              </Badge>
+            )}
+            {aiFilters.timeframe && (
+              <Badge variant="secondary" className="flex items-center gap-1">
+                Timeframe: {aiFilters.timeframe}
+              </Badge>
+            )}
+            {aiFilters.strategy && (
+              <Badge variant="secondary" className="flex items-center gap-1">
+                Strategy: {aiFilters.strategy}
+              </Badge>
+            )}
+            <button
+              onClick={clearAIFilters}
+              className="text-xs text-muted-foreground hover:text-foreground underline ml-2 flex items-center gap-1"
+            >
+              <X className="h-3 w-3" /> Clear AI Filters
+            </button>
+          </div>
+        )}
+      </div>
+
       {/* Monthly Table */}
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-border">
@@ -373,6 +601,7 @@ export default function MonthlyBreakdownSection({
                           chains={chains}
                           monthName={month.monthName}
                           selectedPortfolioName={selectedPortfolioName}
+                          aiFilters={aiFilters}
                         />
                       </td>
                     </tr>

@@ -1,4 +1,14 @@
 // Options Trading Data Types
+export interface AIFilter {
+  symbol?: string;
+  type?: 'Call' | 'Put';
+  outcome?: 'win' | 'loss';
+  action?: 'Buy' | 'Sell';
+  status?: 'Open' | 'Closed' | 'Expired' | 'Assigned' | 'Rolled';
+  timeframe?: string;
+  strategy?: string;
+}
+
 export interface Portfolio {
   id: string;
   userId: string;
