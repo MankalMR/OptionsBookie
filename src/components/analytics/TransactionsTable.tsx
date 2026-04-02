@@ -1,12 +1,15 @@
-import React, { useMemo } from 'react';
-import { OptionsTransaction, TradeChain } from '@/types/options';
+import React, { useMemo, useState } from 'react';
+import { OptionsTransaction, TradeChain, AIFilterSchema } from '@/types/options';
 import { calculateRoR, calculateDaysHeld, calculateCollateral, formatPnLCurrency, getRealizedTransactions, calculateStrategyPerformance, calculatePortfolioRoR, calculateAnnualizedRoR, calculateMonthlyPortfolioAnnualizedRoR, getRoRColorClasses, calculateChainPnL, calculateChainAwareStockPerformance } from '@/utils/optionsCalculations';
+import { applyAiFilter } from '@/utils/aiFilter';
 import RoRDisplay from '@/components/ui/RoRDisplay';
 import { parseLocalDate } from '@/utils/dateUtils';
 import { formatStrikePrice } from '@/utils/formatUtils';
 import { Badge } from '@/components/ui/badge';
 import { useIsMobile } from '@/hooks/useMediaQuery';
-import { Link } from 'lucide-react';
+import { Link, Sparkles, X, Loader2 } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 
 interface TransactionsTableProps {
   transactions: OptionsTransaction[];
@@ -17,6 +20,45 @@ interface TransactionsTableProps {
 
 export default function TransactionsTable({ transactions, chains = [] }: TransactionsTableProps) {
   const isMobile = useIsMobile();
+
+  const [aiQuery, setAiQuery] = useState('');
+  const [isAiLoading, setIsAiLoading] = useState(false);
+  const [aiFilters, setAiFilters] = useState<AIFilterSchema | null>(null);
+  const [aiError, setAiError] = useState<string | null>(null);
+
+  const handleAiFilter = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!aiQuery.trim()) return;
+
+    setIsAiLoading(true);
+    setAiError(null);
+
+    try {
+      const res = await fetch('/api/ai/parse-query', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: aiQuery }),
+      });
+
+      if (!res.ok) {
+        throw new Error('Failed to parse query');
+      }
+
+      const data = await res.json();
+      setAiFilters(data.filter);
+      setAiQuery('');
+    } catch {
+      setAiError('Failed to parse AI filter query. Please try again.');
+    } finally {
+      setIsAiLoading(false);
+    }
+  };
+
+  const clearAiFilters = () => {
+    setAiFilters(null);
+    setAiError(null);
+    setAiQuery('');
+  };
 
   // Helper function to get chain-aware P&L for display
   const getDisplayPnL = (transaction: OptionsTransaction): number => {
@@ -38,7 +80,16 @@ export default function TransactionsTable({ transactions, chains = [] }: Transac
   // especially with large portfolios and active trading histories.
 
   // Filter out rolled transactions for cleaner display
-  const displayTransactions = useMemo(() => transactions.filter(t => t.status !== 'Rolled'), [transactions]);
+  const displayTransactions = useMemo(() => {
+    let filtered = transactions.filter(t => t.status !== 'Rolled');
+
+    if (aiFilters) {
+      filtered = applyAiFilter(filtered, aiFilters, getDisplayPnL);
+    }
+
+    return filtered;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [transactions, aiFilters, chains]); // included chains because getDisplayPnL uses it
 
   // Helper function to check if transaction is part of a closed chain
   const isClosedChainTransaction = (transaction: OptionsTransaction): boolean => {
@@ -99,6 +150,55 @@ export default function TransactionsTable({ transactions, chains = [] }: Transac
 
   return (
     <div className="bg-muted/30 px-4 py-3 space-y-6">
+      {/* AI Filter Section */}
+      <div className="space-y-4">
+        <form onSubmit={handleAiFilter} className="flex gap-2">
+          <div className="relative flex-1">
+            <Sparkles className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-primary" />
+            <Input
+              type="text"
+              placeholder="Ask AI to filter... (e.g., 'Show me all losing AAPL puts this year')"
+              value={aiQuery}
+              onChange={(e) => setAiQuery(e.target.value)}
+              disabled={isAiLoading}
+              className="pl-9 bg-background"
+            />
+          </div>
+          <Button type="submit" disabled={isAiLoading || !aiQuery.trim()} className="shrink-0 gap-2">
+            {isAiLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+            Filter
+          </Button>
+        </form>
+
+        {aiError && (
+          <div className="text-sm text-destructive">{aiError}</div>
+        )}
+
+        {aiFilters && (
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-sm text-muted-foreground flex items-center gap-1">
+              <Sparkles className="h-3 w-3" /> AI Filters:
+            </span>
+            {Object.entries(aiFilters).map(([key, value]) => {
+              if (!value) return null;
+              return (
+                <Badge key={key} variant="secondary" className="gap-1 px-2 py-0.5 capitalize">
+                  {key}: {value}
+                </Badge>
+              );
+            })}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={clearAiFilters}
+              className="h-6 px-2 text-muted-foreground hover:text-foreground hover:bg-muted"
+            >
+              <X className="h-3 w-3 mr-1" /> Clear
+            </Button>
+          </div>
+        )}
+      </div>
+
       {/* Individual Trades Table */}
       <div className="overflow-x-auto">
         <table className="min-w-full text-xs">
