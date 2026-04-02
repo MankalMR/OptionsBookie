@@ -1,5 +1,10 @@
 ## Status
-pending-implementation
+pending-clarification
+
+## Questions from Atlas
+- Q1: Am I authorized to add new dependencies to `package.json` (such as the Vercel AI SDK or an LLM provider client like `@ai-sdk/openai`), given my general restriction against adding dependencies without explicit instruction?
+- Q2: Which specific LLM provider (e.g., OpenAI, Anthropic) should be used, and what is the expected environment variable for the API key?
+- Q3: The scope states to "create a lightweight client-to-AI utility". If I am not allowed to add dependencies, am I expected to make a raw REST API call to an LLM provider? If so, which one?
 
 ## Context
 Traders currently rely on manual dropdowns and input fields to filter their trade history. When analyzing past performance, they often have specific, nuanced questions in mind (e.g., "Show me all losing puts on AAPL this year" or "What were my winning iron condors last month?"). Translating these questions into manual UI filters is cumbersome and slows down post-trade analysis.
