@@ -1,5 +1,8 @@
 ## Status
-pending-implementation
+pending-clarification
+
+## Questions from Atlas
+- Q1: This feature requires an AI SDK (e.g., `@google/genai` or `@vercel/ai`) to parse the user query. I am strictly prohibited from modifying `package.json` without explicit instructions. Should I be granted permission to install the necessary SDK, or is there an existing internal service I should integrate with?
 
 ## Context
 Traders currently rely on manual dropdowns and input fields to filter their trade history. When analyzing past performance, they often have specific, nuanced questions in mind (e.g., "Show me all losing puts on AAPL this year" or "What were my winning iron condors last month?"). Translating these questions into manual UI filters is cumbersome and slows down post-trade analysis.
