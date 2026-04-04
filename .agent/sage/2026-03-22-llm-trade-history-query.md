@@ -54,7 +54,14 @@ sequenceDiagram
 - [ ] If the AI request fails, an unobtrusive error message is shown and the table remains unaffected.
 
 ## Implementation Notes
-- Files changed: `src/app/api/ai/parse-query/route.ts`, `src/components/analytics/TransactionsTable.tsx`, `package.json`
-- Behavior: Implemented the natural language parsing route using the `@google/genai` SDK. Added a mock fallback mode for `/demo` that intercepts specific phrases (like 'TSLA', 'Put', 'win') for deterministic test validation without triggering API calls or requiring keys. Added an inline search field above the analytics transactions table to dispatch queries and show active filter badges.
-- Tests: Updated Jest test suite and validated via Playwright locally on `/demo`.
-- Known follow-ups: The filter is currently scoped to individual instances of the `TransactionsTable` (e.g. inside an expanded month's row). If users wish to filter *all* analytics table rows simultaneously, the state should be lifted to the parent page component.
+- **Files Modified:** 
+  - `src/app/api/ai/parse-query/route.ts`: Core parsing logic with Gemini 1.5/2.0 integration and regex-based mock fallback.
+  - `src/components/SummaryView.tsx`: Centralized AI filter state and main search bar entry point.
+  - `src/components/analytics/TransactionsTable.tsx`: Added `isDemo` context and `showSearch` toggle to prevent redundancy.
+  - Component hierarchy: Propagated `isDemo` flag from `SummaryView` -> `YearlyPerformanceCard` -> `YearlySummaryCard` -> `MonthlyBreakdownSection` -> `TransactionsTable`.
+- **Behavior:** 
+  - **Authenticated Users:** Always use the real LLM (Gemini) for high-accuracy parsing, even if site-wide demo mode is enabled.
+  - **Demo Sessions:** Uses a robust regex-based heuristic in the API (recognizing any 3-5 letter ticker like `SOXX` or `AAPL`, plus strategy keywords) to provide a fast, zero-cost UX.
+  - **Redundancy Cleanup:** Redundant search bars were removed from expanded month/ticker rows since the filter is now global to the view.
+- **Observability:** Added `logger.info` to capture raw LLM text responses for debug validation.
+- **Verification:** Validated both real AI extraction (using `SOXX` examples) and demo fallback stability.
