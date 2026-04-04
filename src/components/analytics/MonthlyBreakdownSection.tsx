@@ -40,6 +40,7 @@ interface MonthlyBreakdownSectionProps {
   transactions: OptionsTransaction[]; // Add transactions for drill-down
   chains?: TradeChain[]; // Add chains for chain-aware filtering
   selectedPortfolioName?: string | null;
+  isDemo?: boolean;
 }
 
 export default function MonthlyBreakdownSection({
@@ -48,7 +49,8 @@ export default function MonthlyBreakdownSection({
   getTopTickersForMonth,
   transactions,
   chains = [],
-  selectedPortfolioName
+  selectedPortfolioName,
+  isDemo = false
 }: MonthlyBreakdownSectionProps) {
   const isMobile = useIsMobile();
 
@@ -373,6 +375,8 @@ export default function MonthlyBreakdownSection({
                           chains={chains}
                           monthName={month.monthName}
                           selectedPortfolioName={selectedPortfolioName}
+                          isDemo={isDemo}
+                          showSearch={false}
                         />
                       </td>
                     </tr>

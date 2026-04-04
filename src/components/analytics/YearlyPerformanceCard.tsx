@@ -38,6 +38,7 @@ interface YearlyPerformanceCardProps {
   chains?: TradeChain[];
   selectedPortfolioName?: string | null;
   mobileOnly?: boolean;
+  isDemo?: boolean;
 }
 
 export default function YearlyPerformanceCard({
@@ -51,7 +52,8 @@ export default function YearlyPerformanceCard({
   transactions,
   chains = [],
   selectedPortfolioName,
-  mobileOnly = false
+  mobileOnly = false,
+  isDemo = false
 }: YearlyPerformanceCardProps) {
   const formatCurrency = formatPnLCurrency;
 
@@ -87,6 +89,7 @@ export default function YearlyPerformanceCard({
             transactions={transactions}
             chains={chains}
             selectedPortfolioName={selectedPortfolioName}
+            isDemo={isDemo}
             mobileOnly={true}
           />
         ))}
@@ -112,6 +115,7 @@ export default function YearlyPerformanceCard({
             transactions={transactions}
             chains={chains}
             selectedPortfolioName={selectedPortfolioName}
+            isDemo={isDemo}
             mobileOnly={false}
           />
         ))}

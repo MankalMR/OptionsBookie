@@ -23,9 +23,10 @@ interface Top5TickersSectionProps {
   yearAllTickers: TickerData[];
   yearTransactions: OptionsTransaction[];
   chains: TradeChain[];
+  isDemo?: boolean;
 }
 
-export default function Top5TickersSection({ yearTop5Tickers, yearAllTickers, yearTransactions, chains }: Top5TickersSectionProps) {
+export default function Top5TickersSection({ yearTop5Tickers, yearAllTickers, yearTransactions, chains, isDemo = false }: Top5TickersSectionProps) {
   const formatCurrency = formatPnLCurrency;
   const [isExpanded, setIsExpanded] = useState(false);
   const [expandedTickers, setExpandedTickers] = useState<Set<string>>(new Set());
@@ -262,6 +263,8 @@ export default function Top5TickersSection({ yearTop5Tickers, yearAllTickers, ye
                           <TransactionsTable
                             transactions={yearTransactions.filter(t => t.stockSymbol === tickerData.ticker)}
                             chains={chains}
+                            isDemo={isDemo}
+                            showSearch={false}
                           />
                         </td>
                       </tr>
