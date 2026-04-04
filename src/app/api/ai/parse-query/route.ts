@@ -3,34 +3,49 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { logger } from "@/lib/logger";
 import { GoogleGenAI } from "@google/genai";
+import { isDemoEnabled } from "@/lib/demo-guards";
 
 export async function POST(req: Request) {
   try {
-    const isDemoMode = process.env.ENABLE_DEMO_MODE === "1";
-
-    if (!isDemoMode) {
-      const session = await getServerSession(authOptions);
-      if (!session || !session.user) {
-        return new NextResponse("Unauthorized", { status: 401 });
-      }
-    }
-
-    const { query } = await req.json();
+    const { query, isDemo } = await req.json();
 
     if (!query || typeof query !== "string") {
       return NextResponse.json({ error: "Invalid query" }, { status: 400 });
     }
 
-    if (isDemoMode) {
+    const session = await getServerSession(authOptions);
+    const isSiteDemoEnabled = isDemoEnabled();
+
+    // Logic: Use real AI if authenticated, else use mock if it's a demo request on a demo-enabled site.
+    const useLlm = !!(session && session.user);
+    const useMock = !useLlm && isDemo && isSiteDemoEnabled;
+
+    if (!useLlm && !useMock) {
+      return new NextResponse("Unauthorized", { status: 401 });
+    }
+
+    if (useMock) {
       // Mocked response for Demo Mode
       await new Promise((resolve) => setTimeout(resolve, 800));
 
       const qLower = query.toLowerCase();
       const filters: any = {};
 
-      if (qLower.includes("tsla")) filters.symbol = "TSLA";
+      // Heuristic: Extract 3-5 letter uppercase words as symbols (e.g. "SOXX")
+      const symbolMatch = query.match(/\b[A-Z]{3,5}\b/);
+      if (symbolMatch) {
+        filters.symbol = symbolMatch[0];
+      } else {
+        // Fallback for common tickers in lowercase
+        const common = ["tsla", "aapl", "soxx", "spy", "qqq", "nvda"];
+        const found = common.find(t => qLower.includes(t));
+        if (found) filters.symbol = found.toUpperCase();
+      }
+
       if (qLower.includes("put")) filters.type = "Put";
+      if (qLower.includes("call")) filters.type = "Call";
       if (qLower.includes("win")) filters.outcome = "win";
+      if (qLower.includes("loss")) filters.outcome = "loss";
 
       return NextResponse.json(filters);
     }
@@ -46,11 +61,16 @@ export async function POST(req: Request) {
     If a filter is not mentioned, omit it from the JSON.
 
     Fields:
-    - symbol: The stock ticker (e.g. "AAPL", "TSLA"). Return as uppercase.
+    - symbol: The stock ticker or ETF symbol (e.g. "AAPL", "TSLA", "SOXX", "SPY"). Always return as uppercase.
     - type: The options strategy type. Can be "Call" or "Put".
     - outcome: Whether the trade was a win or loss. Can be "win" or "loss".
 
-    Return ONLY a valid JSON object. Do not include markdown formatting or backticks.
+    Examples:
+    1. "Show me winning SOXX trades" -> {"symbol": "SOXX", "outcome": "win"}
+    2. "Losing TSLA puts" -> {"symbol": "TSLA", "type": "Put", "outcome": "loss"}
+    3. "All calls" -> {"type": "Call"}
+
+    Return ONLY a valid JSON object. Do not include markdown formatting, backticks, or any explanation.
 
     Query: "${query}"`;
 
@@ -66,6 +86,7 @@ export async function POST(req: Request) {
       }
 
       const text = response.text;
+      logger.info({ text }, "Gemini API parsed query:");
 
       // Attempt to clean JSON (remove markdown ticks if present despite prompt)
       const jsonStr = text.replace(/```json/g, "").replace(/```/g, "").trim();

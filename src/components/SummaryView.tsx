@@ -34,6 +34,7 @@ interface SummaryViewProps {
   transactions: OptionsTransaction[];
   selectedPortfolioName?: string | null;
   chains?: TradeChain[];
+  isDemo?: boolean;
 }
 
 interface MonthlySummary {
@@ -59,7 +60,12 @@ export interface YearlySummary {
   monthlyBreakdown: MonthlySummary[];
 }
 
-export default function SummaryView({ transactions: initialTransactions, selectedPortfolioName, chains = [] }: SummaryViewProps) {
+export default function SummaryView({
+  transactions: initialTransactions,
+  selectedPortfolioName,
+  chains = [],
+  isDemo = false
+}: SummaryViewProps) {
   const isMobile = useIsMobile();
 
   // AI Filter State
@@ -79,7 +85,7 @@ export default function SummaryView({ transactions: initialTransactions, selecte
       const res = await fetch('/api/ai/parse-query', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: aiQuery }),
+        body: JSON.stringify({ query: aiQuery, isDemo }),
       });
 
       const data = await res.json();
@@ -499,6 +505,7 @@ export default function SummaryView({ transactions: initialTransactions, selecte
           transactions={transactions}
           chains={chains}
           selectedPortfolioName={selectedPortfolioName}
+          isDemo={isDemo}
           mobileOnly={true}
         />
       </div>
@@ -584,6 +591,7 @@ export default function SummaryView({ transactions: initialTransactions, selecte
         transactions={transactions}
         chains={chains}
         selectedPortfolioName={selectedPortfolioName}
+        isDemo={isDemo}
         mobileOnly={false}
       />
 

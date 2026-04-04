@@ -13,9 +13,11 @@ interface TransactionsTableProps {
   chains?: TradeChain[];
   monthName?: string;
   selectedPortfolioName?: string | null;
+  isDemo?: boolean;
+  showSearch?: boolean;
 }
 
-export default function TransactionsTable({ transactions, chains = [] }: TransactionsTableProps) {
+export default function TransactionsTable({ transactions, chains = [], isDemo = false, showSearch = true }: TransactionsTableProps) {
   const isMobile = useIsMobile();
 
   const [aiQuery, setAiQuery] = useState("");
@@ -33,7 +35,7 @@ export default function TransactionsTable({ transactions, chains = [] }: Transac
       const res = await fetch("/api/ai/parse-query", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query: aiQuery }),
+        body: JSON.stringify({ query: aiQuery, isDemo }),
       });
 
       if (!res.ok) {
@@ -141,28 +143,28 @@ export default function TransactionsTable({ transactions, chains = [] }: Transac
   return (
     <div className="bg-muted/30 px-4 py-3 space-y-6">
       {/* Individual Trades Table */}
-      <div className="mb-4">
-        <div className="relative">
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <Sparkles className={`h-4 w-4 ${isAiLoading ? 'text-purple-500 animate-pulse' : 'text-purple-400'}`} />
+      {showSearch && (
+        <div className="mb-4">
+          <div className="relative">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <Sparkles className={`h-4 w-4 ${isAiLoading ? 'text-purple-500 animate-pulse' : 'text-purple-400'}`} />
+            </div>
+            <input
+              type="text"
+              placeholder="Ask AI to filter... (e.g. 'Show me winning TSLA puts')"
+              className="block w-full sm:w-1/2 pl-10 pr-3 py-2 border border-input rounded-md leading-5 bg-background placeholder-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring focus:border-ring sm:text-sm"
+              value={aiQuery}
+              onChange={(e) => setAiQuery(e.target.value)}
+              onKeyDown={handleAiSearch}
+              disabled={isAiLoading}
+            />
           </div>
-          <input
-            type="text"
-            placeholder="Ask AI to filter... (e.g. 'Show me winning TSLA puts')"
-            className="block w-full sm:w-1/2 pl-10 pr-3 py-2 border border-input rounded-md leading-5 bg-background placeholder-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring focus:border-ring sm:text-sm"
-            value={aiQuery}
-            onChange={(e) => setAiQuery(e.target.value)}
-            onKeyDown={handleAiSearch}
-            disabled={isAiLoading}
-          />
+
+          {aiError && (
+            <p className="mt-2 text-sm text-destructive">{aiError}</p>
+          )}
         </div>
-
-        {aiError && (
-          <p className="mt-2 text-sm text-destructive">{aiError}</p>
-        )}
-
-
-      </div>
+      )}
 
       <div className="overflow-x-auto">
         <table className="min-w-full text-xs">

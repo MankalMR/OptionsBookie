@@ -44,6 +44,7 @@ interface YearlySummaryCardProps {
   chains?: TradeChain[];
   selectedPortfolioName?: string | null;
   mobileOnly?: boolean;
+  isDemo?: boolean;
 }
 
 export default function YearlySummaryCard({
@@ -57,7 +58,8 @@ export default function YearlySummaryCard({
   transactions,
   chains = [],
   selectedPortfolioName,
-  mobileOnly = false
+  mobileOnly = false,
+  isDemo = false
 }: YearlySummaryCardProps) {
   const formatCurrency = formatPnLCurrency;
 
@@ -132,6 +134,7 @@ export default function YearlySummaryCard({
               yearAllTickers={yearAllTickers}
               yearTransactions={yearTransactions}
               chains={chains}
+              isDemo={isDemo}
             />
 
             <MonthlyBreakdownSection
@@ -141,6 +144,7 @@ export default function YearlySummaryCard({
               transactions={transactions}
               chains={chains}
               selectedPortfolioName={selectedPortfolioName}
+              isDemo={isDemo}
             />
           </div>
         )}
@@ -171,6 +175,7 @@ export default function YearlySummaryCard({
         yearAllTickers={yearAllTickers}
         yearTransactions={yearTransactions}
         chains={chains}
+        isDemo={isDemo}
       />
 
       {/* Monthly Breakdown for the Year */}
@@ -181,6 +186,7 @@ export default function YearlySummaryCard({
         transactions={transactions}
         chains={chains}
         selectedPortfolioName={selectedPortfolioName}
+        isDemo={isDemo}
       />
 
       {/* Best/Worst Month Cards - Summary of Monthly Data */}
