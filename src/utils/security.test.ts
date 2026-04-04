@@ -1,4 +1,4 @@
-import { safeJsonLdStringify } from '../security';
+import { safeJsonLdStringify } from './security';
 
 describe('safeJsonLdStringify', () => {
   it('should stringify a simple object', () => {
