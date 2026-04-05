@@ -4,11 +4,11 @@
  * to prevent XSS attacks (e.g., </script> injection).
  *
  * @param data The object to stringify
- * @returns A safe JSON string or undefined
+ * @returns A safe JSON string
  */
-export function safeJsonLdStringify(data: any): string | undefined {
+export function safeJsonLdStringify(data: any): string {
   const json = JSON.stringify(data);
-  if (!json) return json;
+  if (!json) return '';
   return json.replace(/[<>&]/g, (char) => {
     switch (char) {
       case '<':

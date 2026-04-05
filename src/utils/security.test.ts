@@ -24,12 +24,12 @@ describe('safeJsonLdStringify', () => {
     expect(result).toContain('\\u0026');
 
     // Ensure it's still valid JSON when parsed
-    expect(JSON.parse(result!)).toEqual(data);
+    expect(JSON.parse(result)).toEqual(data);
   });
 
   it('should handle null and undefined', () => {
     expect(safeJsonLdStringify(null)).toBe('null');
-    expect(safeJsonLdStringify(undefined)).toBeUndefined();
+    expect(safeJsonLdStringify(undefined)).toBe('');
   });
 
   it('should handle complex nested objects', () => {
@@ -44,6 +44,6 @@ describe('safeJsonLdStringify', () => {
     expect(result).not.toContain('<');
     expect(result).not.toContain('>');
     expect(result).not.toContain('&');
-    expect(JSON.parse(result!)).toEqual(data);
+    expect(JSON.parse(result)).toEqual(data);
   });
 });
