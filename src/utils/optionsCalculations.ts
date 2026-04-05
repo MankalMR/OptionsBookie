@@ -134,6 +134,23 @@ export const calculateTotalRealizedPnL = (transactions: OptionsTransaction[], ch
   const processedChains = new Set<string>();
   let totalPnL = 0;
 
+  // Use a Map for O(1) chain lookups instead of O(C) .find() inside the loop
+  const chainMap = new Map<string, TradeChain>();
+  if (chains.length > 0) {
+    for (const chain of chains) {
+      chainMap.set(chain.id, chain);
+    }
+  }
+
+  // Pre-calculate grouping by chain for calculateChainPnL optimization
+  const txnsByChain = new Map<string, OptionsTransaction[]>();
+  for (const t of transactions) {
+    if (t.chainId) {
+      if (!txnsByChain.has(t.chainId)) txnsByChain.set(t.chainId, []);
+      txnsByChain.get(t.chainId)!.push(t);
+    }
+  }
+
   realizedTransactions.forEach(t => {
     // Skip rolled transactions - they're part of chains
     if (t.status === 'Rolled') {
@@ -141,10 +158,10 @@ export const calculateTotalRealizedPnL = (transactions: OptionsTransaction[], ch
     }
 
     if (t.chainId && !processedChains.has(t.chainId)) {
-      const chain = chains.find(c => c.id === t.chainId);
+      const chain = chainMap.get(t.chainId);
       if (chain && chain.chainStatus === 'Closed') {
         // For closed chains, use total chain P&L
-        totalPnL += calculateChainPnL(t.chainId, transactions);
+        totalPnL += calculateChainPnL(t.chainId, transactions, txnsByChain);
         processedChains.add(t.chainId);
       }
     } else if (!t.chainId) {
@@ -182,8 +199,14 @@ export const formatPnLWithArrow = (amount: number): { text: string; isPositive: 
 };
 
 // Centralized utility to calculate Chain P&L
-export const calculateChainPnL = (chainId: string, transactions: OptionsTransaction[]): number => {
-  const chainTransactions = transactions.filter(t => t.chainId === chainId);
+export const calculateChainPnL = (
+  chainId: string,
+  transactions: OptionsTransaction[],
+  txnsByChain?: Map<string, OptionsTransaction[]>
+): number => {
+  const chainTransactions = txnsByChain
+    ? (txnsByChain.get(chainId) || [])
+    : transactions.filter(t => t.chainId === chainId);
   return chainTransactions.reduce((total, t) => total + (t.profitLoss || 0), 0);
 };
 
@@ -632,6 +655,22 @@ export const calculateMonthlyChartData = (transactions: OptionsTransaction[]) =>
 
 // Calculate top tickers by P&L and RoR for each month using chain-aware logic
 export const calculateMonthlyTopTickers = (transactions: OptionsTransaction[], chains: TradeChain[] = []) => {
+  // Use local pre-calculation for performance optimization
+  const chainMap = new Map<string, TradeChain>();
+  for (const chain of chains) {
+    chainMap.set(chain.id, chain);
+  }
+
+  const txnsByChainFull = new Map<string, OptionsTransaction[]>();
+  for (const t of transactions) {
+    if (t.chainId) {
+      if (!txnsByChainFull.has(t.chainId)) {
+        txnsByChainFull.set(t.chainId, []);
+      }
+      txnsByChainFull.get(t.chainId)!.push(t);
+    }
+  }
+
   const realizedTransactions = getRealizedTransactions(transactions, chains);
 
   // Group transactions by month using chain-aware effective close dates
@@ -639,7 +678,7 @@ export const calculateMonthlyTopTickers = (transactions: OptionsTransaction[], c
   realizedTransactions.forEach(transaction => {
     if (!transaction.closeDate) return;
 
-    const effectiveCloseDate = getEffectiveCloseDate(transaction, realizedTransactions, chains);
+    const effectiveCloseDate = getEffectiveCloseDate(transaction, realizedTransactions, chains, chainMap, txnsByChainFull);
     const monthKey = `${effectiveCloseDate.getFullYear()}-${String(effectiveCloseDate.getMonth() + 1).padStart(2, '0')}`;
 
     if (!monthlyTransactions.has(monthKey)) {
@@ -650,9 +689,25 @@ export const calculateMonthlyTopTickers = (transactions: OptionsTransaction[], c
 
   // Calculate chain-aware performance for each month
   return Array.from(monthlyTransactions.entries())
-    .map(([monthKey, transactions]) => {
+    .map(([monthKey, monthlyTxns]) => {
+      // For RoR: find the single trade/chain with the highest individual RoR
+      const processedChains = new Set<string>();
+      const individualRoRs: Array<{ ticker: string; pnl: number; ror: number }> = [];
+
+      // Pre-group transactions for this specific month as well for efficient chain P&L calculation
+      const monthTxnsByChain = new Map<string, OptionsTransaction[]>();
+      for (const t of monthlyTxns) {
+        if (t.chainId) {
+          if (!monthTxnsByChain.has(t.chainId)) {
+            monthTxnsByChain.set(t.chainId, []);
+          }
+          monthTxnsByChain.get(t.chainId)!.push(t);
+        }
+      }
+
       // For P&L: aggregate by ticker using chain-aware logic
-      const stockPerformance = calculateChainAwareStockPerformance(transactions, chains);
+      // Pass pre-calculated Maps for optimization
+      const stockPerformance = calculateChainAwareStockPerformance(monthlyTxns, chains, chainMap, monthTxnsByChain);
 
       const topByPnL = Array.from(stockPerformance.entries())
         .map(([ticker, data]) => ({
@@ -663,11 +718,7 @@ export const calculateMonthlyTopTickers = (transactions: OptionsTransaction[], c
         }))
         .reduce((best, current) => current.pnl > best.pnl ? current : best);
 
-      // For RoR: find the single trade/chain with the highest individual RoR
-      const processedChains = new Set<string>();
-      const individualRoRs: Array<{ ticker: string; pnl: number; ror: number }> = [];
-
-      transactions.forEach(transaction => {
+      monthlyTxns.forEach(transaction => {
         // Skip rolled transactions
         if (transaction.status === 'Rolled') return;
 
@@ -677,10 +728,10 @@ export const calculateMonthlyTopTickers = (transactions: OptionsTransaction[], c
 
         if (transaction.chainId && !processedChains.has(transaction.chainId)) {
           // For chains, use total chain P&L and collateral
-          const chain = chains.find(c => c.id === transaction.chainId);
+          const chain = chainMap.get(transaction.chainId);
           if (chain && chain.chainStatus === 'Closed') {
-            pnl = calculateChainPnL(transaction.chainId, transactions);
-            const chainTransactions = transactions.filter(t => t.chainId === transaction.chainId);
+            pnl = calculateChainPnL(transaction.chainId, monthlyTxns, monthTxnsByChain);
+            const chainTransactions = monthTxnsByChain.get(transaction.chainId) || [];
             collateral = chainTransactions.reduce((sum, t) => sum + calculateCollateral(t), 0);
             processedChains.add(transaction.chainId);
           } else {
@@ -864,10 +915,23 @@ export const calculateChainAwareMonthlyPnL = (
   let fees = 0;
   const processedChains = new Set<string>();
 
+  // Pre-calculate lookups for getEffectiveCloseDate
+  const chainMap = new Map<string, TradeChain>();
+  for (const c of chains) {
+    chainMap.set(c.id, c);
+  }
+  const txnsByChain = new Map<string, OptionsTransaction[]>();
+  for (const t of transactions) {
+    if (t.chainId) {
+      if (!txnsByChain.has(t.chainId)) txnsByChain.set(t.chainId, []);
+      txnsByChain.get(t.chainId)!.push(t);
+    }
+  }
+
   // Get all transactions for this month using chain-aware effective close dates
   const monthTransactions = transactions.filter(t => {
     if (!t.closeDate && t.status !== 'Assigned' && t.status !== 'Expired') return false;
-    const effectiveCloseDate = getEffectiveCloseDate(t, transactions, chains);
+    const effectiveCloseDate = getEffectiveCloseDate(t, transactions, chains, chainMap, txnsByChain);
     return effectiveCloseDate.getFullYear() === year && effectiveCloseDate.getMonth() === month;
   });
 
@@ -879,12 +943,12 @@ export const calculateChainAwareMonthlyPnL = (
 
     if (transaction.chainId && !processedChains.has(transaction.chainId)) {
       // This is a chained transaction and we haven't processed this chain yet
-      const chain = chains.find(c => c.id === transaction.chainId);
+      const chain = chainMap.get(transaction.chainId);
 
       if (chain && chain.chainStatus === 'Closed') {
         // For closed chains, attribute the entire chain P&L to this month
-        const chainPnL = calculateChainPnL(transaction.chainId, transactions);
-        const chainTransactions = transactions.filter(t => t.chainId === transaction.chainId);
+        const chainPnL = calculateChainPnL(transaction.chainId, transactions, txnsByChain);
+        const chainTransactions = txnsByChain.get(transaction.chainId) || [];
         const chainFees = chainTransactions.reduce((sum, t) => sum + (t.fees || 0), 0);
 
         totalPnL += chainPnL;
@@ -910,7 +974,9 @@ export const calculateChainAwareMonthlyPnL = (
 export const getEffectiveCloseDate = (
   transaction: OptionsTransaction,
   allTransactions: OptionsTransaction[],
-  chains: TradeChain[] = []
+  chains: TradeChain[] = [],
+  chainMap?: Map<string, TradeChain>,
+  txnsByChain?: Map<string, OptionsTransaction[]>
 ): Date => {
   if (!transaction.closeDate) {
     // Fallback for Assigned or Expired transactions without close date: use expiry date
@@ -924,14 +990,22 @@ export const getEffectiveCloseDate = (
 
   // For chained transactions, use the final chain close date
   if (transaction.chainId) {
-    const chain = chains.find(c => c.id === transaction.chainId);
+    const chain = chainMap
+      ? chainMap.get(transaction.chainId)
+      : chains.find(c => c.id === transaction.chainId);
+
     if (chain && chain.chainStatus === 'Closed') {
       // Find the latest close date in the chain
-      const chainTransactions = allTransactions.filter(t =>
-        t.chainId === transaction.chainId && t.closeDate
-      );
-      if (chainTransactions.length > 0) {
-        const latestCloseDate = chainTransactions
+      // Use txnsByChain if provided, otherwise filter from allTransactions
+      const chainTransactions = txnsByChain
+        ? (txnsByChain.get(transaction.chainId) || [])
+        : allTransactions.filter(t => t.chainId === transaction.chainId);
+
+      // Filter for transactions that HAVE a close date
+      const closedChainTransactions = chainTransactions.filter(t => t.closeDate);
+
+      if (closedChainTransactions.length > 0) {
+        const latestCloseDate = closedChainTransactions
           .map(t => parseLocalDate(t.closeDate!))
           .sort((a, b) => b.getTime() - a.getTime())[0];
         return latestCloseDate;
@@ -948,24 +1022,30 @@ export const getEffectiveCloseDate = (
  */
 export const calculateChainAwareStockPerformance = (
   transactions: OptionsTransaction[],
-  chains: TradeChain[] = []
+  chains: TradeChain[] = [],
+  chainMapInput?: Map<string, TradeChain>,
+  txnsByChainInput?: Map<string, OptionsTransaction[]>
 ): Map<string, { pnl: number; trades: number; totalCollateral: number }> => {
   const stockPerformance = new Map<string, { pnl: number; trades: number; totalCollateral: number }>();
   const processedChains = new Set<string>();
 
   // Use Maps for O(1) lookups and pre-grouping to avoid nested O(N*M) bottlenecks
-  const chainMap = new Map<string, TradeChain>();
-  for (const c of chains) {
-    chainMap.set(c.id, c);
+  const chainMap = chainMapInput || new Map<string, TradeChain>();
+  if (!chainMapInput) {
+    for (const c of chains) {
+      chainMap.set(c.id, c);
+    }
   }
 
-  const txnsByChain = new Map<string, OptionsTransaction[]>();
-  for (const t of transactions) {
-    if (t.chainId) {
-      if (!txnsByChain.has(t.chainId)) {
-        txnsByChain.set(t.chainId, []);
+  const txnsByChain = txnsByChainInput || new Map<string, OptionsTransaction[]>();
+  if (!txnsByChainInput) {
+    for (const t of transactions) {
+      if (t.chainId) {
+        if (!txnsByChain.has(t.chainId)) {
+          txnsByChain.set(t.chainId, []);
+        }
+        txnsByChain.get(t.chainId)!.push(t);
       }
-      txnsByChain.get(t.chainId)!.push(t);
     }
   }
 
