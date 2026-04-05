@@ -45,7 +45,7 @@ export default function TickerMultiSelect({
       <Button
         variant="outline"
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full justify-between min-w-[160px]"
+        className="w-full justify-between min-w-[160px] text-xs"
       >
         <div className="flex items-center space-x-2">
           <span>Ticker Filter</span>

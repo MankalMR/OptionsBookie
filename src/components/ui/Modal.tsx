@@ -43,7 +43,7 @@ export default function Modal({
       className="fixed inset-0 bg-black/50 dark:bg-black/70 overflow-y-auto h-full w-full z-50"
       onClick={handleOverlayClick}
     >
-      <div className={`relative top-10 mx-auto p-6 border border-border shadow-2xl rounded-lg bg-white dark:bg-gray-900 w-full ${sizeClasses[size]}`}>
+      <div className={`relative top-10 mx-auto p-4 sm:p-6 border border-border shadow-2xl rounded-lg bg-white dark:bg-gray-900 w-[calc(100%-1.5rem)] sm:w-full ${sizeClasses[size]}`}>
         <div className="mt-3">
           {/* Header */}
           <div className="flex items-center justify-between mb-4">

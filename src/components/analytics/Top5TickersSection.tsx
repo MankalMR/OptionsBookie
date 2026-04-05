@@ -187,17 +187,17 @@ export default function Top5TickersSection({ yearTop5Tickers, yearAllTickers, ye
             <table className="min-w-full divide-y divide-border">
               <thead className="bg-muted">
                 <tr>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase w-12"></th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Ticker</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Trades</th>
-                  <th className="px-4 py-2 text-right text-xs font-medium text-muted-foreground uppercase">P&L / Capital<br />RoR / Ann. RoR</th>
+                  <th className="px-2 sm:px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase w-12"></th>
+                  <th className="px-2 sm:px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Ticker</th>
+                  <th className="px-2 sm:px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Trades</th>
+                  <th className="px-2 sm:px-4 py-2 text-right text-xs font-medium text-muted-foreground uppercase">P&L / Capital<br />RoR / Ann. RoR</th>
                 </tr>
               </thead>
               <tbody className="bg-card divide-y divide-border">
                 {tickersToDisplay.map((tickerData, index) => (
                   <React.Fragment key={tickerData.ticker}>
                     <tr className="hover:bg-muted/30 cursor-pointer" onClick={() => toggleTicker(tickerData.ticker)}>
-                      <td className="px-4 py-2 text-center">
+                      <td className="px-2 sm:px-4 py-2 text-center">
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -212,7 +212,7 @@ export default function Top5TickersSection({ yearTop5Tickers, yearAllTickers, ye
                           )}
                         </button>
                       </td>
-                      <td className="px-4 py-2 text-sm">
+                      <td className="px-2 sm:px-4 py-2 text-sm">
                         <span
                           className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium"
                           style={{
@@ -223,10 +223,10 @@ export default function Top5TickersSection({ yearTop5Tickers, yearAllTickers, ye
                           #{index + 1} {tickerData.ticker}
                         </span>
                       </td>
-                      <td className="px-4 py-2 text-sm text-card-foreground">
+                      <td className="px-2 sm:px-4 py-2 text-sm text-card-foreground">
                         {tickerData.trades}
                       </td>
-                      <td className="px-4 py-2 text-sm">
+                      <td className="px-2 sm:px-4 py-2 text-sm">
                         <div className="flex flex-col space-y-1 items-end">
                           <span className="text-xs">
                             <span className={`${tickerData.pnl >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>

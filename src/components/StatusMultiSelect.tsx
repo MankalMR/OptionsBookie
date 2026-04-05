@@ -54,7 +54,7 @@ export default function StatusMultiSelect({
       <Button
         variant="outline"
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full justify-between min-w-[200px]"
+        className="w-full justify-between min-w-[200px] text-xs"
       >
         <div className="flex items-center space-x-2">
           <span>Status Filter</span>

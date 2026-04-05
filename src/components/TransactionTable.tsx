@@ -925,7 +925,12 @@ export default function TransactionTable({
               <div className="col-span-2 border-t my-1 pt-2 flex justify-between items-center">
                 <span className="text-muted-foreground">Realized Leg P&L:</span>
                 <span className={`font-bold ${(selectedInfoTransaction.profitLoss || 0) >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                  {formatPnLCurrency(selectedInfoTransaction.profitLoss || 0)}
+                  {(selectedInfoTransaction.profitLoss || 0).toLocaleString('en-US', {
+                    style: 'currency',
+                    currency: 'USD',
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2
+                  })}
                 </span>
               </div>
             </div>

@@ -101,9 +101,9 @@ export default function SymbolGroupedView({
   return (
     <div className="space-y-4">
       {/* Header with controls */}
-            <div className="flex justify-between items-center">
-              <div className="flex items-center space-x-4">
-                <h3 className="text-lg font-semibold">Trades by Symbol</h3>
+            <div className="flex flex-col sm:flex-row sm:items-center px-4 sm:px-0 gap-2 sm:gap-6 mb-2">
+              <h3 className="text-lg font-semibold whitespace-nowrap">Trades by Symbol</h3>
+              <div className="flex items-center space-x-2 w-full sm:w-auto justify-start">
                 {availableTickers.length > 0 && onTickerChange && (
                   <TickerMultiSelect
                     availableTickers={availableTickers}
@@ -112,17 +112,16 @@ export default function SymbolGroupedView({
                     className="w-48"
                   />
                 )}
+                <Tooltip content="Expand or collapse all symbol groups">
+                  <Button
+                    variant="outline"
+                    onClick={toggleAll}
+                    className="text-xs"
+                  >
+                    {allExpanded ? 'Collapse All' : 'Expand All'}
+                  </Button>
+                </Tooltip>
               </div>
-              <Tooltip content="Expand or collapse all symbol groups">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={toggleAll}
-                  className="text-xs"
-                >
-                  {allExpanded ? 'Collapse All' : 'Expand All'}
-                </Button>
-              </Tooltip>
             </div>
 
       {/* Symbol Groups */}
@@ -137,7 +136,7 @@ export default function SymbolGroupedView({
             <div key={symbol} className="border border-gray-200 dark:border-gray-700 rounded-md overflow-hidden">
               {/* Symbol Header - aligned with table content */}
               <div
-                className="px-6 py-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors border-b border-gray-200 dark:border-gray-700"
+                className="px-3 sm:px-6 py-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors border-b border-gray-200 dark:border-gray-700"
                 onClick={() => toggleSymbol(symbol)}
               >
                 <div className="flex items-center justify-between">

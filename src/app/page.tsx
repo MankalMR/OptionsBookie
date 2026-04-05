@@ -703,39 +703,40 @@ export default function Home() {
                 {/* Recent Trades - Full Width */}
                 <Card>
                   <CardHeader>
-                    <div className="flex justify-between items-center">
+                    <div className="flex flex-wrap items-center gap-4 sm:justify-between">
                       <div className="flex items-center space-x-4">
-                        <CardTitle className="text-xl">Recent Trades</CardTitle>
+                        <CardTitle className="text-xl whitespace-nowrap">Recent Trades</CardTitle>
 
-                        {/* Filters */}
-                        {!isMobile && (
-                          <div className="flex items-center space-x-2">
-                            <StatusMultiSelect
-                              selectedStatuses={selectedStatuses}
-                              onStatusChange={handleStatusChange}
-                              className="w-48"
-                            />
-                          </div>
-                        )}
+                        {/* Mobile-only proximal Add Button */}
+                        <Button variant="default" onClick={() => setShowAddModal(true)} size="sm" className="sm:hidden">
+                          <Plus className="mr-2 h-4 w-4" />
+                          Add Trade
+                        </Button>
 
-                        {/* View Toggle - Only show for trades tab and desktop */}
-                        {!isMobile && (
+                        {/* Desktop-only Filters and Toggles (Proximal to Title) */}
+                        <div className="hidden sm:flex items-center space-x-4">
+                          <StatusMultiSelect
+                            selectedStatuses={selectedStatuses}
+                            onStatusChange={handleStatusChange}
+                            className="w-48"
+                          />
                           <ViewToggle
                             viewMode={viewMode}
                             onViewChange={setViewMode}
                           />
-                        )}
+                        </div>
                       </div>
 
                       <div className="flex items-center space-x-4">
-                        {!isMobile && (
-                          <div className="text-sm text-muted-foreground">
-                            💡 Click the ✏️ button to edit or close trades
-                          </div>
-                        )}
-                        <Button variant="default" onClick={() => setShowAddModal(true)}>
+                        {/* Desktop Tip Text */}
+                        <div className="hidden lg:block text-sm text-muted-foreground mr-2">
+                          💡 Click the ✏️ button to edit or close trades
+                        </div>
+
+                        {/* Desktop-only anchored Add Button - always align right on sm+ */}
+                        <Button variant="default" onClick={() => setShowAddModal(true)} size="sm" className="hidden sm:flex">
                           <Plus className="mr-2 h-4 w-4" />
-                          {isMobile ? 'Add' : 'Add Trade'}
+                          Add Trade
                         </Button>
                       </div>
                     </div>
@@ -760,7 +761,7 @@ export default function Home() {
                       )}
                     </CardDescription>
                   </CardHeader>
-                  <CardContent>
+                  <CardContent className="px-2 sm:px-6">
                     {viewMode === 'grouped' ? (
                       <SymbolGroupedView
                         transactions={filteredTransactions}
