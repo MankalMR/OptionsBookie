@@ -2,7 +2,8 @@
 
 import { useSession, signIn, signOut } from 'next-auth/react';
 import { useIsMobile } from '@/hooks/useMediaQuery';
-import { LogOut } from 'lucide-react';
+import { LogOut, Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 export default function AuthButton() {
   const { data: session, status } = useSession();
@@ -11,7 +12,7 @@ export default function AuthButton() {
   if (status === 'loading') {
     return (
       <div className="flex items-center space-x-2">
-        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+        <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
         <span className="text-sm text-gray-600">Loading...</span>
       </div>
     );
@@ -34,12 +35,13 @@ export default function AuthButton() {
             </span>
           )}
         </div>
-        <button
+        <Button
+          variant="destructive"
+          size={isMobile ? 'icon' : 'default'}
           onClick={() => signOut()}
-          className={`bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium transition-colors flex items-center ${
-            isMobile ? 'p-2' : 'px-4 py-2 space-x-2'
-          }`}
           title={isMobile ? 'Sign Out' : undefined}
+          aria-label={isMobile ? 'Sign Out' : undefined}
+          className={isMobile ? '' : 'space-x-2'}
         >
           {isMobile ? (
             <LogOut className="h-4 w-4" />
@@ -49,15 +51,15 @@ export default function AuthButton() {
               <span>Sign Out</span>
             </>
           )}
-        </button>
+        </Button>
       </div>
     );
   }
 
   return (
-    <button
+    <Button
       onClick={() => signIn('google')}
-      className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center space-x-2"
+      className="bg-blue-600 hover:bg-blue-700 text-white space-x-2"
     >
       <svg className="w-4 h-4" viewBox="0 0 24 24">
         <path
@@ -78,6 +80,6 @@ export default function AuthButton() {
         />
       </svg>
       <span>Sign in with Google</span>
-    </button>
+    </Button>
   );
 }

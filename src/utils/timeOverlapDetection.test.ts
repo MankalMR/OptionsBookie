@@ -1,4 +1,4 @@
-import { dateRangesOverlap, detectTimeOverlaps, detectOverlapsByStock } from '../timeOverlapDetection';
+import { dateRangesOverlap, detectTimeOverlaps, detectOverlapsByStock } from './timeOverlapDetection';
 import { OptionsTransaction } from '@/types/options';
 
 // Helper to create a mock transaction

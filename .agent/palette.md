@@ -8,3 +8,7 @@
 ## 2024-03-26 - Disabled states & Loaders on Modals
 **Learning:** Adding the `Loader2` component from `lucide-react` onto asynchronous form submissions (Save Trade, Save Changes, Create Portfolio) not only gives an important visual indication of activity but preventing multi-clicks is vital since async actions like saving to the DB can take upwards of a few seconds.
 **Action:** When working on generic Shadcn `Button` elements handling form submissions or async operations, always incorporate a disabled state boolean linked directly to the `Promise` resolution cycle (usually a `useState` tracking `loading` or `isSubmitting`), and replace the text with a spinning `Loader2` indicator for immediate feedback.
+
+## 2024-04-01 - Raw HTML Elements in Components
+**Learning:** Native HTML `<button>` elements with raw Tailwind classes often bypass global design system conventions, leading to a lack of proper focus states and accessibility features like `focus-visible`.
+**Action:** Always prefer design system components (e.g., Shadcn UI `<Button>`) over raw HTML elements to ensure consistent accessibility states and screen reader support out of the box. Ensure semantic class names (`text-muted-foreground`) are used instead of non-existent arbitrary values (`text-muted-foreground600`).
