@@ -1,5 +1,5 @@
 ## Status
-done
+pending-implementation
 
 ## Context
 Traders currently rely on manual dropdowns and input fields to filter their trade history. When analyzing past performance, they often have specific, nuanced questions in mind (e.g., "Show me all losing puts on AAPL this year" or "What were my winning iron condors last month?"). Translating these questions into manual UI filters is cumbersome and slows down post-trade analysis.
@@ -52,16 +52,3 @@ sequenceDiagram
 - [ ] The UI displays a clear loading indicator during the AI request.
 - [ ] Active AI filters are visibly indicated to the user, with an option to clear them.
 - [ ] If the AI request fails, an unobtrusive error message is shown and the table remains unaffected.
-
-## Implementation Notes
-- **Files Modified:** 
-  - `src/app/api/ai/parse-query/route.ts`: Core parsing logic with Gemini 1.5/2.0 integration and regex-based mock fallback.
-  - `src/components/SummaryView.tsx`: Centralized AI filter state and main search bar entry point.
-  - `src/components/analytics/TransactionsTable.tsx`: Added `isDemo` context and `showSearch` toggle to prevent redundancy.
-  - Component hierarchy: Propagated `isDemo` flag from `SummaryView` -> `YearlyPerformanceCard` -> `YearlySummaryCard` -> `MonthlyBreakdownSection` -> `TransactionsTable`.
-- **Behavior:** 
-  - **Authenticated Users:** Always use the real LLM (Gemini) for high-accuracy parsing, even if site-wide demo mode is enabled.
-  - **Demo Sessions:** Uses a robust regex-based heuristic in the API (recognizing any 3-5 letter ticker like `SOXX` or `AAPL`, plus strategy keywords) to provide a fast, zero-cost UX.
-  - **Redundancy Cleanup:** Redundant search bars were removed from expanded month/ticker rows since the filter is now global to the view.
-- **Observability:** Added `logger.info` to capture raw LLM text responses for debug validation.
-- **Verification:** Validated both real AI extraction (using `SOXX` examples) and demo fallback stability.

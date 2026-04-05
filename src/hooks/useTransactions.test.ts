@@ -152,6 +152,11 @@ describe('useTransactions hook', () => {
         await result.current.addTransaction(mockTransactionInput);
       });
 
+      // Wait for state updates to settle
+      await waitFor(() => {
+        expect(result.current.error).toBe(null);
+      });
+
       expect(mockFetch).toHaveBeenCalledWith('/api/transactions', {
         method: 'POST',
         headers: {

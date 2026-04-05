@@ -11,7 +11,6 @@ Email: manohar.mankala@gmail.com
 
 - **Multi-Portfolio Support**: Organize trades across multiple portfolios
 - **Comprehensive Trade Tracking**: Track all aspects of options trades including P&L, days held, and annualized returns
-- **AI-Powered Natural Language Filtering**: Filter trade history using natural language queries (e.g., "Show me winning AAPL puts")
 - **Real-time Analytics**: View portfolio performance and trade statistics
 - **Secure Authentication**: Google OAuth integration with NextAuth.js
 - **Responsive Design**: Modern UI built with Tailwind CSS

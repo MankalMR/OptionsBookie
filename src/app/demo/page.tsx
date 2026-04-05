@@ -763,7 +763,6 @@ export default function DemoPage() {
                                 selectedPortfolioId ? portfolios.find(p => p.id === selectedPortfolioId)?.name : null
                             }
                             chains={chains}
-                            isDemo={true}
                         />
                     )}
                 </main>
