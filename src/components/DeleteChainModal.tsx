@@ -63,12 +63,12 @@ export default function DeleteChainModal({
             <div className="flex items-center space-x-2 text-muted-foreground">
               <Link className="h-4 w-4" />
               <span className="font-medium">{stockSymbol} Chain</span>
-              <span className="text-xs bg-muted text-muted-foreground600 px-2 py-1 rounded">
+              <span className="text-xs bg-muted text-muted-foreground px-2 py-1 rounded">
                 {chainTransactions.length} transactions
               </span>
             </div>
 
-            <p className="text-muted-foreground600">
+            <p className="text-muted-foreground">
               Are you sure you want to delete this entire chain? This will permanently delete all {chainTransactions.length} transactions in this chain.
             </p>
 

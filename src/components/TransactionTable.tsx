@@ -5,15 +5,16 @@ import { useState, useEffect } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Edit, Trash2, ChevronDown, ChevronRight, Link, Circle } from 'lucide-react';
+import { Edit, Trash2, ChevronDown, ChevronRight, Link, Circle, Info } from 'lucide-react';
 import { useStockPrices } from '@/hooks/useStockPrices';
 import StockPriceDisplay, { ITMIndicator } from '@/components/StockPriceDisplay';
-import { calculateDTE, calculateDH, formatPnLNumber, calculateChainPnL, calculateCollateral, calculateRoR, calculateChainCollateral, calculateChainRoR } from '@/utils/optionsCalculations';
+import { calculateDTE, calculateDH, formatPnLNumber, calculateChainPnL, calculateCollateral, calculateRoR, calculateChainCollateral, calculateChainRoR, formatPnLCurrency } from '@/utils/optionsCalculations';
 import { formatDisplayDateShort } from '@/utils/dateUtils';
 import { getTransactionRowClass, formatStrikePrice, isLEAP } from '@/utils/formatUtils';
 import PnLDisplay from '@/components/PnLDisplay';
 import { useIsMobile } from '@/hooks/useMediaQuery';
 import Tooltip from '@/components/ui/tooltip';
+import Modal from '@/components/ui/Modal';
 
 interface TransactionTableProps {
   transactions: OptionsTransaction[];
@@ -42,6 +43,7 @@ export default function TransactionTable({
   const [sortBy, setSortBy] = useState<keyof OptionsTransaction>('tradeOpenDate');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [collapsedChains, setCollapsedChains] = useState<Set<string>>(new Set());
+  const [selectedInfoTransaction, setSelectedInfoTransaction] = useState<OptionsTransaction | null>(null);
 
   // Initialize collapsed state for closed chains
   useEffect(() => {
@@ -603,28 +605,27 @@ export default function TransactionTable({
                       </TableCell>
                       <TableCell>
                         <div className="flex space-x-1">
-                          {/* Hide edit button for rolled transactions to prevent data integrity issues */}
-                          {transaction.status !== 'Rolled' ? (
+                          {/* Chain Head (index 0) is always editable. Historical legs (index > 0) show a detailed Info Modal. */}
+                          {index === 0 ? (
                             <Button
                               variant="ghost"
                               size="sm"
                               onClick={() => onEdit(transaction)}
-                              className="h-8 w-8 p-0 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                              className="h-8 w-8 p-0 border border-transparent hover:border-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                               aria-label="Edit transaction"
                             >
                               <Edit className="h-4 w-4" />
                             </Button>
                           ) : (
-                            <Tooltip content="Cannot edit rolled transactions. Delete entire chain to make changes.">
-                              <div
-                                className="h-8 w-8 flex items-center justify-center text-muted-foreground cursor-not-allowed focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-                                aria-label="Edit disabled for rolled transactions"
-                                role="img"
-                                tabIndex={0}
-                              >
-                                <Edit className="h-4 w-4" />
-                              </div>
-                            </Tooltip>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setSelectedInfoTransaction(transaction)}
+                              className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                              aria-label="View transaction details"
+                            >
+                              <Info className="h-4 w-4" />
+                            </Button>
                           )}
                           {!isMobile && (
                             <Button
@@ -872,6 +873,98 @@ export default function TransactionTable({
           })()}
         </TableBody>
       </Table>
+      {/* Transaction Info Modal */}
+      {selectedInfoTransaction && (
+        <Modal
+          isOpen={!!selectedInfoTransaction}
+          onClose={() => setSelectedInfoTransaction(null)}
+          title={
+            <div className="flex items-center space-x-2">
+              <span className="font-bold">{selectedInfoTransaction.stockSymbol}</span>
+              <Badge variant="outline" className="text-xs">{selectedInfoTransaction.status}</Badge>
+            </div>
+          }
+          size="sm"
+        >
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-y-3 text-sm border-b pb-4">
+              <span className="text-muted-foreground">Open Date:</span>
+              <span className="text-right font-medium">
+                {new Date(selectedInfoTransaction.tradeOpenDate).toLocaleDateString(undefined, {
+                  month: 'short', day: 'numeric', year: 'numeric'
+                })}
+              </span>
+
+              <span className="text-muted-foreground">Close Date:</span>
+              <span className="text-right font-medium text-orange-600">
+                {selectedInfoTransaction.closeDate
+                  ? new Date(selectedInfoTransaction.closeDate).toLocaleDateString(undefined, {
+                      month: 'short', day: 'numeric', year: 'numeric'
+                    })
+                  : 'N/A'
+                }
+              </span>
+
+              <span className="text-muted-foreground">Strike:</span>
+              <span className="text-right font-medium">
+                ${selectedInfoTransaction.strikePrice} {selectedInfoTransaction.callOrPut}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-y-3 text-sm border-b pb-4">
+              <span className="text-muted-foreground font-semibold">Initial Opening Credit:</span>
+              <span className="text-right font-bold text-emerald-600">
+                ${selectedInfoTransaction.premium.toFixed(2)}
+              </span>
+
+              <span className="text-muted-foreground font-semibold">Exit Cost (To Close):</span>
+              <span className="text-right font-bold text-red-600">
+                {selectedInfoTransaction.exitPrice ? `$${selectedInfoTransaction.exitPrice.toFixed(2)}` : '$0.00'}
+              </span>
+
+              <div className="col-span-2 border-t my-1 pt-2 flex justify-between items-center">
+                <span className="text-muted-foreground">Realized Leg P&L:</span>
+                <span className={`font-bold ${(selectedInfoTransaction.profitLoss || 0) >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                  {formatPnLCurrency(selectedInfoTransaction.profitLoss || 0)}
+                </span>
+              </div>
+            </div>
+
+            {/* Roll Context Logic */}
+            {(() => {
+              const chainTrades = transactions
+                .filter(t => t.chainId === selectedInfoTransaction.chainId)
+                .sort((a, b) => new Date(b.tradeOpenDate).getTime() - new Date(a.tradeOpenDate).getTime());
+              
+              const currentIndex = chainTrades.findIndex(t => t.id === selectedInfoTransaction.id);
+              const nextLeg = currentIndex > 0 ? chainTrades[currentIndex - 1] : null;
+
+              if (!nextLeg) return null;
+
+              const rollSpread = nextLeg.premium - (selectedInfoTransaction.exitPrice || 0);
+
+              return (
+                <div className="bg-blue-50/50 dark:bg-blue-950/20 p-3 rounded-md border border-blue-100 dark:border-blue-900/50 space-y-2">
+                  <div className="text-[11px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider">Roll Analysis</div>
+                  <div className="grid grid-cols-2 gap-y-1 text-xs">
+                    <span className="text-muted-foreground">Roll-to Entry Credit:</span>
+                    <span className="text-right font-medium text-emerald-600">${nextLeg.premium.toFixed(2)}</span>
+                    
+                    <span className="text-muted-foreground font-semibold pt-1 border-t mt-1">Net Roll Spread:</span>
+                    <span className={`text-right font-bold pt-1 border-t mt-1 ${rollSpread >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                      {rollSpread >= 0 ? '+' : ''}${rollSpread.toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+              );
+            })()}
+
+            <div className="pt-2 text-xs text-center text-muted-foreground italic">
+              Historical legs are locked to preserve chain integrity.
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }
