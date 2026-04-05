@@ -21,6 +21,7 @@ import {
 } from '@/utils/optionsCalculations';
 import { parseLocalDate } from '@/utils/dateUtils';
 import { useIsMobile } from '@/hooks/useMediaQuery';
+import { Sparkles } from 'lucide-react';
 
 // Import our new modular components
 import QuickStatsCard from './analytics/QuickStatsCard';
@@ -33,6 +34,7 @@ interface SummaryViewProps {
   transactions: OptionsTransaction[];
   selectedPortfolioName?: string | null;
   chains?: TradeChain[];
+  isDemo?: boolean;
 }
 
 interface MonthlySummary {
@@ -58,12 +60,77 @@ export interface YearlySummary {
   monthlyBreakdown: MonthlySummary[];
 }
 
-export default function SummaryView({ transactions, selectedPortfolioName, chains = [] }: SummaryViewProps) {
+export default function SummaryView({
+  transactions: initialTransactions,
+  selectedPortfolioName,
+  chains = [],
+  isDemo = false
+}: SummaryViewProps) {
   const isMobile = useIsMobile();
 
   // Memoize all realized transactions so we don't recalculate them repeatedly
   const allRealizedTransactions = useMemo(() => getRealizedTransactions(transactions, chains), [transactions, chains]);
 
+  // AI Filter State
+  const [aiQuery, setAiQuery] = useState('');
+  const [isAiLoading, setIsAiLoading] = useState(false);
+  const [activeAiFilters, setActiveAiFilters] = useState<{ symbol?: string; type?: string; outcome?: string } | null>(null);
+  const [aiError, setAiError] = useState<string | null>(null);
+
+  const handleAiSearch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!aiQuery.trim()) return;
+
+    setIsAiLoading(true);
+    setAiError(null);
+
+    try {
+      const res = await fetch('/api/ai/parse-query', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: aiQuery, isDemo }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to parse query');
+      }
+
+      // Handle the fact that the API might return the filter object directly or wrapped in `{ filter: ... }`
+      // Our API route returns it directly via `NextResponse.json(filters)`
+      setActiveAiFilters(data.filter || data);
+    } catch (err) {
+      console.error('Error in AI search:', err);
+      setAiError(err instanceof Error ? err.message : 'An error occurred');
+    } finally {
+      setIsAiLoading(false);
+    }
+  };
+
+  const clearAiFilters = () => {
+    setActiveAiFilters(null);
+    setAiQuery('');
+    setAiError(null);
+  };
+
+  const transactions = useMemo(() => {
+    let filtered = initialTransactions;
+    if (activeAiFilters) {
+      filtered = filtered.filter(t => {
+        if (activeAiFilters.symbol && t.stockSymbol.toUpperCase() !== activeAiFilters.symbol.toUpperCase()) return false;
+        if (activeAiFilters.type && t.callOrPut.toLowerCase() !== activeAiFilters.type.toLowerCase()) return false;
+
+        if (activeAiFilters.outcome) {
+          const pnl = t.profitLoss || 0;
+          if (activeAiFilters.outcome === 'win' && pnl <= 0) return false;
+          if (activeAiFilters.outcome === 'loss' && pnl >= 0) return false;
+        }
+        return true;
+      });
+    }
+    return filtered;
+  }, [initialTransactions, activeAiFilters]);
   const yearlySummaries = useMemo(() => {
     const completedTransactions = allRealizedTransactions.filter(t =>
       t.closeDate || t.status === 'Assigned' || t.status === 'Expired'
@@ -410,7 +477,7 @@ export default function SummaryView({ transactions, selectedPortfolioName, chain
     bestStockByRoR: bestStocks.bestByRoR
   };
 
-  if (transactions.length === 0) {
+  if (transactions.length === 0 && !activeAiFilters) {
     return (
       <div className="text-center py-12">
         <div className="text-gray-500">
@@ -439,6 +506,7 @@ export default function SummaryView({ transactions, selectedPortfolioName, chain
           transactions={transactions}
           chains={chains}
           selectedPortfolioName={selectedPortfolioName}
+          isDemo={isDemo}
           mobileOnly={true}
         />
       </div>
@@ -448,6 +516,63 @@ export default function SummaryView({ transactions, selectedPortfolioName, chain
   // Desktop view: Show all analytics components
   return (
     <div className="space-y-8">
+      {/* AI Filter UI */}
+      <div className="bg-muted/30 p-4 rounded-lg border border-border">
+        <form onSubmit={handleAiSearch} className="flex gap-2">
+          <div className="relative flex-1">
+            <Sparkles className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <input
+              type="text"
+              value={aiQuery}
+              onChange={(e) => setAiQuery(e.target.value)}
+              placeholder="Ask AI to filter... (e.g., 'Show me winning TSLA puts')"
+              className="w-full pl-9 pr-4 py-2 bg-background border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              disabled={isAiLoading}
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={isAiLoading || !aiQuery.trim()}
+            className="px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium disabled:opacity-50"
+          >
+            {isAiLoading ? 'Thinking...' : 'Filter'}
+          </button>
+          {activeAiFilters && (
+            <button
+              type="button"
+              onClick={clearAiFilters}
+              className="px-4 py-2 border bg-background text-foreground rounded-md text-sm font-medium hover:bg-muted"
+            >
+              Clear
+            </button>
+          )}
+        </form>
+
+        {aiError && (
+          <p className="text-red-500 text-sm mt-2">{aiError}</p>
+        )}
+
+        {activeAiFilters && (
+          <div className="flex flex-wrap gap-2 mt-3">
+            <span className="text-sm text-muted-foreground flex items-center">AI Filters applied:</span>
+            {activeAiFilters.symbol && (
+              <span className="px-2 py-1 bg-sky-100 dark:bg-sky-900/40 text-sky-800 dark:text-sky-300 text-xs rounded-full border border-sky-200 dark:border-sky-800">
+                Symbol: {activeAiFilters.symbol.toUpperCase()}
+              </span>
+            )}
+            {activeAiFilters.type && (
+              <span className="px-2 py-1 bg-sky-100 dark:bg-sky-900/40 text-sky-800 dark:text-sky-300 text-xs rounded-full border border-sky-200 dark:border-sky-800">
+                Type: {activeAiFilters.type}
+              </span>
+            )}
+            {activeAiFilters.outcome && (
+              <span className="px-2 py-1 bg-sky-100 dark:bg-sky-900/40 text-sky-800 dark:text-sky-300 text-xs rounded-full border border-sky-200 dark:border-sky-800">
+                Outcome: {activeAiFilters.outcome === 'win' ? 'Wins only' : 'Losses only'}
+              </span>
+            )}
+          </div>
+        )}
+      </div>
       <AllTimePortfolioAnalytics selectedPortfolioName={selectedPortfolioName}>
         <QuickStatsCard {...quickStatsData} />
         <StrategyPerformanceCard strategyPerformance={strategyPerformance} />
@@ -467,6 +592,7 @@ export default function SummaryView({ transactions, selectedPortfolioName, chain
         transactions={transactions}
         chains={chains}
         selectedPortfolioName={selectedPortfolioName}
+        isDemo={isDemo}
         mobileOnly={false}
       />
 

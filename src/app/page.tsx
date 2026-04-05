@@ -793,6 +793,7 @@ export default function Home() {
                 transactions={portfolioFilteredTransactions}
                 selectedPortfolioName={selectedPortfolioId ? portfolios.find(p => p.id === selectedPortfolioId)?.name : null}
                 chains={chains}
+                isDemo={false}
               />
             )}
           </main>

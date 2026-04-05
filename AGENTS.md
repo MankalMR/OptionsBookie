@@ -153,6 +153,7 @@ npm run build
 | Database fields / Supabase | `01-initial-database-setup.sql`, `src/lib/database.ts` |
 | Demo sandbox / Pre-Auth | `DEMO_ARCHITECTURE.md` |
 | New Component / Page | `ARCHITECTURE.md` |
+| AI Filter / NL2Schema | `src/app/api/ai/parse-query/route.ts`, `.agent/sage/2026-03-22-llm-trade-history-query.md` |
 
 ### Step 3: Explore Codebase
 
