@@ -188,7 +188,6 @@ export default function Top5TickersSection({ yearTop5Tickers, yearAllTickers, ye
               <thead className="bg-muted">
                 <tr>
                   <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase w-12"></th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Rank</th>
                   <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Ticker</th>
                   <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Trades</th>
                   <th className="px-4 py-2 text-right text-xs font-medium text-muted-foreground uppercase">P&L / Capital<br />RoR / Ann. RoR</th>
@@ -213,16 +212,15 @@ export default function Top5TickersSection({ yearTop5Tickers, yearAllTickers, ye
                           )}
                         </button>
                       </td>
-                      <td className="px-4 py-2 text-sm font-medium text-card-foreground">#{index + 1}</td>
                       <td className="px-4 py-2 text-sm">
                         <span
-                          className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium"
+                          className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium"
                           style={{
                             backgroundColor: `hsl(${(index * 72) % 360} 60% 85%)`,
                             color: `hsl(${(index * 72) % 360} 70% 25%)`
                           }}
                         >
-                          {tickerData.ticker}
+                          #{index + 1} {tickerData.ticker}
                         </span>
                       </td>
                       <td className="px-4 py-2 text-sm text-card-foreground">
@@ -259,7 +257,7 @@ export default function Top5TickersSection({ yearTop5Tickers, yearAllTickers, ye
                     </tr>
                     {expandedTickers.has(tickerData.ticker) && (
                       <tr>
-                        <td colSpan={5} className="p-0 bg-muted/10 border-l-4 border-sky-500/30">
+                        <td colSpan={4} className="p-0 bg-muted/10 border-l-4 border-sky-500/30">
                           <TransactionsTable
                             transactions={yearTransactions.filter(t => t.stockSymbol === tickerData.ticker)}
                             chains={chains}

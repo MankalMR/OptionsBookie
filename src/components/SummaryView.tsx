@@ -487,37 +487,12 @@ export default function SummaryView({
     );
   }
 
-  if (isMobile) {
-    // Mobile view: Show only the monthly breakdown table
-    return (
-      <div className="space-y-4">
-        <YearlyPerformanceCard
-          yearlySummaries={yearlySummaries}
-          selectedYear={selectedYear}
-          setSelectedYear={(year) => {
-            setUserHasInteracted(true);
-            setSelectedYear(year);
-          }}
-          getChartDataForYear={getChartDataForYear}
-          getTop5TickersForYear={getTop5TickersForYear}
-          getAllTickersForYear={getAllTickersForYear}
-          getTopTickersForMonth={getTopTickersForMonth}
-          transactions={transactions}
-          chains={chains}
-          selectedPortfolioName={selectedPortfolioName}
-          isDemo={isDemo}
-          mobileOnly={true}
-        />
-      </div>
-    );
-  }
-
-  // Desktop view: Show all analytics components
+  // Unified responsive view
   return (
-    <div className="space-y-8">
-      {/* AI Filter UI */}
-      <div className="bg-muted/30 p-4 rounded-lg border border-border">
-        <form onSubmit={handleAiSearch} className="flex gap-2">
+    <div className={isMobile ? "space-y-4" : "space-y-8"}>
+      {/* AI Filter UI - Now visible on all devices */}
+      <div className="bg-muted/30 p-3 sm:p-4 rounded-lg border border-border">
+        <form onSubmit={handleAiSearch} className="flex flex-col sm:flex-row gap-2">
           <div className="relative flex-1">
             <Sparkles className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <input
@@ -529,22 +504,24 @@ export default function SummaryView({
               disabled={isAiLoading}
             />
           </div>
-          <button
-            type="submit"
-            disabled={isAiLoading || !aiQuery.trim()}
-            className="px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium disabled:opacity-50"
-          >
-            {isAiLoading ? 'Thinking...' : 'Filter'}
-          </button>
-          {activeAiFilters && (
+          <div className="flex gap-2">
             <button
-              type="button"
-              onClick={clearAiFilters}
-              className="px-4 py-2 border bg-background text-foreground rounded-md text-sm font-medium hover:bg-muted"
+              type="submit"
+              disabled={isAiLoading || !aiQuery.trim()}
+              className="flex-1 sm:flex-none px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium disabled:opacity-50"
             >
-              Clear
+              {isAiLoading ? 'Thinking...' : 'Filter'}
             </button>
-          )}
+            {activeAiFilters && (
+              <button
+                type="button"
+                onClick={clearAiFilters}
+                className="flex-1 sm:flex-none px-4 py-2 border bg-background text-foreground rounded-md text-sm font-medium hover:bg-muted"
+              >
+                Clear
+              </button>
+            )}
+          </div>
         </form>
 
         {aiError && (
@@ -572,10 +549,13 @@ export default function SummaryView({
           </div>
         )}
       </div>
-      <AllTimePortfolioAnalytics selectedPortfolioName={selectedPortfolioName}>
-        <QuickStatsCard {...quickStatsData} />
-        <StrategyPerformanceCard strategyPerformance={strategyPerformance} />
-      </AllTimePortfolioAnalytics>
+
+      {!isMobile && (
+        <AllTimePortfolioAnalytics selectedPortfolioName={selectedPortfolioName}>
+          <QuickStatsCard {...quickStatsData} />
+          <StrategyPerformanceCard strategyPerformance={strategyPerformance} />
+        </AllTimePortfolioAnalytics>
+      )}
 
       <YearlyPerformanceCard
         yearlySummaries={yearlySummaries}
@@ -592,13 +572,15 @@ export default function SummaryView({
         chains={chains}
         selectedPortfolioName={selectedPortfolioName}
         isDemo={isDemo}
-        mobileOnly={false}
+        mobileOnly={isMobile}
       />
 
-      <BenchmarkComparisonChart
-        months={24}
-        className="w-full"
-      />
+      {!isMobile && (
+        <BenchmarkComparisonChart
+          months={24}
+          className="w-full"
+        />
+      )}
     </div>
   );
 }

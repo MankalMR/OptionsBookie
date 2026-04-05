@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Button } from '@/components/ui/button';
 import Modal from '@/components/ui/Modal';
 import { logger } from "@/lib/logger";
-import { Loader2 } from 'lucide-react';
+import { Loader2, Check, XCircle } from 'lucide-react';
 
 interface EditTransactionModalProps {
   transaction: OptionsTransaction;
@@ -78,7 +78,8 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitStatus, setSubmitStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [apiError, setApiError] = useState<string | null>(null);
 
   const formatCurrency = (amount: number) => {
     return amount < 0 ? `-$${Math.abs(amount).toFixed(2)}` : `$${amount.toFixed(2)}`;
@@ -243,7 +244,8 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
       updatedAt: new Date(),
     };
 
-    setIsSubmitting(true);
+    setSubmitStatus('loading');
+    setApiError(null);
     try {
       if (formData.status === 'Closed' || formData.status === 'Assigned' || formData.status === 'Expired') {
         updates.exitPrice = formData.exitPrice;
@@ -256,14 +258,21 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
         await onSave(transaction.id, updates);
       } else if (formData.status === 'Rolled') {
         await handleRollTrade();
+        return; // handleRollTrade manages its own status and closing
       } else {
         updates.exitPrice = undefined;
         updates.closeDate = undefined;
         updates.annualizedROR = undefined;
         await onSave(transaction.id, updates);
       }
-    } finally {
-      setIsSubmitting(false);
+      
+      setSubmitStatus('success');
+      setTimeout(() => {
+        onClose();
+      }, 1000);
+    } catch (error) {
+      setSubmitStatus('error');
+      setApiError(error instanceof Error ? error.message : 'Failed to save transaction');
     }
   };
 
@@ -460,12 +469,15 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
       });
       if (!newTradeResponse.ok) throw new Error('Failed to create new open trade');
 
-      onClose();
-      alert('Trade rolled successfully! New open position created.');
+      setSubmitStatus('success');
+      setTimeout(() => {
+        onClose();
+      }, 1200);
 
     } catch (error) {
       logger.error({ error }, 'Error rolling trade:');
-      alert('Failed to roll trade. Please try again.');
+      setSubmitStatus('error');
+      setApiError(error instanceof Error ? error.message : 'Failed to roll trade');
     }
   };
 
@@ -477,6 +489,13 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
       size="lg"
     >
       <form onSubmit={handleSubmit} className="space-y-4">
+        {apiError && (
+          <div className="bg-destructive/10 text-destructive p-3 rounded-md text-sm flex items-start gap-2 border border-destructive/20 animate-in fade-in slide-in-from-top-1">
+            <XCircle className="h-4 w-4 mt-0.5 shrink-0" />
+            <p>{apiError}</p>
+          </div>
+        )}
+
         {/* Portfolio - Full Width */}
         {portfolios.length > 0 && (
           <div className="space-y-2">
@@ -850,21 +869,27 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
             type="button"
             variant="outline"
             onClick={onClose}
-            disabled={isSubmitting}
+            disabled={submitStatus === 'loading' || submitStatus === 'success'}
           >
             Cancel
           </Button>
           <Button
             type="submit"
-            disabled={!isFormValid || isSubmitting}
+            disabled={!isFormValid || submitStatus === 'loading' || submitStatus === 'success'}
+            className={submitStatus === 'success' ? 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600' : ''}
           >
-            {isSubmitting ? (
+            {submitStatus === 'loading' ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Saving...
+                {formData.status === 'Rolled' ? 'Rolling...' : 'Saving...'}
+              </>
+            ) : submitStatus === 'success' ? (
+              <>
+                <Check className="mr-2 h-4 w-4" />
+                {formData.status === 'Rolled' ? 'Rolled!' : 'Saved!'}
               </>
             ) : (
-              'Save Changes'
+              formData.status === 'Rolled' ? 'Roll Trade' : 'Save Changes'
             )}
           </Button>
         </div>

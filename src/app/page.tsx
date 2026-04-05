@@ -397,7 +397,7 @@ export default function Home() {
       await fetchPortfolios();
     } catch (error) {
       logger.error({ error }, 'Failed to delete portfolio:');
-      alert(`Failed to delete portfolio: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw error;
     }
   };
 
@@ -419,7 +419,7 @@ export default function Home() {
       await fetchPortfolios();
     } catch (error) {
       logger.error({ error }, 'Failed to set default portfolio:');
-      alert(`Failed to set default portfolio: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw error;
     }
   };
 
