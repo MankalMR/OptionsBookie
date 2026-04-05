@@ -2,6 +2,7 @@
 
 import Head from 'next/head';
 import { getBaseUrl, getSiteName, getSiteDescription, getSiteKeywords, buildImageUrl } from '@/lib/url-utils';
+import { safeJsonLdStringify } from '@/utils/security';
 
 interface SEOHeadProps {
   title?: string;
@@ -54,7 +55,7 @@ export default function SEOHead({
       {structuredData && (
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+          dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(structuredData) }}
         />
       )}
     </Head>

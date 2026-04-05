@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import { getBaseUrl, getSiteName, getSiteDescription, getAuthorInfo, buildImageUrl } from '@/lib/url-utils';
+import { safeJsonLdStringify } from '@/utils/security';
 
 /**
  * Type definition for JSON-LD structured data schemas
@@ -27,7 +28,7 @@ export default function StructuredData({ data }: StructuredDataProps) {
     // Add new structured data
     const script = document.createElement('script');
     script.type = 'application/ld+json';
-    script.text = JSON.stringify(data);
+    script.text = safeJsonLdStringify(data);
     document.head.appendChild(script);
 
     return () => {
