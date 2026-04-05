@@ -34,23 +34,19 @@ graph TD
         subgraph "Logic Engine Modules"
             Calc[optionsCalculations.ts]
             Overlap[timeOverlapDetection.ts]
-            AIFilter[SummaryView AI Search]
         end
     end
 
     subgraph "Backend Services (API Routes)"
         NextApp -->|API Requests| APIRoutes[/api/transactions]
-        NextApp -->|AI Queries| AIService[/api/ai/parse-query]
         APIRoutes -->|Server Session| NextAuth[NextAuth.js]
         APIRoutes --> DAL[Data Access Layer (lib/database)]
-        AIService -->|LLM Parsing| Gemini[Google Gemini API]
     end
 
     subgraph "External Services"
         NextAuth -->|OAuth| Google[Google Identity]
         DAL -->|Postgres Protocol| SupabaseDB[(Supabase PostgreSQL)]
         DAL -->|HTTP| MarketData[AlphaVantage/Finnhub API]
-        Gemini -->|Natural Language| LLM[Gemini 1.5/2.0 Flash]
     end
 
     subgraph "Database Layer (Supabase)"
@@ -140,22 +136,9 @@ A fully isolated sandbox environment available at `/demo` that allows prospectiv
 
 For full details, see **[DEMO_ARCHITECTURE.md](./DEMO_ARCHITECTURE.md)**.
 
-*   **Key files**: `src/lib/demo-store.ts`, `src/lib/demo-seed-data.ts`, `src/app/api/demo/**`, `src/app/demo/page.tsx`.
+*   **Key files**: `src/lib/demo-store.ts`, `src/lib/demo-seed-data.ts`, `src/app/api/demo/**`, `src/app/demo/page.tsx`, `src/components/DemoBanner.tsx`.
 *   **Configuration**: Enable with `ENABLE_DEMO_MODE=1` in environment variables.
-
-### 3.7 AI Filtering Subsystem
-The AI filtering subsystem allows users to perform complex, natural-language searches across their trade history.
-
-*   **Responsibilities**:
-    *   **Intent Extraction**: Translating natural language queries (e.g., "winning AAPL puts") into structured JSON filters (`symbol`, `type`, `outcome`).
-    *   **Context-Aware Parsing**: Differentiating between authenticated LLM usage and unauthenticated demo/mock usage.
-    *   **State Management**: Lifting filter state to top-level analytics views (`SummaryView`) to ensure consistent data presentation across all charts and tables.
-*   **Key Modules**:
-    *   **`src/app/api/ai/parse-query/route.ts`**: The central API bridge to the Google Gemini LLM, featuring a regex-based fallback for demo sessions.
-    *   **`TransactionsTable` (with `showSearch` toggle)**: A specialized component that handles the rendering and UI feedback for active filters.
-*   **Patterns**:
-    *   **Natural Language to Schema (NL2Schema)**: Mapping unstructured text to a defined TypeScript interface.
-    *   **Context Propagation**: Passing an `isDemo` flag through the component tree to the API layer for logical branching.
+*   **Data isolation**: All demo state lives in an in-memory store; zero production database writes.
 
 ---
 

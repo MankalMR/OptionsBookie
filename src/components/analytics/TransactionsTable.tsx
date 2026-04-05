@@ -1,4 +1,4 @@
-import React, { useMemo, useState, KeyboardEvent } from 'react';
+import React, { useMemo } from 'react';
 import { OptionsTransaction, TradeChain } from '@/types/options';
 import { calculateRoR, calculateDaysHeld, calculateCollateral, formatPnLCurrency, getRealizedTransactions, calculateStrategyPerformance, calculatePortfolioRoR, calculateAnnualizedRoR, calculateMonthlyPortfolioAnnualizedRoR, getRoRColorClasses, calculateChainPnL, calculateChainAwareStockPerformance } from '@/utils/optionsCalculations';
 import RoRDisplay from '@/components/ui/RoRDisplay';
@@ -6,60 +6,17 @@ import { parseLocalDate } from '@/utils/dateUtils';
 import { formatStrikePrice } from '@/utils/formatUtils';
 import { Badge } from '@/components/ui/badge';
 import { useIsMobile } from '@/hooks/useMediaQuery';
-import { Link, Sparkles } from 'lucide-react';
+import { Link } from 'lucide-react';
 
 interface TransactionsTableProps {
   transactions: OptionsTransaction[];
   chains?: TradeChain[];
   monthName?: string;
   selectedPortfolioName?: string | null;
-  isDemo?: boolean;
-  showSearch?: boolean;
 }
 
-export default function TransactionsTable({ transactions, chains = [], isDemo = false, showSearch = true }: TransactionsTableProps) {
+export default function TransactionsTable({ transactions, chains = [] }: TransactionsTableProps) {
   const isMobile = useIsMobile();
-
-  const [aiQuery, setAiQuery] = useState("");
-  const [isAiLoading, setIsAiLoading] = useState(false);
-  const [activeAiFilters, setActiveAiFilters] = useState<{ symbol?: string; type?: string; outcome?: string } | null>(null);
-  const [aiError, setAiError] = useState<string | null>(null);
-
-  const handleAiSearch = async (e?: KeyboardEvent<HTMLInputElement>) => {
-    if (e && e.key !== 'Enter') return;
-    if (!aiQuery.trim()) return;
-
-    setIsAiLoading(true);
-    setAiError(null);
-    try {
-      const res = await fetch("/api/ai/parse-query", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query: aiQuery, isDemo }),
-      });
-
-      if (!res.ok) {
-        if (res.status === 503) {
-          throw new Error("AI service is currently unavailable");
-        }
-        throw new Error("Failed to parse query");
-      }
-
-      const filters = await res.json();
-      setActiveAiFilters(Object.keys(filters).length > 0 ? filters : null);
-    } catch (err: unknown) {
-      if (err instanceof Error) {
-        setAiError(err.message || "Something went wrong");
-      } else {
-        setAiError("Something went wrong");
-      }
-    } finally {
-      setIsAiLoading(false);
-    }
-  };
-
-
-
 
   // Helper function to get chain-aware P&L for display
   const getDisplayPnL = (transaction: OptionsTransaction): number => {
@@ -143,29 +100,6 @@ export default function TransactionsTable({ transactions, chains = [], isDemo = 
   return (
     <div className="bg-muted/30 px-4 py-3 space-y-6">
       {/* Individual Trades Table */}
-      {showSearch && (
-        <div className="mb-4">
-          <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Sparkles className={`h-4 w-4 ${isAiLoading ? 'text-purple-500 animate-pulse' : 'text-purple-400'}`} />
-            </div>
-            <input
-              type="text"
-              placeholder="Ask AI to filter... (e.g. 'Show me winning TSLA puts')"
-              className="block w-full sm:w-1/2 pl-10 pr-3 py-2 border border-input rounded-md leading-5 bg-background placeholder-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring focus:border-ring sm:text-sm"
-              value={aiQuery}
-              onChange={(e) => setAiQuery(e.target.value)}
-              onKeyDown={handleAiSearch}
-              disabled={isAiLoading}
-            />
-          </div>
-
-          {aiError && (
-            <p className="mt-2 text-sm text-destructive">{aiError}</p>
-          )}
-        </div>
-      )}
-
       <div className="overflow-x-auto">
         <table className="min-w-full text-xs">
           <thead>

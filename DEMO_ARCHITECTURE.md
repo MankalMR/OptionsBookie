@@ -27,12 +27,13 @@ graph TD
     DemoStore -->|freshly seeded| SeedData[demo-seed-data.ts]
 
     Visitor -->|CRUD actions| DemoAPIRoutes["/api/demo/* routes"]
-    Visitor -->|AI Search| AIRoute["/api/ai/parse-query"]
     DemoAPIRoutes -->|reads/writes| DemoStore
 
-    subgraph "Auth & Mode Guards"
+    DemoStore -.->|pinned on| GlobalThis[globalThis.__demoSessions Map]
+    GlobalThis -.->|survives| HotReload[Next.js hot-reload]
+
+    subgraph "Auth Guard"
         DemoAPIRoutes -->|checks| EnvFlag["ENABLE_DEMO_MODE === '1'"]
-        AIRoute -->|isDemo: true| MockParser[Regex-based Mock Parser]
         DemoAPIRoutes -->|validates| SessionHeader["x-demo-session-id header"]
     end
 ```
@@ -170,15 +171,3 @@ Set these in your `.env.local` (local) or Vercel Project Settings (production):
 - Demo data is **write-isolated** from Supabase — no demo operation touches the production database.
 - The `demoSessionId` in `localStorage` is an opaque UUID. There is no authentication or PII involved.
 - Rate limiting is applied to all demo endpoints via `src/lib/demo-rate-limiter.ts`.
-
-### 3.7 AI Parsing Fallback
-
-To support AI filtering without requiring a Gemini API key or external network calls during demo sessions, the system implements a context-aware parsing fallback.
-
-- **Trigger**: When `SummaryView` is initialized with `isDemo={true}`, it propagates this flag down to the `TransactionsTable`.
-- **API Branching**: The `/api/ai/parse-query` route checks for the `isDemo` payload property. If true and the user is unauthenticated, it skips the LLM and uses the **Mock Parser**.
-- **Mock Logic**: A robust regex-based heuristic that identifies:
-    - **Tickers**: Any 3-5 letter uppercase word (e.g., `SOXX`, `AAPL`).
-    - **Strategies**: Keywords like `put` or `call`.
-    - **Outcomes**: Keywords like `win`, `loss`, `losing`.
-- **Latency Emulation**: The mock parser includes an artificial 800ms delay to maintain parity with the "feel" of the real AI service.
