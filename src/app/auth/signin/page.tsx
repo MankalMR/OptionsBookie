@@ -134,6 +134,17 @@ export default function SignIn() {
                 No account needed — try with a simulated portfolio
               </p>
 
+              <Link
+                href="/cot-analysis"
+                className="group w-full flex justify-center items-center py-3 px-6 rounded-xl text-base font-medium border-2 border-dashed border-blue-300 dark:border-blue-700 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:border-blue-400 dark:hover:border-blue-500 transition-all duration-200"
+              >
+                <span>📊 Free COT Analysis</span>
+                <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
+              </Link>
+              <p className="text-xs text-center text-slate-500 dark:text-slate-500">
+                Commodity insider positioning — no account needed
+              </p>
+
               {/* Features List */}
               <div className="pt-6 border-t border-slate-200 dark:border-slate-700">
                 <p className="text-sm text-slate-600 dark:text-slate-400 text-center mb-4">
