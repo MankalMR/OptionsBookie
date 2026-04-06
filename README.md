@@ -12,6 +12,7 @@ Email: manohar.mankala@gmail.com
 - **Multi-Portfolio Support**: Organize trades across multiple portfolios
 - **Comprehensive Trade Tracking**: Track all aspects of options trades including P&L, days held, and annualized returns
 - **AI-Powered Natural Language Filtering**: Filter trade history using natural language queries (e.g., "Show me winning AAPL puts")
+- **COT Producer Analysis**: Free, zero-login access to CFTC Commitments of Traders insider positioning data and historical buy signals
 - **Real-time Analytics**: View portfolio performance and trade statistics
 - **Secure Authentication**: Google OAuth integration with NextAuth.js
 - **Responsive Design**: Modern UI built with Tailwind CSS
@@ -138,6 +139,12 @@ options-bookie/
 - Win/loss statistics
 - Total P&L tracking
 - Trade distribution analysis
+
+### COT Producer Analysis (Free Tool)
+- **No Account Required**: Open access to all users without logging in
+- **CFTC API Integration**: Real-time fetching of Disaggregated Commitments of Traders data from the public CFTC Socrata API
+- **Visual Analytics**: Visualizes Producer/Merchant net positioning to detect historically rare bullish shifts in the commodity markets
+- **Algorithmic Signals**: Automatic buy signal detection based on historical percentile lookbacks and net-long flips
 
 ## Security
 

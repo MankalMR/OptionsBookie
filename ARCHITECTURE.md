@@ -157,6 +157,20 @@ The AI filtering subsystem allows users to perform complex, natural-language sea
     *   **Natural Language to Schema (NL2Schema)**: Mapping unstructured text to a defined TypeScript interface.
     *   **Context Propagation**: Passing an `isDemo` flag through the component tree to the API layer for logical branching.
 
+### 3.8 COT Analysis Subsystem (Free Tool)
+An open-access dashboard that connects directly to the CFTC (Commodity Futures Trading Commission) Socrata API to analyze Producer/Merchant Commitments of Traders data.
+
+*   **Responsibilities**:
+    *   **Data Aggregation**: Fetching and parsing raw JSON payloads from the public government REST endpoint directly from the browser natively.
+    *   **Signal Math**: Calculating historical percentile ranks and net-position boundaries to identify statistically significant flips in insider hedging behavior (i.e., 'Buy Signals').
+    *   **Visual Representation**: Charting complex open-interest logic overlaid with event markers using Recharts.
+*   **Key Modules**:
+    *   **`src/lib/cftcApi.ts`**: Standalone API adapter handling SoQL formatting, response caching, aggregation of underlying contract markers, and algorithmic signal generation.
+    *   **`src/components/analytics/CotAnalysisTab.tsx`**: The main interface rendering the Recharts graphics and controls.
+*   **Patterns**:
+    *   **Serverless/Edge Fetching**: API queries are executed entirely client-side against the public API (`publicreporting.cftc.gov`), requiring zero server-side storage, cron jobs, or backend proxying.
+    *   **Zero-Auth Gateway**: Accessible completely without NextAuth authentication or Supabase DB interactions.
+
 ---
 
 
