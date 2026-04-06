@@ -157,8 +157,8 @@ export async function fetchCotData(commodity: string, years: number): Promise<Co
     managedMoneyLong:  d.managedMoneyLong,
     managedMoneyShort: d.managedMoneyShort,
     openInterest:      d.openInterest,
-    pctProdMercLong:   d.count > 0 ? Math.round((d.pctProdMercLong  / d.count) * 10) / 10 : 0,
-    pctProdMercShort:  d.count > 0 ? Math.round((d.pctProdMercShort / d.count) * 10) / 10 : 0,
+    pctProdMercLong:   d.openInterest > 0 ? Math.round((d.prodMercLong  / d.openInterest) * 1000) / 10 : 0,
+    pctProdMercShort:  d.openInterest > 0 ? Math.round((d.prodMercShort / d.openInterest) * 1000) / 10 : 0,
   }));
 }
 
@@ -172,12 +172,14 @@ export function detectBuySignals(data: CotDataPoint[]): BuySignal[] {
   for (let i = 52; i < data.length; i++) {
     const lookback = nets.slice(Math.max(0, i - 156), i);
     const sorted   = [...lookback].sort((a, b) => a - b);
-    const rank      = sorted.findIndex((v) => v >= nets[i]);
-    const pct       = (rank / sorted.length) * 100;
+    let rank      = sorted.findIndex((v) => v >= nets[i]);
+    if (rank === -1) rank = sorted.length; // new high — ranks above everything in lookback
+    const pct     = (rank / sorted.length) * 100;
 
     const prevLookback = nets.slice(Math.max(0, i - 157), i - 1);
     const prevSorted   = [...prevLookback].sort((a, b) => a - b);
-    const prevRank     = prevSorted.findIndex((v) => v >= nets[i - 1]);
+    let prevRank       = prevSorted.findIndex((v) => v >= nets[i - 1]);
+    if (prevRank === -1) prevRank = prevSorted.length; // same fix for previous bar
     const prevPct      = (prevRank / prevSorted.length) * 100;
 
     // Trigger on net-long flip OR first entry into extreme 95th percentile
