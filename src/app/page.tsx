@@ -12,6 +12,7 @@ import { ThemeToggle } from '@/components/ThemeToggle';
 import SummaryView from '@/components/SummaryView';
 import CurrentRiskTab from '@/components/analytics/CurrentRiskTab';
 import CotAnalysisTab from '@/components/analytics/CotAnalysisTab';
+import AnalyzeEtfsTab from '@/components/analytics/AnalyzeEtfsTab';
 import { useIsMobile } from '@/hooks/useMediaQuery';
 import PortfolioSelector from '@/components/PortfolioSelector';
 import PortfolioModal from '@/components/PortfolioModal';
@@ -50,7 +51,7 @@ export default function Home() {
   const [editingTransaction, setEditingTransaction] = useState<OptionsTransaction | null>(null);
   const [deletingTransaction, setDeletingTransaction] = useState<OptionsTransaction | null>(null);
   const [deletingChainId, setDeletingChainId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'trades' | 'summary' | 'risk' | 'analysis'>('trades');
+  const [activeTab, setActiveTab] = useState<'trades' | 'summary' | 'risk' | 'analysis' | 'etfs'>('trades');
   const [viewMode, setViewMode] = useState<'grouped' | 'flat'>('grouped');
 
   // No longer force mobile users to trades tab - they can access both tabs now
@@ -694,12 +695,23 @@ export default function Home() {
                   >
                     {isMobile ? 'COT' : 'COT Analysis'}
                   </button>
+                  <button
+                    onClick={() => setActiveTab('etfs')}
+                    className={`py-2 px-1 border-b-2 font-medium ${isMobile ? 'text-xs' : 'text-sm'} transition-colors ${activeTab === 'etfs'
+                        ? 'border-blue-500 text-blue-600'
+                        : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground'
+                      }`}
+                  >
+                    {isMobile ? 'ETFs' : 'Analyze ETFs'}
+                  </button>
                 </nav>
               </div>
             </div>
 
             {/* Tab Content */}
-            {activeTab === 'analysis' ? (
+            {activeTab === 'etfs' ? (
+              <AnalyzeEtfsTab />
+            ) : activeTab === 'analysis' ? (
               <CotAnalysisTab />
             ) : activeTab === 'risk' ? (
               <CurrentRiskTab
