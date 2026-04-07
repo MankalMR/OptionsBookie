@@ -128,8 +128,15 @@ export default function SummaryView({
     }
     return filtered;
   }, [initialTransactions, activeAiFilters]);
+  // ⚡ Bolt: Memoize expensive O(N) getRealizedTransactions call to prevent
+  // O(N*M) redundant evaluations inside subsequent loops and useMemos
+  const memoizedRealizedTransactions = useMemo(() => {
+    return getRealizedTransactions(transactions, chains);
+  }, [transactions, chains]);
+
   const yearlySummaries = useMemo(() => {
-    const completedTransactions = getRealizedTransactions(transactions, chains).filter(t =>
+    // ⚡ Bolt: Using memoizedRealizedTransactions instead of getRealizedTransactions
+    const completedTransactions = memoizedRealizedTransactions.filter(t =>
       t.closeDate || t.status === 'Assigned' || t.status === 'Expired'
     );
 
@@ -283,7 +290,7 @@ export default function SummaryView({
     });
 
     return Object.values(yearlyData).sort((a, b) => b.year - a.year);
-  }, [transactions, chains]);
+  }, [memoizedRealizedTransactions, chains, transactions]);
 
   // Set the most recent year as expanded by default, but respect user interactions
   const mostRecentYear = useMemo(() => {
@@ -302,7 +309,7 @@ export default function SummaryView({
   }, [mostRecentYear, userHasInteracted]);
 
   const overallStats = useMemo(() => {
-    const realizedTransactions = getRealizedTransactions(transactions, chains);
+    const realizedTransactions = memoizedRealizedTransactions;
 
     // Calculate all-time P&L by summing yearly totals (which are sums of monthly breakdowns)
     // This ensures perfect consistency: Monthly -> Yearly -> All-Time
@@ -321,7 +328,7 @@ export default function SummaryView({
         ? realizedTransactions.reduce((sum, t) => sum + calculateDaysHeld(t.tradeOpenDate, t.closeDate || new Date()), 0) / realizedTransactions.length
         : 0
     };
-  }, [transactions, chains, yearlySummaries]);
+  }, [yearlySummaries, memoizedRealizedTransactions]);
 
   const strategyPerformance = useMemo(() => {
     return calculateStrategyPerformance(transactions, chains);
@@ -339,9 +346,9 @@ export default function SummaryView({
 
     return yearSummary.monthlyBreakdown.map(month => {
       // Calculate RoR for this month by getting all transactions for this month
-      const monthTransactions = getRealizedTransactions(transactions, chains).filter(t => {
+      const monthTransactions = memoizedRealizedTransactions.filter(t => {
         if (!t.closeDate) return false;
-        const effectiveCloseDate = getEffectiveCloseDate(t, getRealizedTransactions(transactions, chains), chains);
+        const effectiveCloseDate = getEffectiveCloseDate(t, memoizedRealizedTransactions, chains);
         return effectiveCloseDate.getFullYear() === year && effectiveCloseDate.getMonth() === month.month;
       });
 
@@ -360,9 +367,9 @@ export default function SummaryView({
   };
 
   const getAllTickersForYear = (year: number) => {
-    const realizedTransactions = getRealizedTransactions(transactions, chains).filter(t => {
+    const realizedTransactions = memoizedRealizedTransactions.filter(t => {
       if (!t.closeDate) return false;
-      const effectiveCloseDate = getEffectiveCloseDate(t, getRealizedTransactions(transactions, chains), chains);
+      const effectiveCloseDate = getEffectiveCloseDate(t, memoizedRealizedTransactions, chains);
       return effectiveCloseDate.getFullYear() === year;
     });
 
@@ -405,8 +412,8 @@ export default function SummaryView({
 
   // Calculate best stocks overall
   const bestStocks = useMemo(() => {
-    const yearTickerTotals = calculateChainAwareStockPerformance(getRealizedTransactions(transactions, chains), chains);
-    const capitalResult = calculateSmartCapital(getRealizedTransactions(transactions, chains), chains);
+    const yearTickerTotals = calculateChainAwareStockPerformance(memoizedRealizedTransactions, chains);
+    const capitalResult = calculateSmartCapital(memoizedRealizedTransactions, chains);
 
     // Create a map of stock to capital from the breakdown
     const stockCapitalMap = new Map<string, number>();
@@ -436,7 +443,7 @@ export default function SummaryView({
       bestByPnL: bestByPnL.pnl > -Infinity ? { ticker: bestByPnL.ticker, pnl: bestByPnL.pnl } : null,
       bestByRoR: bestByRoR.ror > -Infinity ? { ticker: bestByRoR.ticker, ror: bestByRoR.ror } : null
     };
-  }, [transactions, chains]);
+  }, [memoizedRealizedTransactions, chains]);
 
   // Calculate quick stats data
   const preciseAvgRoR = calculateSmartPortfolioRoR(transactions, chains);
