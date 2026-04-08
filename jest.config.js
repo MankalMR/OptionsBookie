@@ -6,7 +6,11 @@ module.exports = {
     '**/*.(test|spec).+(ts|tsx|js)',
   ],
   transform: {
-    '^.+\\.tsx?$': 'ts-jest',
+    '^.+\\.tsx?$': ['ts-jest', {
+      diagnostics: {
+        ignoreDiagnostics: [2305, 2339],  // Ignore missing exports and missing property (testing-library type compat)
+      },
+    }],
   },
   collectCoverageFrom: [
     'src/**/*.{ts,tsx}',
