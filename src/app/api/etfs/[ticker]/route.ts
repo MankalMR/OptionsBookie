@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse, after } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { etfCacheService } from '@/lib/etf-cache';
@@ -53,16 +53,20 @@ export async function GET(
         isSaved: false,
       };
 
-      // If stale, fire-and-forget refetch
+      // If stale, refetch in background after response is sent
       if (cached.isStale) {
-        alphaVantageEtfProvider.getEtfProfile(ticker).then(async (fresh) => {
-          if (fresh) {
-            const name = await alphaVantageEtfProvider.getEtfName(ticker);
-            if (name) fresh.fundName = name;
-            await etfCacheService.cacheEtf(ticker, fresh);
+        after(async () => {
+          try {
+            const fresh = await alphaVantageEtfProvider.getEtfProfile(ticker);
+            if (fresh) {
+              const name = await alphaVantageEtfProvider.getEtfName(ticker);
+              if (name) fresh.fundName = name;
+              await etfCacheService.cacheEtf(ticker, fresh);
+              logger.info(`Successfully refreshed stale ETF cache for ${ticker}`);
+            }
+          } catch (err) {
+            logger.error({ error: err }, `Error refreshing stale ETF ${ticker}:`);
           }
-        }).catch(err => {
-          logger.error({ error: err }, `Error refreshing stale ETF ${ticker}:`);
         });
       }
     } else {
