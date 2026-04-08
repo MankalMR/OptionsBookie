@@ -87,12 +87,15 @@ export default function EtfSearchBar({
       </div>
 
       {showDropdown && (
-        <div className="absolute z-50 mt-1 w-full rounded-md border border-border bg-card shadow-lg max-h-64 overflow-y-auto">
+        <div role="listbox" className="absolute z-50 mt-1 w-full rounded-md border border-border bg-card shadow-lg max-h-64 overflow-y-auto">
           {results.map((result) => (
-            <button
+            <div
               key={result.ticker}
+              role="option"
+              tabIndex={0}
               onClick={() => handleSelect(result.ticker)}
-              className="flex w-full items-center justify-between px-3 py-2 text-sm hover:bg-muted transition-colors"
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSelect(result.ticker); } }}
+              className="flex w-full items-center justify-between px-3 py-2 text-sm hover:bg-muted transition-colors cursor-pointer"
             >
               <div className="flex items-center gap-2 min-w-0">
                 <span className="font-bold shrink-0">{result.ticker}</span>
@@ -108,7 +111,7 @@ export default function EtfSearchBar({
                   className={`h-4 w-4 ${result.isSaved ? 'fill-red-500 text-red-500' : 'text-muted-foreground'}`}
                 />
               </button>
-            </button>
+            </div>
           ))}
         </div>
       )}
