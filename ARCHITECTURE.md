@@ -104,7 +104,8 @@ This layer isolates the application from the specific database implementation an
 *   **Key Modules**:
     *   **API Routes** (`src/app/api/*`): Next.js API endpoints acting as a secure gateway.
     *   **Service Adapter** (`src/lib/database-supabase.ts`): The concrete implementation of the repository interface using the Supabase SDK.
-    *   **Market Data Factory** (`src/lib/stock-price-factory.ts`): Providing a unified interface for fetching stock prices, supporting multiple providers (AlphaVantage, Finnhub, Cache).
+    *   **Market Data Adapter** (`src/lib/stock-price-factory.ts`): Providing a unified interface for fetching stock prices, supporting multiple providers (AlphaVantage, Finnhub, Cache).
+    *   **Fallback Orchestration** (`src/lib/stock-price-cached.ts`): Implements a multi-level recovery strategy to ensure 100% data availability even during API rate limits.
 *   **Patterns**:
     *   **Repository Pattern**: separating the business logic from the data retrieval mechanism.
     *   **Factory Pattern**: Instantiating the correct stock price service based on configuration.
@@ -142,6 +143,19 @@ For full details, see **[DEMO_ARCHITECTURE.md](./DEMO_ARCHITECTURE.md)**.
 
 *   **Key files**: `src/lib/demo-store.ts`, `src/lib/demo-seed-data.ts`, `src/app/api/demo/**`, `src/app/demo/page.tsx`.
 *   **Configuration**: Enable with `ENABLE_DEMO_MODE=1` in environment variables.
++
++### 3.7 Market Data Reliability Subsystem
++To mitigate the strict rate limits of free-tier market data providers (Alpha Vantage and Finnhub), the system implements a proprietary tiered retrieval strategy.
++
++*   **Orchestration Logic**:
++    1.  **Shared Cache First**: Checks the regional Supabase cache for a fresh (within 24h) quote.
++    2.  **Primary Provider (Alpha Vantage)**: If cache is stale or missing for an active symbol, attempts a fresh quote from Alpha Vantage.
++    3.  **Secondary Provider (Finnhub)**: If Alpha Vantage is rate-limited (429) or fails, the system immediately fails over to Finnhub.
++    4.  **Zero-Null Recovery Policy**: If all live providers fail, the system retrieves the last known price from the stale cache and marks it as `isStale` in the UI.
++*   **UI Propagation**:
++    *   **Stale Markers**: Quotes older than 24h are greyed out (`opacity-60`), italicized, and marked with a "STALE" badge.
++    *   **Non-Blocking UI**: Loading states are synchronized across components to ensure the UI remains responsive even during lengthy sequential batch fetches.
++*   **Key Modules**: `stock-price-cached.ts` (The Orchestrator), `stock-price-alphavantage.ts`, `stock-price-finnhub.ts`.
 
 ### 3.7 AI Filtering Subsystem
 The AI filtering subsystem allows users to perform complex, natural-language searches across their trade history.

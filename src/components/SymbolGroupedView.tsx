@@ -20,6 +20,9 @@ interface SymbolGroupedViewProps {
   availableTickers?: string[];
   selectedTickers?: string[];
   onTickerChange?: (tickers: string[]) => void;
+  stockPrices?: Record<string, import('@/hooks/useStockPrices').StockPrice | null>;
+  pricesAvailable?: boolean;
+  loading?: boolean;
 }
 
 interface SymbolGroup {
@@ -37,7 +40,10 @@ export default function SymbolGroupedView({
   showPortfolioColumn,
   availableTickers = [],
   selectedTickers = [],
-  onTickerChange
+  onTickerChange,
+  stockPrices,
+  pricesAvailable,
+  loading = false
 }: SymbolGroupedViewProps) {
   const [expandedSymbols, setExpandedSymbols] = useState<Set<string>>(new Set());
   const [allExpanded, setAllExpanded] = useState(true);
@@ -181,6 +187,9 @@ export default function SymbolGroupedView({
                       showPortfolioColumn={showPortfolioColumn}
                       showHeader={true}
                       compact={true}
+                      stockPrices={stockPrices}
+                      pricesAvailable={pricesAvailable}
+                      loading={loading}
                     />
                 </div>
               )}

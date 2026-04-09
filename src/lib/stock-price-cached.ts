@@ -1,6 +1,7 @@
 // Stock price service with shared caching (works with Alpha Vantage data)
 import { sharedStockPriceCache } from './stock-price-cache';
 import { alphaVantageStockService } from './stock-price-alphavantage';
+import { finnhubStockService } from './stock-price-finnhub';
 import { logger } from "@/lib/logger";
 
 interface StockPriceResponse {
@@ -9,6 +10,7 @@ interface StockPriceResponse {
   change: number;
   changePercent: number;
   timestamp: string;
+  isStale?: boolean;
 }
 
 // Removed unused interface since we're not fetching from external APIs
@@ -33,37 +35,62 @@ export class CachedStockService {
   /**
    * Fetch current stock price for a given symbol
    */
-  async getStockPrice(symbol: string): Promise<StockPriceResponse | null> {
+  async getStockPrice(symbol: string, activeSymbols: string[] = []): Promise<StockPriceResponse | null> {
     if (!symbol) return null;
 
     const normalizedSymbol = symbol.toUpperCase();
+    const isActive = activeSymbols.length === 0 || activeSymbols.includes(normalizedSymbol);
 
     try {
       // Check shared cache first
       logger.info(`Checking cache for ${normalizedSymbol}`);
       const cached = await this.getCachedPrice(normalizedSymbol);
-      if (cached) {
-        logger.info(`✅ Using cached price for ${normalizedSymbol}: $${cached.price}`);
+      
+      // If we have a fresh cache, or if it's inactive and we have any cache, return it
+      if (cached && (!cached.isStale || !isActive)) {
+        logger.info(`✅ Using cached price for ${normalizedSymbol}: $${cached.price} (Stale: ${!!cached.isStale})`);
         return cached;
       }
 
-      // If not cached and Alpha Vantage is available, try to fetch from Alpha Vantage
-      if (process.env.ALPHA_VANTAGE_KEY) {
-        logger.info(`Fetching fresh price for ${normalizedSymbol} from Alpha Vantage`);
-        try {
-          const priceData = await alphaVantageStockService.getStockPrice(normalizedSymbol);
-
-          if (priceData) {
-            // Cache the result in shared cache
-            logger.info(`💾 Caching price for ${normalizedSymbol}: $${priceData.price} for 1 day`);
-            await this.cachePrice(normalizedSymbol, priceData);
-            return priceData;
+      // If not cached (or stale but active) and Alpha Vantage is available, try to fetch from Alpha Vantage
+      if (isActive) {
+        // 1. Try Alpha Vantage
+        if (process.env.ALPHA_VANTAGE_KEY) {
+          logger.info(`Fetching fresh price for ${normalizedSymbol} from Alpha Vantage`);
+          try {
+            const priceData = await alphaVantageStockService.getStockPrice(normalizedSymbol);
+            if (priceData) {
+              logger.info(`💾 Caching Alpha Vantage price for ${normalizedSymbol}`);
+              await this.cachePrice(normalizedSymbol, priceData);
+              return priceData;
+            }
+          } catch (error) {
+            logger.info({ error }, `Alpha Vantage failed for ${normalizedSymbol}`);
           }
-        } catch (error) {
-          logger.info({ error }, `Alpha Vantage failed for ${normalizedSymbol}, returning null:`);
+        }
+
+        // 2. Fallback to Finnhub if Alpha Vantage failed or wasn't tried
+        if (process.env.FINNHUB_API_KEY) {
+          logger.info(`🔄 Trying Finnhub fallback for ${normalizedSymbol}`);
+          try {
+            const finnhubData = await finnhubStockService.getStockPrice(normalizedSymbol);
+            if (finnhubData) {
+              logger.info(`💾 Caching Finnhub price for ${normalizedSymbol}`);
+              await this.cachePrice(normalizedSymbol, finnhubData);
+              return finnhubData;
+            }
+          } catch (error) {
+            logger.info({ error }, `Finnhub fallback failed for ${normalizedSymbol}`);
+          }
+        }
+
+        // 3. Last Resort: Use stale cache if available (Zero-Null Policy)
+        if (cached) {
+          logger.info(`⚠️ All providers failed. Using stale cache for ${normalizedSymbol} - Zero-Null Policy`);
+          return cached;
         }
       } else {
-        logger.info(`ALPHA_VANTAGE_KEY not available, returning null for ${normalizedSymbol}`);
+        logger.info(`Not an active symbol, skipped live fetch for ${normalizedSymbol}`);
       }
 
       return null;
@@ -76,57 +103,102 @@ export class CachedStockService {
   /**
    * Fetch multiple stock prices in batch
    */
-  async getMultipleStockPrices(symbols: string[]): Promise<Record<string, StockPriceResponse | null>> {
+  async getMultipleStockPrices(symbols: string[], activeSymbols: string[] = []): Promise<Record<string, StockPriceResponse | null>> {
     const results: Record<string, StockPriceResponse | null> = {};
 
     // Check shared cache for all symbols first
     const cachedResults = await sharedStockPriceCache.getMultipleCachedPrices(symbols);
     const symbolsToFetch: string[] = [];
+    const activeSymbolsUpper = activeSymbols.map(s => s.toUpperCase());
 
     logger.info(`📦 Checking cache for ${symbols.length} symbols: ${symbols.join(', ')}`);
 
     symbols.forEach(symbol => {
-      if (cachedResults[symbol]) {
-        logger.info(`✅ Using cached price for ${symbol}: $${cachedResults[symbol]!.price}`);
-        results[symbol] = cachedResults[symbol];
-      } else {
-        logger.info(`❌ No cached price for ${symbol}`);
+      const normalizedSymbol = symbol.toUpperCase();
+      const isActive = activeSymbolsUpper.length === 0 || activeSymbolsUpper.includes(normalizedSymbol);
+      const cached = cachedResults[symbol];
+
+      if (cached && (!cached.isStale || !isActive)) {
+        logger.info(`✅ Using cached price for ${symbol}: $${cached.price} (Stale: ${!!cached.isStale})`);
+        results[symbol] = cached;
+      } else if (isActive) {
+        logger.info(`❌ No fresh/valid cached price for active symbol ${symbol}`);
         symbolsToFetch.push(symbol);
+      } else {
+        // Not active, but no cache either
+        logger.info(`⚪ Not an active symbol and no cache for ${symbol}, returning null`);
+        results[symbol] = cached || null;
       }
     });
 
-    logger.info(`🔄 Need to fetch ${symbolsToFetch.length} symbols from Alpha Vantage: ${symbolsToFetch.join(', ')}`);
-
-    // Fetch uncached symbols from Alpha Vantage if available
     if (symbolsToFetch.length > 0) {
-      if (process.env.ALPHA_VANTAGE_KEY) {
-        logger.info(`Fetching fresh prices for: ${symbolsToFetch.join(', ')} from Alpha Vantage`);
-        try {
-          const alphaVantageResults = await alphaVantageStockService.getMultipleStockPrices(symbolsToFetch);
+      logger.info(`🔄 Need to fetch ${symbolsToFetch.length} symbols from Alpha Vantage: ${symbolsToFetch.join(', ')}`);
+    }
 
-          // Cache and return results
+    // Fetch uncached symbols from providers
+    if (symbolsToFetch.length > 0) {
+      let currentUncached = [...symbolsToFetch];
+
+      // 1. Try Alpha Vantage
+      if (process.env.ALPHA_VANTAGE_KEY) {
+        logger.info(`Fetching fresh prices for: ${currentUncached.join(', ')} from Alpha Vantage`);
+        try {
+          const alphaVantageResults = await alphaVantageStockService.getMultipleStockPrices(currentUncached);
+          
           const pricesToCache: Record<string, StockPriceResponse | null> = {};
-          symbolsToFetch.forEach(symbol => {
-            results[symbol] = alphaVantageResults[symbol];
+          currentUncached.forEach(symbol => {
             if (alphaVantageResults[symbol]) {
+              results[symbol] = alphaVantageResults[symbol];
               pricesToCache[symbol] = alphaVantageResults[symbol];
             }
           });
 
-          // Cache all new prices in shared cache
           if (Object.keys(pricesToCache).length > 0) {
-            await sharedStockPriceCache.cacheMultiplePrices(symbolsToFetch, pricesToCache);
+            await sharedStockPriceCache.cacheMultiplePrices(Object.keys(pricesToCache), pricesToCache);
           }
+
+          // Update symbols left to fetch
+          currentUncached = currentUncached.filter(s => !results[s]);
         } catch (error) {
-          logger.info({ error }, `Alpha Vantage failed for symbols: ${symbolsToFetch.join(', ')}, returning null:`);
-          symbolsToFetch.forEach(symbol => {
-            results[symbol] = null;
-          });
+          logger.info({ error }, `Alpha Vantage batch failed for: ${currentUncached.join(', ')}`);
         }
-      } else {
-        logger.info(`ALPHA_VANTAGE_KEY not available, returning null for uncached symbols: ${symbolsToFetch.join(', ')}`);
-        symbolsToFetch.forEach(symbol => {
-          results[symbol] = null;
+      }
+
+      // 2. Fallback to Finnhub for remaining symbols
+      if (currentUncached.length > 0 && process.env.FINNHUB_API_KEY) {
+        logger.info(`🔄 Trying Finnhub fallback for: ${currentUncached.join(', ')}`);
+        try {
+          const finnhubResults = await finnhubStockService.getMultipleStockPrices(currentUncached);
+          
+          const pricesToCache: Record<string, StockPriceResponse | null> = {};
+          currentUncached.forEach(symbol => {
+            if (finnhubResults[symbol]) {
+              results[symbol] = finnhubResults[symbol];
+              pricesToCache[symbol] = finnhubResults[symbol];
+            }
+          });
+
+          if (Object.keys(pricesToCache).length > 0) {
+            await sharedStockPriceCache.cacheMultiplePrices(Object.keys(pricesToCache), pricesToCache);
+          }
+
+          // Update symbols left to fetch
+          currentUncached = currentUncached.filter(s => !results[s]);
+        } catch (error) {
+          logger.info({ error }, `Finnhub batch fallback failed for: ${currentUncached.join(', ')}`);
+        }
+      }
+
+      // 3. Zero-Null Policy: Fallback to stale cache for any still-missing symbols
+      if (currentUncached.length > 0) {
+        logger.info(`⚠️ Live fetch failed for: ${currentUncached.join(', ')}. Checking for stale cache fallback.`);
+        currentUncached.forEach(symbol => {
+          if (cachedResults[symbol]) {
+            logger.info(`✅ Using stale cache recovery for ${symbol} - Zero-Null Policy`);
+            results[symbol] = cachedResults[symbol];
+          } else {
+            results[symbol] = null;
+          }
         });
       }
     }

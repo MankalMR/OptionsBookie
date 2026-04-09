@@ -8,6 +8,7 @@ interface StockPriceResponse {
   change: number;
   changePercent: number;
   timestamp: string;
+  isStale?: boolean;
 }
 
 interface CachedPriceData {
@@ -45,7 +46,6 @@ export class SharedStockPriceCache {
         .from(this.TABLE_NAME)
         .select('*')
         .eq('symbol', symbol.toUpperCase())
-        .gt('expires_at', new Date().toISOString())
         .single();
 
       if (error || !data) {
@@ -57,7 +57,8 @@ export class SharedStockPriceCache {
         price: data.price,
         change: data.change,
         changePercent: data.change_percent,
-        timestamp: data.timestamp
+        timestamp: data.timestamp,
+        isStale: new Date(data.expires_at) < new Date()
       };
     } catch (error) {
       logger.error({ error }, 'Error fetching cached price:');
@@ -108,8 +109,7 @@ export class SharedStockPriceCache {
       const { data, error } = await this.supabase
         .from(this.TABLE_NAME)
         .select('*')
-        .in('symbol', symbols.map(s => s.toUpperCase()))
-        .gt('expires_at', new Date().toISOString());
+        .in('symbol', symbols.map(s => s.toUpperCase()));
 
       if (error) {
         logger.error({ error }, 'Error fetching cached prices:');
@@ -131,7 +131,8 @@ export class SharedStockPriceCache {
           price: item.price,
           change: item.change,
           changePercent: item.change_percent,
-          timestamp: item.timestamp
+          timestamp: item.timestamp,
+          isStale: new Date(item.expires_at) < new Date()
         };
       });
 

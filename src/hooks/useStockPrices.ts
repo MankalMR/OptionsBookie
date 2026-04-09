@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { logger } from "@/lib/logger";
 
 export interface StockPrice {
@@ -7,6 +7,7 @@ export interface StockPrice {
   change: number;
   changePercent: number;
   timestamp: string;
+  isStale?: boolean;
 }
 
 interface UseStockPricesReturn {
@@ -14,28 +15,30 @@ interface UseStockPricesReturn {
   loading: boolean;
   error: string | null;
   isAvailable: boolean;
-  fetchPrices: (symbols: string[]) => Promise<void>;
+  fetchPrices: (symbols: string[], activeSymbols?: string[]) => Promise<void>;
   refreshPrices: () => Promise<void>;
   lastUpdated: Date | null;
 }
 
-export function useStockPrices(symbols: string[]): UseStockPricesReturn {
+export function useStockPrices(symbols: string[], activeSymbols: string[] = []): UseStockPricesReturn {
   const [stockPrices, setStockPrices] = useState<Record<string, StockPrice | null>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isAvailable, setIsAvailable] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-  const [isFetching, setIsFetching] = useState(false);
+  const isFetchingRef = useRef(false);
+  const activeSymbolsStr = activeSymbols.join(',');
 
-  const fetchPrices = useCallback(async (symbolsToFetch: string[]) => {
-    if (symbolsToFetch.length === 0 || isFetching) return;
+  const fetchPrices = useCallback(async (symbolsToFetch: string[], activeToFetch: string[] = activeSymbols) => {
+    if (symbolsToFetch.length === 0 || isFetchingRef.current) return;
 
-    setIsFetching(true);
+    isFetchingRef.current = true;
     setLoading(true);
     setError(null);
 
     try {
-      const response = await fetch(`/api/stock-prices?symbols=${symbolsToFetch.join(',')}`);
+      const activeParam = activeToFetch.length > 0 ? `&activeSymbols=${activeToFetch.join(',')}` : '';
+      const response = await fetch(`/api/stock-prices?symbols=${symbolsToFetch.join(',')}${activeParam}`);
 
       if (!response.ok) {
         throw new Error(`Failed to fetch stock prices: ${response.status}`);
@@ -64,22 +67,22 @@ export function useStockPrices(symbols: string[]): UseStockPricesReturn {
       // Don't retry on error - this prevents infinite loops
     } finally {
       setLoading(false);
-      setIsFetching(false);
+      isFetchingRef.current = false;
     }
-  }, [isFetching]);
+  }, [activeSymbolsStr]);
 
   const refreshPrices = useCallback(async () => {
     if (symbols.length > 0) {
-      await fetchPrices(symbols);
+      await fetchPrices(symbols, activeSymbols);
     }
-  }, [symbols.join(',')]); // Only depend on symbols, not fetchPrices function
+  }, [symbols.join(','), activeSymbolsStr, fetchPrices]); // Include fetchPrices and activeSymbolsStr
 
-  // Fetch prices when symbols change
+  // Fetch prices when symbols or activeSymbols change
   useEffect(() => {
     if (symbols.length > 0) {
-      fetchPrices(symbols);
+      fetchPrices(symbols, activeSymbols);
     }
-  }, [symbols.join(',')]); // Only depend on the actual symbols, not the fetchPrices function
+  }, [symbols.join(','), activeSymbolsStr, fetchPrices]);
 
   // Auto-refresh removed - we rely on 1-day cache for data freshness
   // Manual refresh is still available via refreshPrices() function

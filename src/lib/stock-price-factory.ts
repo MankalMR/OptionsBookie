@@ -10,11 +10,12 @@ export interface StockPriceResponse {
   change: number;
   changePercent: number;
   timestamp: string;
+  isStale?: boolean;
 }
 
 export interface StockPriceService {
-  getStockPrice(symbol: string): Promise<StockPriceResponse | null>;
-  getMultipleStockPrices(symbols: string[]): Promise<Record<string, StockPriceResponse | null>>;
+  getStockPrice(symbol: string, activeSymbols?: string[]): Promise<StockPriceResponse | null>;
+  getMultipleStockPrices(symbols: string[], activeSymbols?: string[]): Promise<Record<string, StockPriceResponse | null>>;
   getPriceComparison(currentPrice: number, strikePrice: number): {
     difference: number;
     percentDifference: number;
@@ -116,12 +117,12 @@ export class StockPriceFactory {
  * No-op service for when no stock price provider is configured
  */
 class NoOpStockService implements StockPriceService {
-  async getStockPrice(symbol: string): Promise<StockPriceResponse | null> {
+  async getStockPrice(symbol: string, activeSymbols?: string[]): Promise<StockPriceResponse | null> {
     logger.warn('No stock price provider configured');
     return null;
   }
 
-  async getMultipleStockPrices(symbols: string[]): Promise<Record<string, StockPriceResponse | null>> {
+  async getMultipleStockPrices(symbols: string[], activeSymbols?: string[]): Promise<Record<string, StockPriceResponse | null>> {
     const results: Record<string, StockPriceResponse | null> = {};
     symbols.forEach(symbol => {
       results[symbol] = null;

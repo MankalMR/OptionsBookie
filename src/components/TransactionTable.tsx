@@ -26,6 +26,9 @@ interface TransactionTableProps {
   chains?: TradeChain[];
   showHeader?: boolean;
   compact?: boolean;
+  stockPrices?: Record<string, import('@/hooks/useStockPrices').StockPrice | null>;
+  pricesAvailable?: boolean;
+  loading?: boolean;
 }
 
 export default function TransactionTable({
@@ -38,6 +41,9 @@ export default function TransactionTable({
   chains = [],
   showHeader = true,
   compact = false,
+  stockPrices: externalStockPrices,
+  pricesAvailable: externalPricesAvailable,
+  loading: externalLoading = false,
 }: TransactionTableProps) {
   const isMobile = useIsMobile();
   const [sortBy, setSortBy] = useState<keyof OptionsTransaction>('tradeOpenDate');
@@ -136,7 +142,15 @@ export default function TransactionTable({
 
   // Get unique stock symbols for price fetching
   const stockSymbols = [...new Set(transactions.map(t => t.stockSymbol))];
-  const { stockPrices, isAvailable: pricesAvailable } = useStockPrices(stockSymbols);
+  
+  // Only fetch if prices weren't provided via props
+  const { stockPrices: internalStockPrices, isAvailable: internalPricesAvailable, loading: internalLoading } = useStockPrices(
+    externalStockPrices ? [] : stockSymbols
+  );
+
+  const stockPrices = externalStockPrices || internalStockPrices;
+  const pricesAvailable = externalPricesAvailable !== undefined ? externalPricesAvailable : internalPricesAvailable;
+  const isLoading = externalStockPrices ? externalLoading : internalLoading;
 
   // Note: Sorting is now handled within the organize function for chains
 
@@ -793,8 +807,10 @@ export default function TransactionTable({
                       strikePrice={transaction.strikePrice}
                       showComparison={false}
                     />
+                  ) : isLoading ? (
+                    <span className="text-muted-foreground animate-pulse">Loading...</span>
                   ) : (
-                    <span className="text-muted-foreground">Loading...</span>
+                    <span className="text-muted-foreground italic text-xs">Unavailable</span>
                   )}
                 </TableCell>
               )}

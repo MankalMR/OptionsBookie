@@ -9,14 +9,15 @@ Email: manohar.mankala@gmail.com
 
 ## Features
 
-- **Multi-Portfolio Support**: Organize trades across multiple portfolios
-- **Comprehensive Trade Tracking**: Track all aspects of options trades including P&L, days held, and annualized returns
-- **AI-Powered Natural Language Filtering**: Filter trade history using natural language queries (e.g., "Show me winning AAPL puts")
-- **COT Producer Analysis**: Free, zero-login access to CFTC Commitments of Traders insider positioning data and historical buy signals
-- **Real-time Analytics**: View portfolio performance and trade statistics
-- **Secure Authentication**: Google OAuth integration with NextAuth.js
-- **Responsive Design**: Modern UI built with Tailwind CSS
-- **Data Persistence**: PostgreSQL database with Supabase
+- **Multi-Portfolio Support**: Organize trades across multiple portfolios.
+- **Capital Efficiency Tracking**: Analysis of time-overlapping trades and concurrent capital exposure.
+- **Reliable Market Data**: High-availability stock price engine with multi-provider fallback (Alpha Vantage & Finnhub) and local cache recovery.
+- **AI-Powered Queries**: Natural language search to filter winning/losing trades using Google Gemini.
+- **COT Producer Analysis**: Free, zero-login access to CFTC Commitments of Traders insider positioning data and historical buy signals.
+- **Real-time Analytics**: View portfolio performance and trade statistics.
+- **Secure Authentication**: Google OAuth integration with NextAuth.js.
+- **Responsive Design**: Modern UI built with Tailwind CSS.
+- **Data Persistence**: PostgreSQL database with Supabase.
 
 ## 🚀 Quick Start
 

@@ -7,11 +7,12 @@ interface StockPriceResponse {
   change: number;
   changePercent: number;
   timestamp: string;
+  isStale?: boolean;
 }
 
 interface StockPriceService {
-  getStockPrice(symbol: string): Promise<StockPriceResponse | null>;
-  getMultipleStockPrices(symbols: string[]): Promise<Record<string, StockPriceResponse | null>>;
+  getStockPrice(symbol: string, activeSymbols?: string[]): Promise<StockPriceResponse | null>;
+  getMultipleStockPrices(symbols: string[], activeSymbols?: string[]): Promise<Record<string, StockPriceResponse | null>>;
   getPriceComparison(currentPrice: number, strikePrice: number): {
     difference: number;
     percentDifference: number;
@@ -93,7 +94,7 @@ export class AlphaVantageStockService implements StockPriceService {
     };
   }
 
-  async getStockPrice(symbol: string): Promise<StockPriceResponse | null> {
+  async getStockPrice(symbol: string, activeSymbols?: string[]): Promise<StockPriceResponse | null> {
     try {
       if (!this.apiKey) {
         logger.warn('ALPHA_VANTAGE_KEY not configured. Stock prices will not be available.');
@@ -161,7 +162,7 @@ export class AlphaVantageStockService implements StockPriceService {
     }
   }
 
-  async getMultipleStockPrices(symbols: string[]): Promise<Record<string, StockPriceResponse | null>> {
+  async getMultipleStockPrices(symbols: string[], activeSymbols?: string[]): Promise<Record<string, StockPriceResponse | null>> {
     const results: Record<string, StockPriceResponse | null> = {};
 
     if (!this.apiKey) {

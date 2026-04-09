@@ -65,8 +65,12 @@ export default function Home() {
   const [portfolioFilteredTransactions, setPortfolioFilteredTransactions] = useState<OptionsTransaction[]>([]);
 
   // Get unique symbols for stock prices
-  const uniqueSymbols = [...new Set(transactions.map(t => t.stockSymbol))];
-  const { refreshPrices, loading: pricesLoading } = useStockPrices(uniqueSymbols);
+  const uniqueSymbols = useMemo(() => [...new Set(transactions.map(t => t.stockSymbol))], [transactions]);
+  const activeSymbols = useMemo(() => 
+    [...new Set(transactions.filter(t => t.status === 'Open').map(t => t.stockSymbol))], 
+    [transactions]
+  );
+  const { refreshPrices, loading: pricesLoading, stockPrices, isAvailable: pricesAvailable } = useStockPrices(uniqueSymbols, activeSymbols);
 
   // Filter transactions for Options Trades tab (portfolio + status filters)
   useEffect(() => {
@@ -798,6 +802,9 @@ export default function Home() {
                         availableTickers={availableTickers}
                         selectedTickers={selectedTickers}
                         onTickerChange={handleTickerChange}
+                        stockPrices={stockPrices}
+                        pricesAvailable={pricesAvailable}
+                        loading={pricesLoading}
                       />
                     ) : (
                       <TransactionTable
@@ -808,6 +815,8 @@ export default function Home() {
                         chains={chains}
                         portfolios={portfolios}
                         showPortfolioColumn={!selectedPortfolioId}
+                        stockPrices={stockPrices}
+                        pricesAvailable={pricesAvailable}
                       />
                     )}
                   </CardContent>

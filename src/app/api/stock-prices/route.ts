@@ -13,6 +13,8 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const symbols = searchParams.get('symbols');
+    const activeSymbolsParam = searchParams.get('activeSymbols');
+    const activeSymbols = activeSymbolsParam ? activeSymbolsParam.split(',').map(s => s.trim().toUpperCase()) : [];
 
     if (!symbols) {
       return NextResponse.json(
@@ -28,26 +30,18 @@ export async function GET(request: NextRequest) {
     logger.info({ data0: !!process.env.FINNHUB_API_KEY }, 'FINNHUB_API_KEY available:');
     logger.info({ data0: StockPriceFactory.getAvailableProviders() }, 'Available providers:');
 
-    // Try cached first (which will fall back to Alpha Vantage if cache miss)
-    let stockService = StockPriceFactory.initialize('cached');
+    // Use cached service (which handles Alpha Vantage -> Finnhub -> Stale Cache fallbacks internally)
+    const stockService = StockPriceFactory.initialize('cached');
 
     let result;
     let hasErrors = false;
 
     if (symbolList.length === 1) {
       // Single symbol
-      result = await stockService.getStockPrice(symbolList[0]);
-
-      // If cached service failed (returned null), try pure Finnhub as last resort
+      result = await stockService.getStockPrice(symbolList[0], activeSymbols);
+      
       if (!result) {
-        logger.info('Cached service failed, trying pure Finnhub as last resort');
-        stockService = StockPriceFactory.initialize('finnhub');
-        result = await stockService.getStockPrice(symbolList[0]);
-
-        // If pure Finnhub also fails, mark as unavailable
-        if (!result) {
-          hasErrors = true;
-        }
+        hasErrors = true;
       }
 
       return NextResponse.json({
@@ -56,20 +50,12 @@ export async function GET(request: NextRequest) {
       });
     } else {
       // Multiple symbols
-      result = await stockService.getMultipleStockPrices(symbolList);
+      result = await stockService.getMultipleStockPrices(symbolList, activeSymbols);
 
-      // If cached service failed for all symbols, try pure Finnhub as last resort
+      // Check if we got NO data back for ANY requested symbol (even stale cache)
       const hasAnyResults = Object.values(result).some(price => price !== null);
       if (!hasAnyResults) {
-        logger.info('Cached service failed for all symbols, trying pure Finnhub as last resort');
-        stockService = StockPriceFactory.initialize('finnhub');
-        result = await stockService.getMultipleStockPrices(symbolList);
-
-        // If pure Finnhub also fails, mark as unavailable
-        const hasAnyFinnhubResults = Object.values(result).some(price => price !== null);
-        if (!hasAnyFinnhubResults) {
-          hasErrors = true;
-        }
+        hasErrors = true;
       }
 
       return NextResponse.json({
