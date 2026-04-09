@@ -4,10 +4,10 @@ pending-implementation
 ## Context
 The application relies on deterministic market data providers (Alpha Vantage and Finnhub) to fetch current stock prices. Because these APIs use free-tier plans, rate-limiting is common. While caching mitigates some API hits, there is a risk of a "no data" state when rate limits are exhausted. We have the option to use Gemini AI as an approximate fallback provider when deterministic providers and caching fail.
 
-Currently, the fallback logic is somewhat ad-hoc and tightly couples the `CachedStockService` with `AlphaVantageStockService`. We need to refine the fallback chain to the following precise order: Alpha Vantage -> Finnhub -> Gemini -> Cache -> None. Any data sourced from Gemini must be explicitly flagged as AI-generated approximate data so the UI can accurately convey its lower trust status.
+Currently, the fallback logic is somewhat ad-hoc and tightly couples the `CachedStockService` with `AlphaVantageStockService`. We need to refine the fallback chain to the following precise order: Alpha Vantage -> Finnhub -> Gemini -> Cache -> None. Any data sourced from Gemini must be explicitly flagged as AI-generated approximate data so the UI can accurately convey its lower trust status. **Crucially, Gemini AI generated data must never be saved into the cache.**
 
 ## Objective
-Introduce Gemini AI as a tertiary stock price provider fallback and refactor the `StockPriceService` architecture to support a clean, sequential provider fallback chain.
+Introduce Gemini AI as a tertiary stock price provider fallback and refactor the `StockPriceService` architecture to support a clean, sequential provider fallback chain while strictly protecting the cache from approximate AI data.
 
 ## Scope
 - Update `StockPriceResponse` interface to include an optional `isAiGenerated?: boolean` flag.
@@ -32,7 +32,7 @@ Introduce Gemini AI as a tertiary stock price provider fallback and refactor the
    - Try `StockPriceFactory.initialize('alphavantage')`
    - If null/fail, try `StockPriceFactory.initialize('finnhub')`
    - If null/fail, try `StockPriceFactory.initialize('gemini')`
-   - If success from any of the above, save the result to the cache.
+   - If success from Alpha Vantage or Finnhub, save the result to the cache. **Do not save to cache if the success was from Gemini (`isAiGenerated: true`).**
    - If all fresh sources fail, try `StockPriceFactory.initialize('cached')` as a last resort.
 
 ## Sequence Diagram
@@ -47,21 +47,23 @@ sequenceDiagram
     API->>AV: fetchPrice(symbol)
     alt AV Success
         AV-->>API: Price data
+        API->>Cache: updateCache(Price data)
     else AV Fail/Rate Limit
         API->>FH: fetchPrice(symbol)
         alt FH Success
             FH-->>API: Price data
+            API->>Cache: updateCache(Price data)
         else FH Fail/Rate Limit
             API->>Gem: fetchPrice(symbol) (approximate)
             alt Gem Success
                 Gem-->>API: Price data (isAiGenerated: true)
+                %% No cache update for Gemini data
             else Gem Fail
                 API->>Cache: getCachedPrice(symbol)
                 Cache-->>API: Stale cached data or null
             end
         end
     end
-    API->>Cache: updateCache(Price data) (if fresh data retrieved)
     API-->>Client: Return Price data
 ```
 
@@ -70,4 +72,5 @@ sequenceDiagram
 - [ ] A new `GeminiStockService` exists and successfully uses a GenAI provider to return a strict JSON response containing stock price info.
 - [ ] The fallback sequence is exactly: Alpha Vantage -> Finnhub -> Gemini -> Cache.
 - [ ] Gemini data correctly sets `isAiGenerated: true`.
+- [ ] Data retrieved from Gemini AI is never saved into the cache.
 - [ ] The `CachedStockService` no longer directly imports and calls `alphaVantageStockService`.
