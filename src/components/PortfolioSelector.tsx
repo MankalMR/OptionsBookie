@@ -119,7 +119,7 @@ export default function PortfolioSelector({
               ))}
             </SelectContent>
           </Select>
-          <Button variant="default" onClick={onAddPortfolio}>
+          <Button variant="default" onClick={onAddPortfolio} aria-label="Add new portfolio">
             <Plus className="h-4 w-4" />
           </Button>
         </div>

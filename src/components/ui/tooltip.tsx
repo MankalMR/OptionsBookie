@@ -31,6 +31,7 @@ export default function Tooltip({ content, children, className = '' }: TooltipPr
 
   const tooltipElement = isVisible && (
     <div
+      role="tooltip"
       className="fixed px-3 py-2 text-sm text-white bg-gray-900 dark:bg-gray-100 dark:text-gray-900 rounded-md shadow-xl z-[99999] whitespace-nowrap min-w-max animate-in fade-in-0 zoom-in-95 duration-200 pointer-events-none"
       style={{
         top: position.top,
@@ -50,6 +51,8 @@ export default function Tooltip({ content, children, className = '' }: TooltipPr
         className={`relative ${className}`}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
+        onFocus={handleMouseEnter}
+        onBlur={handleMouseLeave}
       >
         {children}
       </div>
