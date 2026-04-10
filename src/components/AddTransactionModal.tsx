@@ -237,7 +237,7 @@ export default function AddTransactionModal({ onClose, onSave, portfolios = [], 
                   type="date"
                   value={formData.tradeOpenDate}
                   onChange={(e) => handleChange('tradeOpenDate', e.target.value)}
-                  className="w-full"
+                  className="w-full appearance-none min-h-[2.5rem]"
                 />
               </div>
 
@@ -250,7 +250,7 @@ export default function AddTransactionModal({ onClose, onSave, portfolios = [], 
                   type="date"
                   value={formData.expiryDate}
                   onChange={(e) => handleChange('expiryDate', e.target.value)}
-                  className={errors.expiryDate ? 'border-destructive focus-visible:ring-destructive w-full' : 'w-full'}
+                  className={errors.expiryDate ? 'border-destructive focus-visible:ring-destructive w-full appearance-none min-h-[2.5rem]' : 'w-full appearance-none min-h-[2.5rem]'}
                 />
               </div>
             </div>

@@ -588,7 +588,7 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
               type="date"
               value={formData.tradeOpenDate}
               onChange={(e) => handleChange('tradeOpenDate', e.target.value)}
-              className="w-full"
+              className="w-full appearance-none min-h-[2.5rem]"
             />
           </div>
 
@@ -599,7 +599,7 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
               type="date"
               value={formData.expiryDate}
               onChange={(e) => handleChange('expiryDate', e.target.value)}
-              className={errors.expiryDate ? 'border-destructive w-full' : 'w-full'}
+              className={errors.expiryDate ? 'border-destructive w-full appearance-none min-h-[2.5rem]' : 'w-full appearance-none min-h-[2.5rem]'}
             />
             {errors.expiryDate && <p className="text-sm text-destructive">{errors.expiryDate}</p>}
           </div>
@@ -711,7 +711,7 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
                   type="date"
                   value={formData.closeDate}
                   onChange={(e) => handleChange('closeDate', e.target.value)}
-                  className={errors.closeDate ? 'border-destructive w-full' : 'w-full'}
+                  className={errors.closeDate ? 'border-destructive w-full appearance-none min-h-[2.5rem]' : 'w-full appearance-none min-h-[2.5rem]'}
                 />
                 {errors.closeDate && <p className="text-sm text-destructive">{errors.closeDate}</p>}
               </div>
@@ -744,7 +744,7 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
                   type="date"
                   value={formData.newExpiryDate}
                   onChange={(e) => handleChange('newExpiryDate', e.target.value)}
-                  className={errors.newExpiryDate ? 'border-destructive w-full' : 'w-full'}
+                  className={errors.newExpiryDate ? 'border-destructive w-full appearance-none min-h-[2.5rem]' : 'w-full appearance-none min-h-[2.5rem]'}
                 />
                 {errors.newExpiryDate && <p className="text-sm text-destructive">{errors.newExpiryDate}</p>}
               </div>
