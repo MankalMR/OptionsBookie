@@ -8,7 +8,7 @@ import EtfHoldingsTable from './EtfHoldingsTable';
 import { formatAum, formatPercent } from '@/lib/etf-utils';
 import type { EtfProfile, SavedEtf } from '@/types/etf';
 
-interface EtfTerminalCardProps {
+interface EtfCardProps {
   data: EtfProfile | SavedEtf;
   onToggleSave: () => void;
   onRemove?: () => void;
@@ -16,7 +16,7 @@ interface EtfTerminalCardProps {
 }
 
 
-export default function EtfTerminalCard({ data, onToggleSave, onRemove, isSaved: propIsSaved }: EtfTerminalCardProps) {
+export default function EtfCard({ data, onToggleSave, onRemove, isSaved: propIsSaved }: EtfCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   
   // Guard for data types

@@ -28,7 +28,7 @@ import { EtfCacheService } from './etf-cache';
 function chainTo(result: { data?: any; error?: any }) {
   const handler: Record<string, any> = {};
   // Make every chained method return the handler itself
-  const methods = ['select', 'eq', 'single', 'or', 'limit', 'upsert', 'delete', 'lt', 'in', 'order'];
+  const methods = ['select', 'eq', 'single', 'or', 'limit', 'upsert', 'delete', 'lt', 'in', 'order', 'update'];
   for (const m of methods) {
     handler[m] = jest.fn().mockReturnValue(handler);
   }
@@ -282,11 +282,13 @@ describe('EtfCacheService', () => {
 
       expect(mockFromFn).toHaveBeenCalledWith('user_saved_etfs');
       expect(handler.upsert).toHaveBeenCalledWith(
-        {
+        expect.objectContaining({
           user_id: 'user@test.com',
           ticker: 'QQQ',
           notes: 'My notes',
-        },
+          is_saved: true,
+          last_viewed_at: expect.any(String)
+        }),
         { onConflict: 'user_id,ticker' }
       );
     });
@@ -319,7 +321,7 @@ describe('EtfCacheService', () => {
       await service.unsaveEtf('user@test.com', 'qqq');
 
       expect(mockFromFn).toHaveBeenCalledWith('user_saved_etfs');
-      expect(handler.delete).toHaveBeenCalled();
+      expect(handler.update).toHaveBeenCalledWith({ is_saved: false });
     });
 
     it('should handle unsave error gracefully', async () => {
@@ -333,7 +335,7 @@ describe('EtfCacheService', () => {
   describe('getSavedEtfs', () => {
     it('should return merged saved + cache data', async () => {
       const savedRows = [
-        { id: '1', user_id: 'user@test.com', ticker: 'QQQ', notes: null, saved_at: '2026-04-01T00:00:00Z' },
+        { id: '1', user_id: 'user@test.com', ticker: 'QQQ', notes: null, last_viewed_at: '2026-04-01T00:00:00Z', is_saved: true },
       ];
 
       // First call for user_saved_etfs

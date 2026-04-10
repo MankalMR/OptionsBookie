@@ -77,9 +77,6 @@ export class AlphaVantageEtfProvider {
         return null;
       }
 
-      // Fetch name and metadata in parallel to avoid multiple sequential delays
-      const fundName = await this.getEtfName(ticker);
-
       const holdings = (etfData.holdings || []).map(h => ({
         symbol: h.symbol,
         description: h.description,
@@ -95,7 +92,7 @@ export class AlphaVantageEtfProvider {
 
       return {
         ticker: ticker.toUpperCase(),
-        fundName: fundName || null, 
+        fundName: null, // ETF_PROFILE doesn't return fund name; supplement via getEtfName
         issuer: null,
         netAssets: etfData.net_assets ? parseFloat(etfData.net_assets) : null,
         netExpenseRatio: etfData.net_expense_ratio ? parseFloat(etfData.net_expense_ratio) : null,
@@ -103,7 +100,7 @@ export class AlphaVantageEtfProvider {
         dividendFrequency: null,
         exDividendDate: null,
         benchmarkIndex: null,
-        assetCategory: null, // Still searching for a reliable source for this in AV
+        assetCategory: null,
         inceptionDate: etfData.inception_date || null,
         portfolioTurnover: etfData.portfolio_turnover ? parseFloat(etfData.portfolio_turnover) : null,
         leveraged: etfData.leveraged || null,

@@ -24,8 +24,8 @@ export default function AnalyzeEtfsTab() {
   };
 
   return (
-    <div className="space-y-8">
-      <div className="flex flex-col md:flex-row md:items-center justify-start gap-4 border-b border-border/40 pb-6">
+    <div className="space-y-6">
+      <div className="flex border-b border-border/40 pb-6">
         <div className="w-full md:w-96">
           <EtfSearchBar 
             results={results}

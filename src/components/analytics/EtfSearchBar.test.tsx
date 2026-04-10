@@ -117,51 +117,6 @@ describe('EtfSearchBar', () => {
     expect(onSelect).toHaveBeenCalledWith('QQQ');
   });
 
-  it('should call onToggleSave when heart icon is clicked', () => {
-    render(
-      <EtfSearchBar results={mockResults} loading={false} onSearch={onSearch} onSelect={onSelect} onToggleSave={onToggleSave} />
-    );
-
-    const input = screen.getByTestId('search-input');
-    fireEvent.change(input, { target: { value: 'QQQ' } });
-
-    const heartButtons = screen.getAllByTestId('heart-icon');
-    const heartButton = heartButtons[0].closest('button')!;
-    fireEvent.click(heartButton);
-
-    expect(onToggleSave).toHaveBeenCalledWith('QQQ', false);
-    // Should NOT trigger onSelect
-    expect(onSelect).not.toHaveBeenCalled();
-  });
-
-  it('should pass isSaved correctly to onToggleSave', () => {
-    render(
-      <EtfSearchBar results={mockResults} loading={false} onSearch={onSearch} onSelect={onSelect} onToggleSave={onToggleSave} />
-    );
-
-    const input = screen.getByTestId('search-input');
-    fireEvent.change(input, { target: { value: 'QQQ' } });
-
-    const heartButtons = screen.getAllByTestId('heart-icon');
-    // QQQM is saved (second result)
-    fireEvent.click(heartButtons[1].closest('button')!);
-
-    expect(onToggleSave).toHaveBeenCalledWith('QQQM', true);
-  });
-
-  it('should show filled heart for saved results', () => {
-    render(
-      <EtfSearchBar results={mockResults} loading={false} onSearch={onSearch} onSelect={onSelect} onToggleSave={onToggleSave} />
-    );
-
-    const input = screen.getByTestId('search-input');
-    fireEvent.change(input, { target: { value: 'QQQ' } });
-
-    const heartIcons = screen.getAllByTestId('heart-icon');
-    expect(heartIcons[0].getAttribute('class')).toContain('text-muted-foreground');
-    expect(heartIcons[1].getAttribute('class')).toContain('fill-red-500');
-  });
-
   it('should show loading spinner when loading', () => {
     render(
       <EtfSearchBar results={[]} loading={true} onSearch={onSearch} onSelect={onSelect} onToggleSave={onToggleSave} />

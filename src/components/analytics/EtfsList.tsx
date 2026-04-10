@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import EtfTerminalCard from './EtfTerminalCard';
+import EtfCard from './EtfCard';
 import { AlertCircle, RefreshCw } from 'lucide-react';
 import type { SavedEtf } from '@/types/etf';
 
@@ -105,7 +105,7 @@ export default function EtfsList({ onRefresh, refreshKey = 0 }: EtfsListProps) {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
       {etfs.map((etf) => (
-        <EtfTerminalCard
+        <EtfCard
           key={etf.ticker}
           data={etf}
           isSaved={etf.isSaved}

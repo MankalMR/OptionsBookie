@@ -73,16 +73,19 @@ describe('/api/etfs/saved', () => {
       expect(response.status).toBe(200);
       const data = await response.json();
       expect(data).toHaveLength(1);
-      expect(data[0]).toEqual({
+      expect(data[0]).toEqual(expect.objectContaining({
         ticker: 'QQQ',
         fundName: 'Invesco QQQ',
         netExpenseRatio: 0.002,
         dividendYield: 0.0048,
         netAssets: 365600000000,
-        savedAt: '2026-04-01T00:00:00Z',
+        savedAt: '2026-04-01T00:00:00.000Z',
         notes: null,
         isStale: false,
-      });
+        topHoldings: [],
+        sectorAllocation: [],
+        isSaved: true
+      }));
     });
 
     it('should mark stale saved ETFs', async () => {
@@ -97,7 +100,8 @@ describe('/api/etfs/saved', () => {
           notes: null,
           saved_at: '2026-04-01T00:00:00Z',
           fund_name: 'Invesco QQQ',
-          expires_at: pastDate.toISOString(),
+          cached_at: new Date(Date.now() - 172800000).toISOString(), // 2 days ago
+          expires_at: pastDate.toISOString(), // 1 day ago
         },
       ]);
 

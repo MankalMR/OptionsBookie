@@ -1,6 +1,6 @@
 'use client';
 
-import EtfTerminalCard from './EtfTerminalCard';
+import EtfCard from './EtfCard';
 import type { EtfProfile } from '@/types/etf';
 
 interface EtfDetailCardProps {
@@ -10,7 +10,7 @@ interface EtfDetailCardProps {
 
 export default function EtfDetailCard({ profile, onToggleSave }: EtfDetailCardProps) {
   return (
-    <EtfTerminalCard 
+    <EtfCard 
       data={profile} 
       onToggleSave={onToggleSave} 
     />
