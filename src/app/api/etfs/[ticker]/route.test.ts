@@ -34,7 +34,7 @@ jest.mock('@/lib/etf-provider-alphavantage', () => ({
   },
 }));
 
-jest.mock('@/lib/gemini-service', () => ({
+jest.mock('@/lib/ai/gemini-service', () => ({
   GeminiService: {
     recoverEtfMetadata: jest.fn(),
     generateEtfProfile: jest.fn(),
