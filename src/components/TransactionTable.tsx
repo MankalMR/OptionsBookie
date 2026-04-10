@@ -1,7 +1,7 @@
 'use client';
 
 import { OptionsTransaction, Portfolio, TradeChain } from '@/types/options';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -51,6 +51,9 @@ export default function TransactionTable({
   const [collapsedChains, setCollapsedChains] = useState<Set<string>>(new Set());
   const [selectedInfoTransaction, setSelectedInfoTransaction] = useState<OptionsTransaction | null>(null);
 
+  const chainsMap = useMemo(() => new Map(chains.map(c => [c.id, c])), [chains]);
+  const portfoliosMap = useMemo(() => new Map(portfolios.map(p => [p.id, p])), [portfolios]);
+
   // Initialize collapsed state for closed chains
   useEffect(() => {
     const closedChainIds = new Set<string>();
@@ -94,7 +97,7 @@ export default function TransactionTable({
 
   // Helper function to get chain styling based on status
   const getChainStyling = (chainId: string, chainTransactions: OptionsTransaction[]) => {
-    const chainInfo = chains.find(c => c.id === chainId);
+    const chainInfo = chainsMap.get(chainId);
     const hasOpenTransactions = chainTransactions.some(t => t.status === 'Open');
     const isActiveChain = chainInfo?.chainStatus === 'Active';
     const isClosedChain = chainInfo?.chainStatus === 'Closed';
@@ -179,7 +182,7 @@ export default function TransactionTable({
   };
 
   const getPortfolioName = (portfolioId: string) => {
-    const portfolio = portfolios.find(p => p.id === portfolioId);
+    const portfolio = portfoliosMap.get(portfolioId);
     return portfolio ? portfolio.name : 'Unknown Portfolio';
   };
 
@@ -340,7 +343,7 @@ export default function TransactionTable({
             Array.from(chainMap.entries()).forEach(([chainId, chainTransactions]) => {
               const isCollapsed = collapsedChains.has(chainId);
               const chainPnL = getChainPnL(chainId);
-              const chainInfo = chains.find(c => c.id === chainId);
+              const chainInfo = chainsMap.get(chainId);
               const activeTransaction = chainTransactions.find(t => t.status === 'Open') || chainTransactions[chainTransactions.length - 1];
 
               // Chain header row
@@ -512,7 +515,7 @@ export default function TransactionTable({
                       </TableCell>
                       {!isMobile && showPortfolioColumn && (
                         <TableCell>
-                          {portfolios.find(p => p.id === transaction.portfolioId)?.name || 'Unknown'}
+                          {portfoliosMap.get(transaction.portfolioId)?.name || 'Unknown'}
                         </TableCell>
                       )}
                       {!isMobile && (
