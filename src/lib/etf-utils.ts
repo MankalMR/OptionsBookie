@@ -33,3 +33,12 @@ export function formatPercent(value: number | null | undefined): string {
   if (value === null || value === undefined) return 'N/A';
   return `${(value * 100).toFixed(2)}%`;
 }
+
+/**
+ * Ensures a financial metric (like yield or expense ratio) is never negative.
+ * Returns null if input is null/undefined, otherwise returns Math.max(0, value).
+ */
+export function sanitizeMetric(value: number | null | undefined): number | null {
+  if (value === null || value === undefined) return null;
+  return Math.max(0, value);
+}

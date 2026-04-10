@@ -54,36 +54,45 @@ export async function GET(
         isAiGenerated: row.provider === 'gemini',
       };
 
-      // If stale, refetch in background after response is sent
-      if (cached.isStale) {
+      // Trigger background repair if:
+      // 1. Data is time-stale (isStale)
+      // 2. Data is incomplete (has 'n/a' or missing symbols in holdings)
+      // 3. Data is logically incorrect (negative yield or expense ratio)
+      const needsRepair = cached.isStale || 
+        profile.topHoldings?.some(h => !h.symbol || h.symbol.toLowerCase() === 'n/a') ||
+        (profile.dividendYield !== null && profile.dividendYield < 0) ||
+        (profile.netExpenseRatio !== null && profile.netExpenseRatio < 0);
+
+      if (needsRepair) {
         after(async () => {
           try {
-            const fresh = await alphaVantageEtfProvider.getEtfProfile(ticker);
-              if (fresh) {
-                if (!fresh.fundName) {
-                  const metadata = await GeminiService.recoverEtfMetadata(ticker);
-                  if (metadata) Object.assign(fresh, metadata);
-                }
-                
-                // Check if any symbols are "n/a" or missing
-                const needsEnrichment = fresh.topHoldings?.some(h => 
-                  !h.symbol || h.symbol.toLowerCase() === 'n/a'
-                );
-                
-                if (needsEnrichment) {
-                  const enriched = await GeminiService.enrichEtfHoldings(ticker, fresh.topHoldings);
-                  if (enriched) fresh.topHoldings = enriched;
-                }
-
-                await etfCacheService.cacheEtf(ticker, fresh);
-                logger.info(`Successfully refreshed stale ETF cache for ${ticker}`);
-              } else {
-                const shadow = await GeminiService.generateEtfProfile(ticker);
-                if (shadow) {
-                  await etfCacheService.cacheEtf(ticker, shadow);
-                  logger.info(`Successfully refreshed stale ETF cache for ${ticker} via Gemini Shadow`);
-                }
+            let fresh = null;
+            
+            if (alphaVantageEtfProvider.isLimited()) {
+              logger.info(`Alpha Vantage limited, skipping background refresh for ${ticker} to Gemini`);
+              fresh = await GeminiService.generateEtfProfile(ticker);
+            } else {
+              fresh = await alphaVantageEtfProvider.getEtfProfile(ticker);
+              if (fresh && !fresh.fundName) {
+                const metadata = await GeminiService.recoverEtfMetadata(ticker);
+                if (metadata) Object.assign(fresh, metadata);
               }
+            }
+
+            if (fresh) {
+              // Check if any symbols are "n/a" or missing
+              const needsEnrichment = fresh.topHoldings?.some(h => 
+                !h.symbol || h.symbol.toLowerCase() === 'n/a'
+              );
+              
+              if (needsEnrichment) {
+                const enriched = await GeminiService.enrichEtfHoldings(ticker, fresh.topHoldings);
+                if (enriched) fresh.topHoldings = enriched;
+              }
+
+              await etfCacheService.cacheEtf(ticker, fresh);
+              logger.info(`Successfully refreshed stale ETF cache for ${ticker}`);
+            }
           } catch (err) {
             logger.error({ error: err }, `Error refreshing stale ETF ${ticker}:`);
           }
@@ -91,26 +100,31 @@ export async function GET(
       }
     } else {
       // Not cached — fetch fresh
-      profile = await alphaVantageEtfProvider.getEtfProfile(ticker);
-
-      if (profile) {
-        if (!profile.fundName) {
-          const metadata = await GeminiService.recoverEtfMetadata(ticker);
-          if (metadata) Object.assign(profile, metadata);
-        }
-        
-        // Check if any symbols are "n/a" or missing
-        const needsEnrichment = profile.topHoldings?.some(h => 
-          !h.symbol || h.symbol.toLowerCase() === 'n/a'
-        );
-        
-        if (needsEnrichment) {
-          const enriched = await GeminiService.enrichEtfHoldings(ticker, profile.topHoldings);
-          if (enriched) profile.topHoldings = enriched;
-        }
-      } else {
-        logger.warn(`Primary provider failed for ${ticker}, generating shadow profile via Gemini`);
+      if (alphaVantageEtfProvider.isLimited()) {
+        logger.info(`Alpha Vantage limited, failing over to Gemini Shadow for ${ticker}`);
         profile = await GeminiService.generateEtfProfile(ticker);
+      } else {
+        profile = await alphaVantageEtfProvider.getEtfProfile(ticker);
+
+        if (profile) {
+          if (!profile.fundName) {
+            const metadata = await GeminiService.recoverEtfMetadata(ticker);
+            if (metadata) Object.assign(profile, metadata);
+          }
+          
+          // Check if any symbols are "n/a" or missing
+          const needsEnrichment = profile.topHoldings?.some(h => 
+            !h.symbol || h.symbol.toLowerCase() === 'n/a'
+          );
+          
+          if (needsEnrichment) {
+            const enriched = await GeminiService.enrichEtfHoldings(ticker, profile.topHoldings);
+            if (enriched) profile.topHoldings = enriched;
+          }
+        } else {
+          logger.warn(`Primary provider failed for ${ticker}, generating shadow profile via Gemini`);
+          profile = await GeminiService.generateEtfProfile(ticker);
+        }
       }
       
       if (profile) {

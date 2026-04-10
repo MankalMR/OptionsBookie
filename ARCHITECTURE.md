@@ -209,14 +209,17 @@ A robust data aggregation pipeline that provides complete ETF profiles (Holdings
 
 *   **Responsibilities**:
     *   **Data Hydration**: Fetching deep metric constraints like top-10 concentration and dynamic sector weighting.
-    *   **Intelligence Enrichment**: Seamlessly utilizing LLMs (`GeminiService`) to fill missing metadata gaps left by providers (e.g. recovering proper Fund Names).
-    *   **Shadow AI Failover**: Guaranteed UI stability by dynamically generating best-guess ETF profiles via Gemini when primary APIs return 429 rate limits or null responses.
+    *   **Intelligence Enrichment**: Seamlessly utilizing LLMs (`GeminiService`) to fill missing metadata gaps and resolve `n/a` ticker symbols in holdings via batch-processed entity resolution.
+    *   **Dual-Speed Search**: Balancing responsiveness with cost-efficiency by splitting search into instant local lookups (keystrokes) and debounced (600ms/3-char) remote fallbacks.
+    *   **Stability & Failover**: Implementing `AbortController` at the UI level for request cancellation and proactive `isLimited()` checks at the backend level to instantly bypass rate-limited providers.
 *   **Key Modules**:
-    *   **`src/lib/ai/gemini-service.ts`**: The centralized AI orchestrator connecting to `@google/genai` to parse natural language financial knowledge into strict JSON schemas.
-    *   **`src/lib/etf-provider-alphavantage.ts`**: Primary gateway for fetching raw, verified ETF profiles.
-    *   **`src/app/api/etfs/[ticker]/route.ts`**: The coordination route evaluating cache freshness, managing the provider waterfall, and executing the AI failover when needed.
+    *   **`src/lib/ai/gemini-service.ts`**: Centralized AI orchestrator featuring a **Concurrency Guard** (Map-based promise collapsing) to ensure parallel identical requests share a single AI execution.
+    *   **`src/lib/etf-provider-alphavantage.ts`**: Primary gateway for raw ETF profiles, now including internal rate-limit tracking for transparent failover.
+    *   **`src/app/api/etfs/[ticker]/route.ts`**: The coordination route that manages the provider waterfall and executes AI enrichment/failover logic.
+    *   **`src/hooks/useEtfSearch.ts`**: Frontend hook managing the search state and `AbortController` lifecycle.
 *   **Patterns**:
-    *   **Zero-Downtime Fallback Map**: Cache -> Primary verified Provider -> Shadow AI Provider -> 404.
+    *   **Request Collapsing**: Using a static in-flight promise map to prevent redundant LLM invocations.
+    *   **Tiered Retrieval Pipeline**: Cache (Instant) -> Primary verified Provider -> Shadow AI Provider -> 404.
     *   **Opaque Data Provenance**: Badging UI elements with a `Sparkles` "AI Insight" indicator whenever a displayed profile originated natively from the Language Model rather than the structured market API.
 
 ---

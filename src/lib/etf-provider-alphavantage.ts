@@ -12,7 +12,10 @@ export class AlphaVantageEtfProvider {
     this.apiKey = process.env.ALPHA_VANTAGE_KEY || '';
   }
 
-  private isCurrentlyRateLimited(): boolean {
+  /**
+   * Returns true if the Alpha Vantage API is currently in its 1-minute rate-limit cooldown.
+   */
+  public isLimited(): boolean {
     if (!this.isRateLimited) return false;
 
     const now = Date.now();
@@ -38,7 +41,7 @@ export class AlphaVantageEtfProvider {
         return null;
       }
 
-      if (this.isCurrentlyRateLimited()) {
+      if (this.isLimited()) {
         logger.info(`Skipping ETF profile for ${ticker} - Alpha Vantage API is rate limited`);
         return null;
       }
@@ -95,8 +98,8 @@ export class AlphaVantageEtfProvider {
         fundName: null, // ETF_PROFILE doesn't return fund name; supplement via getEtfName
         issuer: null,
         netAssets: etfData.net_assets ? parseFloat(etfData.net_assets) : null,
-        netExpenseRatio: etfData.net_expense_ratio ? parseFloat(etfData.net_expense_ratio) : null,
-        dividendYield: etfData.dividend_yield ? parseFloat(etfData.dividend_yield) : null,
+        netExpenseRatio: etfData.net_expense_ratio ? Math.max(0, parseFloat(etfData.net_expense_ratio)) : null,
+        dividendYield: etfData.dividend_yield ? Math.max(0, parseFloat(etfData.dividend_yield)) : null,
         dividendFrequency: null,
         exDividendDate: null,
         benchmarkIndex: null,

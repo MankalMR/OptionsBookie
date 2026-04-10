@@ -33,10 +33,34 @@ const cleanJsonResponse = (text: string) => {
 
 export class GeminiService {
   /**
+   * Tracks active AI requests to prevent redundant parallel calls for the same key.
+   */
+  private static inFlightRequests = new Map<string, Promise<any>>();
+
+  /**
+   * Internal helper to collapse multiple identical requests into one.
+   */
+  private static async withConcurrencyGuard<T>(key: string, fn: () => Promise<T>): Promise<T> {
+    const active = this.inFlightRequests.get(key);
+    if (active) {
+      logger.info({ key }, "Gemini AI: Re-using in-flight request for identical key");
+      return active as Promise<T>;
+    }
+
+    const promise = fn().finally(() => {
+      this.inFlightRequests.delete(key);
+    });
+
+    this.inFlightRequests.set(key, promise);
+    return promise;
+  }
+
+  /**
    * Recovers/enriches missing metadata for an existing ETF profile.
    */
   static async recoverEtfMetadata(ticker: string): Promise<Partial<EtfProfile> | null> {
-    try {
+    return this.withConcurrencyGuard(`recover-${ticker}`, async () => {
+      try {
       logger.info({ ticker, model: DEFAULT_MODEL }, "Gemini AI: Recovering ETF metadata");
       const ai = getGeminiClient();
       const prompt = AI_PROMPTS.ETF_RECOVERY(ticker);
@@ -63,17 +87,19 @@ export class GeminiService {
         assetCategory: data.assetCategory || null,
         leveraged: data.leveraged === "YES" || data.leveraged === "NO" ? data.leveraged : null,
       };
-    } catch (error) {
-      logger.error({ error }, `Failed to recover metadata for ETF ${ticker} via Gemini`);
-      return null;
-    }
+      } catch (error) {
+        logger.error({ error }, `Failed to recover metadata for ETF ${ticker} via Gemini`);
+        return null;
+      }
+    });
   }
 
   /**
    * Generates a complete ETF profile when the primary provider fails.
    */
   static async generateEtfProfile(ticker: string): Promise<EtfProfile | null> {
-    try {
+    return this.withConcurrencyGuard(`profile-${ticker}`, async () => {
+      try {
       logger.info({ ticker, model: DEFAULT_MODEL }, "Gemini AI: Generating shadow ETF profile");
       const ai = getGeminiClient();
       const prompt = AI_PROMPTS.ETF_SHADOW_GEN(ticker);
@@ -101,8 +127,8 @@ export class GeminiService {
         fundName: parsed.fundName || null,
         issuer: parsed.issuer || null,
         netAssets: typeof parsed.netAssets === 'number' ? parsed.netAssets : null,
-        netExpenseRatio: typeof parsed.netExpenseRatio === 'number' ? parsed.netExpenseRatio : null,
-        dividendYield: typeof parsed.dividendYield === 'number' ? parsed.dividendYield : null,
+        netExpenseRatio: typeof parsed.netExpenseRatio === 'number' ? Math.max(0, parsed.netExpenseRatio) : null,
+        dividendYield: typeof parsed.dividendYield === 'number' ? Math.max(0, parsed.dividendYield) : null,
         dividendFrequency: null,
         exDividendDate: null,
         benchmarkIndex: null,
@@ -118,17 +144,19 @@ export class GeminiService {
         isSaved: false,
         isAiGenerated: true,
       };
-    } catch (error) {
-      logger.error({ error }, `Failed to generate shadow profile for ETF ${ticker} via Gemini`);
-      return null;
-    }
+      } catch (error) {
+        logger.error({ error }, `Failed to generate shadow profile for ETF ${ticker} via Gemini`);
+        return null;
+      }
+    });
   }
 
   /**
    * Enriches a list of ETF holdings by filling in missing symbols (n/a).
    */
   static async enrichEtfHoldings(ticker: string, holdings: EtfHolding[]): Promise<EtfHolding[]> {
-    try {
+    return this.withConcurrencyGuard(`enrich-${ticker}`, async () => {
+      try {
       logger.info({ ticker }, "Gemini AI: Enriching ETF holdings symbols");
       const ai = getGeminiClient();
       
@@ -161,10 +189,11 @@ export class GeminiService {
       }
 
       return holdings;
-    } catch (error) {
-      logger.error({ error, ticker }, "Error enriching ETF holdings via Gemini");
-      return holdings; // Return original if AI fails
-    }
+      } catch (error) {
+        logger.error({ error, ticker }, "Error enriching ETF holdings via Gemini");
+        return holdings; // Return original if AI fails
+      }
+    });
   }
 
   /**

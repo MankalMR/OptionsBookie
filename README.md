@@ -157,8 +157,9 @@ options-bookie/
 
 ### ETF Intelligence Terminal
 - **Unified Feed Architecture**: Search and manage a personalized feed of favorite ETFs, analyzing portfolio weights, top sector concentrations, and yield stats.
-- **AI-Powered Failover**: Generates "Shadow Profiles" using Google Gemini when primary stock market APIs hit arbitrary free-tier rate limits.
-- **Dynamic Asset Enrichment**: Automatically backfills missing metadata (like ETF Issuer and Fund Name) utilizing LLM intelligence.
+- **AI-Powered Failover**: Generates "Shadow Profiles" using Google Gemini when primary stock market APIs hit arbitrary free-tier rate limits or are in cooldown.
+- **Dual-Speed Search Terminal**: Optimized search engine featuring instant local-cache lookups on keystroke and debounced (600ms) full API/AI resolution.
+- **Dynamic Asset Enrichment**: Automatically backfills missing metadata and resolves 'N/A' ticker symbols in holdings utilizing batch-processed LLM intelligence.
 
 ## Security
 

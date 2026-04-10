@@ -16,6 +16,7 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const q = searchParams.get('q');
+    const localOnly = searchParams.get('localOnly') === 'true';
 
     if (!q || !q.trim()) {
       return NextResponse.json({ error: 'Query parameter q is required' }, { status: 400 });
@@ -29,6 +30,7 @@ export async function GET(request: NextRequest) {
 
     let results: EtfSearchResult[] = [];
 
+    // Always prioritize cache results if available
     if (cacheResults.length > 0) {
       const savedTickers = await etfCacheService.getUserSavedTickers(userEmail);
       const savedSet = new Set(savedTickers);
@@ -39,20 +41,48 @@ export async function GET(request: NextRequest) {
         isCached: true,
         isSaved: savedSet.has(row.ticker),
       }));
-    } else {
-      // No cache results — try fetching exact ticker match from Alpha Vantage
-      let profile = await alphaVantageEtfProvider.getEtfProfile(query);
-      if (profile) {
-        if (!profile.fundName) {
-          const metadata = await GeminiService.recoverEtfMetadata(query);
-          if (metadata) Object.assign(profile, metadata);
-        }
-      } else {
+    } 
+    
+    // If no cache results and we only want local lookup, stop here
+    if (results.length === 0 && localOnly) {
+      return NextResponse.json([]);
+    }
+
+    // fallback to remote if no cache results found and localOnly is false
+    if (results.length === 0) {
+      logger.info({ query }, "Search API: No cache results, falling back to remote providers");
+      
+      let profile = null;
+
+      // Failover logic: If Alpha Vantage is rate-limited, skip straight to Gemini
+      if (alphaVantageEtfProvider.isLimited()) {
+        logger.info({ query }, "Search API: Alpha Vantage is rate-limited, skipping to Gemini shadow profile");
         profile = await GeminiService.generateEtfProfile(query);
+      } else {
+        profile = await alphaVantageEtfProvider.getEtfProfile(query);
+        
+        if (profile) {
+          if (!profile.fundName) {
+            const metadata = await GeminiService.recoverEtfMetadata(query);
+            if (metadata) Object.assign(profile, metadata);
+          }
+
+          // Trigger enrichment if any symbols are "n/a" or missing
+          const needsEnrichment = profile.topHoldings?.some(h => 
+            !h.symbol || h.symbol.toLowerCase() === 'n/a'
+          );
+          
+          if (needsEnrichment) {
+            const enriched = await GeminiService.enrichEtfHoldings(query, profile.topHoldings);
+            if (enriched) profile.topHoldings = enriched;
+          }
+        } else {
+          logger.info({ query }, "Search API: Alpha Vantage found nothing, falling back to Gemini");
+          profile = await GeminiService.generateEtfProfile(query);
+        }
       }
 
       if (profile) {
-
         // Cache the result
         await etfCacheService.cacheEtf(query, profile);
 

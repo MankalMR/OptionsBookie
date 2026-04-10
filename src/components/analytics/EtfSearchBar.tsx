@@ -8,7 +8,7 @@ import type { EtfSearchResult } from '@/types/etf';
 interface EtfSearchBarProps {
   results: EtfSearchResult[];
   loading: boolean;
-  onSearch: (query: string) => void;
+  onSearch: (query: string, localOnly?: boolean) => void;
   onSelect: (ticker: string) => void;
 }
 
@@ -23,19 +23,43 @@ export default function EtfSearchBar({
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
+  // Effect for debounced FULL search
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
 
-    if (query.trim()) {
+    const trimmed = query.trim();
+    // Rule: Auto-search full API only after 3 chars
+    if (trimmed.length >= 3) {
       debounceRef.current = setTimeout(() => {
-        onSearch(query.trim());
-      }, 400);
+        onSearch(trimmed, false);
+      }, 600);
     }
 
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
   }, [query, onSearch]);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setQuery(val);
+    
+    // Always trigger an INSTANT local-only search on every keystroke
+    if (val.trim()) {
+      onSearch(val.trim(), true);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      const trimmed = query.trim();
+      if (trimmed) {
+        // Immediate FULL search on Enter (bypass debounce and length check)
+        if (debounceRef.current) clearTimeout(debounceRef.current);
+        onSearch(trimmed, false);
+      }
+    }
+  };
 
   useEffect(() => {
     setShowDropdown(results.length > 0 && query.trim().length > 0);
@@ -63,7 +87,8 @@ export default function EtfSearchBar({
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
+          onChange={handleInputChange}
+          onKeyDown={handleKeyDown}
           placeholder="Search ETF ticker or name..."
           className="pl-10"
           onFocus={() => {
