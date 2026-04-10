@@ -1,0 +1,25 @@
+<<<<<<< SEARCH
+## Status
+pending-implementation
+
+## Context
+=======
+## Status
+done
+
+## Context
+>>>>>>> REPLACE
+<<<<<<< SEARCH
+- [ ] No new database tables or backend data pipelines are created.
+=======
+- [x] No new database tables or backend data pipelines are created.
+
+## Implementation Notes
+- Files changed: `src/components/SummaryView.tsx`, `src/components/analytics/AIPortfolioSummary.tsx`, `src/app/api/ai/portfolio-summary/route.ts`
+- Behavior:
+  - Added an AI Portfolio Summary component that displays an LLM-generated summary of the user's overall portfolio metrics.
+  - Placed gracefully within the `SummaryView` on desktop and mobile, automatically invoking the API using existing metrics like total P&L, win rate, and top symbols.
+  - Built an API endpoint `/api/ai/portfolio-summary` to handle both authenticated standard users via Gemini AI and unauthenticated users on the Demo site with a mock delay.
+- Tests: Verified the build success and standard test suite passed. UI interactions are protected by fallback checks when API returns failures.
+- Known follow-ups: The AI summary currently focuses only on the "All Time" metrics in the Summary View. Future iterations could add it to `YearlyPerformanceCard` for year-specific summaries.
+>>>>>>> REPLACE

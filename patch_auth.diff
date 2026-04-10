@@ -1,0 +1,32 @@
+<<<<<<< SEARCH
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/lib/auth";
+import { logger } from "@/lib/logger";
+import { GoogleGenAI } from "@google/genai";
+import { isDemoEnabled } from "@/lib/demo-guards";
+
+export async function POST(req: Request) {
+  try {
+    const { totalPnL, winRate, topSymbols, totalRoC, timeframe, isDemo } = await req.json();
+
+    const session = await getServerSession(authOptions);
+    const isSiteDemoEnabled = isDemoEnabled();
+=======
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/lib/auth";
+import { logger } from "@/lib/logger";
+import { GoogleGenAI } from "@google/genai";
+import { isDemoEnabled } from "@/lib/demo-guards";
+
+export async function POST(req: Request) {
+  try {
+    const { totalPnL, winRate, topSymbols, totalRoC, timeframe, isDemo } = await req.json();
+
+    let session = null;
+    try {
+      session = await getServerSession(authOptions);
+    } catch (e) {
+      logger.error({ err: e }, "Failed to get server session");
+    }
+    const isSiteDemoEnabled = isDemoEnabled();
+>>>>>>> REPLACE

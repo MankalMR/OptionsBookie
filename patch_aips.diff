@@ -1,0 +1,17 @@
+<<<<<<< SEARCH
+  useEffect(() => {
+    // Only generate summary on mount if we have valid data
+    if (totalPnL !== 0 || winRate !== 0) {
+      generateSummary();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [totalPnL, winRate, topSymbols.join(','), timeframe]);
+=======
+  useEffect(() => {
+    // Only generate summary on mount if we have valid data
+    if (totalPnL !== 0 || winRate !== 0) {
+      generateSummary();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [totalPnL, winRate, topSymbols.join(','), timeframe]);
+>>>>>>> REPLACE

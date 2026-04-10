@@ -29,6 +29,7 @@ import StrategyPerformanceCard from './analytics/StrategyPerformanceCard';
 import YearlyPerformanceCard from './analytics/YearlyPerformanceCard';
 import AllTimePortfolioAnalytics from './analytics/AllTimePortfolioAnalytics';
 import BenchmarkComparisonChart from './analytics/BenchmarkComparisonChart';
+import AIPortfolioSummary from './analytics/AIPortfolioSummary';
 
 interface SummaryViewProps {
   transactions: OptionsTransaction[];
@@ -556,6 +557,20 @@ export default function SummaryView({
           </div>
         )}
       </div>
+
+      <AIPortfolioSummary
+        totalPnL={quickStatsData.totalPnL}
+        winRate={quickStatsData.winRate}
+        topSymbols={
+          Array.from(new Set([
+            quickStatsData.bestStockByPnL?.ticker,
+            quickStatsData.bestStockByRoR?.ticker
+          ].filter(Boolean))) as string[]
+        }
+        totalRoC={quickStatsData.avgRoR}
+        timeframe="All Time"
+        isDemo={isDemo}
+      />
 
       {!isMobile && (
         <AllTimePortfolioAnalytics selectedPortfolioName={selectedPortfolioName}>
