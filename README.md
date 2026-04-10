@@ -130,6 +130,7 @@ options-bookie/
 ## Features in Detail
 
 ### Portfolio Management
+- **Deep-Linked Workspace**: selected tab and portfolio are automatically persisted in the URL, enabling refresh resilience and link shareability.
 - Create multiple portfolios
 - Set default portfolio
 - Delete portfolios (with safety checks)

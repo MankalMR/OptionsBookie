@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, Suspense } from 'react';
+import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { OptionsTransaction, Portfolio, TradeChain } from '@/types/options';
 import TransactionTable from '@/components/TransactionTable';
 import PortfolioSummary from '@/components/PortfolioSummary';
@@ -32,7 +33,23 @@ import StructuredData, { webApplicationSchema, organizationSchema } from '@/comp
 import { logger } from "@/lib/logger";
 
 export default function Home() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        <span className="ml-2 text-gray-600 mt-4">Loading workspace...</span>
+      </div>
+    }>
+      <TradingDeskContent />
+    </Suspense>
+  );
+}
+
+function TradingDeskContent() {
   const isMobile = useIsMobile();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
 
   const {
     transactions,
@@ -52,11 +69,30 @@ export default function Home() {
   const [editingTransaction, setEditingTransaction] = useState<OptionsTransaction | null>(null);
   const [deletingTransaction, setDeletingTransaction] = useState<OptionsTransaction | null>(null);
   const [deletingChainId, setDeletingChainId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'trades' | 'summary' | 'risk'>('trades');
   const [viewMode, setViewMode] = useState<'grouped' | 'flat'>('grouped');
 
-  // No longer force mobile users to trades tab - they can access both tabs now
-  const [selectedPortfolioId, setSelectedPortfolioId] = useState<string | null>(null);
+  // URL State helpers
+  const updateUrl = useCallback((updates: Record<string, string | null>) => {
+    if (!searchParams) return;
+    const params = new URLSearchParams(searchParams.toString());
+    Object.entries(updates).forEach(([key, value]) => {
+      if (value) params.set(key, value);
+      else params.delete(key);
+    });
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+  }, [searchParams, pathname, router]);
+
+  // Derived state from URL
+  const activeTab = (searchParams?.get('tab') as 'trades' | 'summary' | 'risk') || 'trades';
+  const selectedPortfolioId = searchParams?.get('portfolioId') || null;
+
+  const setActiveTab = (tab: 'trades' | 'summary' | 'risk') => {
+    updateUrl({ tab });
+  };
+
+  const setSelectedPortfolioId = (id: string | null) => {
+    updateUrl({ portfolioId: id });
+  };
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>(['Open', 'Rolled']);
   const [selectedTickers, setSelectedTickers] = useState<string[]>([]);
   const [portfolios, setPortfolios] = useState<Portfolio[]>([]);

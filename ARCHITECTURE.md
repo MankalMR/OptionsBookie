@@ -149,6 +149,18 @@ For full details, see **[DEMO_ARCHITECTURE.md](./DEMO_ARCHITECTURE.md)**.
 
 *   **Key files**: `src/lib/demo-store.ts`, `src/lib/demo-seed-data.ts`, `src/app/api/demo/**`, `src/app/demo/page.tsx`.
 *   **Configuration**: Enable with `ENABLE_DEMO_MODE=1` in environment variables.
+
+### 3.7 Deep-Linked Workspace State
+The Trading Desk implements a URL-driven state pattern to ensure that the user's workspace context (selected portfolio and active tab) is preserved across page refreshes and is shareable via links.
+
+*   **Responsibilities**:
+    *   **Context Persistence**: Reading `tab` and `portfolioId` query parameters from the URL on initial mount.
+    *   **Navigation Synchronization**: Updating the URL seamlessly using `router.replace({ scroll: false })` whenever the user switches tabs or portfolios.
+    *   **Fallback Logic**: Automatically resolving to the database-defined "Default Portfolio" if no specific ID is provided in the URL.
+*   **Key Modules**:
+    *   `src/app/page.tsx`: Orchestrates the `useSearchParams` logic within a `Suspense` boundary.
+*   **Patterns**:
+    *   **URL as Source of Truth**: Lifting UI state into query parameters to enable deep-linking and browser history support.
 +
 ### 3.7 Market Data Reliability Subsystem
 +To mitigate the strict rate limits of free-tier market data providers (Alpha Vantage and Finnhub), the system implements a proprietary tiered retrieval strategy.
