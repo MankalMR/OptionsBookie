@@ -16,13 +16,14 @@ import AnalyzeEtfsTab from '@/components/analytics/AnalyzeEtfsTab';
 import { useIsMobile } from '@/hooks/useMediaQuery';
 import PortfolioSelector from '@/components/PortfolioSelector';
 import PortfolioModal from '@/components/PortfolioModal';
+import AppHeader from '@/components/AppHeader';
 import { useTransactions } from '@/hooks/useTransactions';
 import { parseLocalDate } from '@/utils/dateUtils';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import AuthButton from '@/components/AuthButton';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Plus, TrendingUp } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { useStockPrices } from '@/hooks/useStockPrices';
 import StatusMultiSelect from '@/components/StatusMultiSelect';
 import ViewToggle from '@/components/ViewToggle';
@@ -51,7 +52,7 @@ export default function Home() {
   const [editingTransaction, setEditingTransaction] = useState<OptionsTransaction | null>(null);
   const [deletingTransaction, setDeletingTransaction] = useState<OptionsTransaction | null>(null);
   const [deletingChainId, setDeletingChainId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'trades' | 'summary' | 'risk' | 'analysis' | 'etfs'>('trades');
+  const [activeTab, setActiveTab] = useState<'trades' | 'summary' | 'risk'>('trades');
   const [viewMode, setViewMode] = useState<'grouped' | 'flat'>('grouped');
 
   // No longer force mobile users to trades tab - they can access both tabs now
@@ -575,40 +576,7 @@ export default function Home() {
       <StructuredData data={webApplicationSchema} />
       <StructuredData data={organizationSchema} />
       <div className="min-h-screen bg-background">
-        <header className="bg-card shadow-sm border-b">
-          <div className={`${isMobile ? 'px-2' : 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'}`}>
-            <div className={`flex justify-between items-center ${isMobile ? 'py-3' : 'py-6'}`}>
-              <div className="flex items-center space-x-2">
-                <img
-                  src="/images/OptionBookie1.png"
-                  alt="OptionsBookie Logo"
-                  className={`object-contain ${isMobile ? 'h-10 w-10' : 'h-20 w-20'}`}
-                />
-                <div>
-                  <h1 className={`font-bold ${isMobile ? 'text-lg' : 'text-3xl'}`}>
-                    <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">OptionsBookie</span>
-                  </h1>
-                  {!isMobile && <p className="text-muted-foreground">Track your options trades with precision</p>}
-                </div>
-              </div>
-              <div className="flex items-center space-x-2">
-                {!isMobile && (
-                  <Button
-                    onClick={refreshPrices}
-                    variant="outline"
-                    disabled={pricesLoading}
-                    className="flex items-center space-x-2"
-                  >
-                    <TrendingUp className="h-4 w-4" />
-                    <span>{pricesLoading ? 'Refreshing...' : 'Refresh Prices'}</span>
-                  </Button>
-                )}
-                <ThemeToggle />
-                <AuthButton />
-              </div>
-            </div>
-          </div>
-        </header>
+        <AppHeader />
 
         {/* Error Display */}
         {error && (
@@ -646,78 +614,103 @@ export default function Home() {
 
         {!loading && (
           <main className={`py-8 ${isMobile ? 'px-2' : 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'}`}>
-            {/* Portfolio Selector */}
-            <div className="mb-6">
-              <PortfolioSelector
-                portfolios={portfolios}
-                selectedPortfolioId={selectedPortfolioId}
-                onPortfolioChange={handlePortfolioChange}
-                onAddPortfolio={handleAddPortfolio}
-                onDeletePortfolio={handleDeletePortfolio}
-                onSetDefaultPortfolio={handleSetDefaultPortfolio}
-                loading={portfoliosLoading}
-              />
-            </div>
+            {/* ── Workspace Toolbar ── portfolio selector + tabs + refresh in one band */}
+            <div className={`mb-6 border-b border-border ${isMobile ? '' : ''}`}>
+              {isMobile ? (
+                /* Mobile: stack portfolio row above tabs */
+                <div className="space-y-3 pb-3">
+                  <PortfolioSelector
+                    portfolios={portfolios}
+                    selectedPortfolioId={selectedPortfolioId}
+                    onPortfolioChange={handlePortfolioChange}
+                    onAddPortfolio={handleAddPortfolio}
+                    onDeletePortfolio={handleDeletePortfolio}
+                    onSetDefaultPortfolio={handleSetDefaultPortfolio}
+                    loading={portfoliosLoading}
+                  />
+                  <nav className="-mb-px flex space-x-4">
+                    {(['trades', 'risk', 'summary'] as const).map(tab => (
+                      <button
+                        key={tab}
+                        onClick={() => setActiveTab(tab)}
+                        className={`py-2 px-1 border-b-2 text-xs font-medium transition-colors ${
+                          activeTab === tab
+                            ? 'border-blue-500 text-blue-600'
+                            : 'border-transparent text-muted-foreground hover:text-foreground'
+                        }`}
+                      >
+                        {tab === 'trades' ? 'Trades' : tab === 'risk' ? 'Risk' : 'History'}
+                      </button>
+                    ))}
+                  </nav>
+                </div>
+              ) : (
+                /* Desktop: single horizontal band */
+                <div className="flex items-center justify-between pb-0">
+                  {/* Left: portfolio context */}
+                  <div className="flex items-center gap-3">
+                    <PortfolioSelector
+                      portfolios={portfolios}
+                      selectedPortfolioId={selectedPortfolioId}
+                      onPortfolioChange={handlePortfolioChange}
+                      onAddPortfolio={handleAddPortfolio}
+                      onDeletePortfolio={handleDeletePortfolio}
+                      onSetDefaultPortfolio={handleSetDefaultPortfolio}
+                      loading={portfoliosLoading}
+                    />
+                    <div className="h-5 w-px bg-border" />
+                    <button
+                      onClick={refreshPrices}
+                      disabled={pricesLoading}
+                      className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground disabled:opacity-50 transition-colors"
+                      title="Refresh stock prices"
+                    >
+                      <svg className={`h-3.5 w-3.5 ${pricesLoading ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                      {pricesLoading ? 'Refreshing…' : 'Refresh Prices'}
+                    </button>
+                  </div>
 
-            {/* Tab Navigation */}
-            <div className="mb-8">
-              <div className="border-b border-border">
-                <nav className={`-mb-px flex ${isMobile ? 'space-x-4' : 'space-x-8'}`}>
-                  <button
-                    onClick={() => setActiveTab('trades')}
-                    className={`py-2 px-1 border-b-2 font-medium ${isMobile ? 'text-xs' : 'text-sm'} transition-colors ${activeTab === 'trades'
-                      ? 'border-blue-500 text-blue-600'
-                      : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground'
+                  {/* Right: sub-tabs flush with the border */}
+                  <nav className="-mb-px flex space-x-6">
+                    <button
+                      onClick={() => setActiveTab('trades')}
+                      className={`py-3 px-1 border-b-2 text-sm font-medium transition-colors ${
+                        activeTab === 'trades'
+                          ? 'border-blue-500 text-blue-600'
+                          : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground'
                       }`}
-                  >
-                    Options Trades
-                  </button>
-                  <button
-                    onClick={() => setActiveTab('risk')}
-                    className={`py-2 px-1 border-b-2 font-medium ${isMobile ? 'text-xs' : 'text-sm'} transition-colors ${activeTab === 'risk'
-                        ? 'border-blue-500 text-blue-600'
-                        : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground'
+                    >
+                      Options Trades
+                    </button>
+                    <button
+                      onClick={() => setActiveTab('risk')}
+                      className={`py-3 px-1 border-b-2 text-sm font-medium transition-colors ${
+                        activeTab === 'risk'
+                          ? 'border-blue-500 text-blue-600'
+                          : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground'
                       }`}
-                  >
-                    {isMobile ? 'Risk' : 'Current Risk'}
-                  </button>
-                  <button
-                    onClick={() => setActiveTab('summary')}
-                    className={`py-2 px-1 border-b-2 font-medium ${isMobile ? 'text-xs' : 'text-sm'} transition-colors ${activeTab === 'summary'
-                        ? 'border-blue-500 text-blue-600'
-                        : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground'
+                    >
+                      Current Risk
+                    </button>
+                    <button
+                      onClick={() => setActiveTab('summary')}
+                      className={`py-3 px-1 border-b-2 text-sm font-medium transition-colors ${
+                        activeTab === 'summary'
+                          ? 'border-blue-500 text-blue-600'
+                          : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground'
                       }`}
-                  >
-                    {isMobile ? 'History' : 'History & Analytics'}
-                  </button>
-                  <button
-                    onClick={() => setActiveTab('analysis')}
-                    className={`py-2 px-1 border-b-2 font-medium ${isMobile ? 'text-xs' : 'text-sm'} transition-colors ${activeTab === 'analysis'
-                        ? 'border-blue-500 text-blue-600'
-                        : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground'
-                      }`}
-                  >
-                    {isMobile ? 'COT' : 'COT Analysis'}
-                  </button>
-                  <button
-                    onClick={() => setActiveTab('etfs')}
-                    className={`py-2 px-1 border-b-2 font-medium ${isMobile ? 'text-xs' : 'text-sm'} transition-colors ${activeTab === 'etfs'
-                        ? 'border-blue-500 text-blue-600'
-                        : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground'
-                      }`}
-                  >
-                    {isMobile ? 'ETFs' : 'Analyze ETFs'}
-                  </button>
-                </nav>
-              </div>
+                    >
+                      History & Analytics
+                    </button>
+                  </nav>
+                </div>
+              )}
             </div>
 
             {/* Tab Content */}
-            {activeTab === 'etfs' ? (
-              <AnalyzeEtfsTab />
-            ) : activeTab === 'analysis' ? (
-              <CotAnalysisTab />
-            ) : activeTab === 'risk' ? (
+            {activeTab === 'risk' ? (
               <CurrentRiskTab
                 transactions={portfolioOverviewTransactions}
                 selectedPortfolioName={selectedPortfolioId ? portfolios.find(p => p.id === selectedPortfolioId)?.name : null}

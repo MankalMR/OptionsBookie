@@ -98,8 +98,12 @@ options-bookie/
 ├── src/
 │   ├── app/                 # Next.js app directory
 │   │   ├── api/            # API routes
-│   │   └── page.tsx        # Main page
+│   │   ├── cot-analysis/   # COT Signals standalone page
+│   │   ├── etfs/           # ETF Intelligence standalone page
+│   │   └── page.tsx        # Trading Desk main page
 │   ├── components/         # React components
+│   │   ├── AppHeader.tsx   # Global navigation & header
+│   │   ├── UserMenu.tsx    # User profile & settings dropdown
 │   ├── hooks/             # Custom React hooks
 │   ├── lib/               # Utility libraries
 │   ├── types/             # TypeScript type definitions
@@ -114,6 +118,8 @@ options-bookie/
 
 ## Key Components
 
+- **AppHeader**: Global navigation and responsive header
+- **UserMenu**: User profile, settings, and theme management
 - **PortfolioSelector**: Manage and switch between portfolios
 - **TransactionTable**: View and manage options trades
 - **PortfolioSummary**: Portfolio performance overview

@@ -72,7 +72,13 @@ The user interface is built mainly using Client Components to support heavy inte
     *   Real-time data transformation: Converting raw transaction lists into aggregated analytics (Monthly Summaries, Charts).
     *   Local State Management: Handling UI state (selected portfolio, active tab) via React Hooks.
 *   **Key Modules**:
-    *   **Core Pages** (`src/app/page.tsx`): The central controller that fetches data and passes it to child views.
+    *   **Core Pages**:
+        *   `src/app/page.tsx`: Trading Desk dashboard (Portfolio context).
+        *   `src/app/etfs/page.tsx`: Standalone ETF Intelligence Terminal.
+        *   `src/app/cot-analysis/page.tsx`: Public COT Signals dashboard.
+    *   **Shared Components**:
+        *   `AppHeader.tsx`: Context-aware global navigation shell.
+        *   `UserMenu.tsx`: Unified user action dropdown (Profile, Theme, Auth).
     *   **Visualization Components** (`src/components/analytics/*`): specialized views like `SummaryView`, `TransactionTable`, and `SymbolGroupedView`.
     *   **Data Hooks** (`src/hooks/useTransactions.ts`): Custom hooks that encapsulate data fetching logic and error handling.
 *   **Patterns & Frameworks**:
@@ -214,8 +220,10 @@ options-bookie/
 │   ├── app/                # Next.js App Router root
 │   │   ├── api/            # Server-side API Routes (REST endpoints)
 │   │   ├── auth/           # NextAuth.js configuration
+│   │   ├── cot-analysis/   # COT Signals page
+│   │   ├── etfs/           # ETF Intelligence page
 │   │   ├── layout.tsx      # Root application shell
-│   │   └── page.tsx        # Main Dashboard / Entry point
+│   │   └── page.tsx        # Trading Desk main page
 │   ├── components/
 │   │   ├── analytics/      # specialized charts and summary cards
 │   │   ├── ui/             # Reusable UI primitives (buttons, inputs)
