@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { etfCacheService } from '@/lib/etf-cache';
 import { alphaVantageEtfProvider } from '@/lib/etf-provider-alphavantage';
+import { GeminiService } from '@/lib/gemini-service';
 import { logger } from "@/lib/logger";
 import type { EtfSearchResult } from '@/types/etf';
 
@@ -40,13 +41,17 @@ export async function GET(request: NextRequest) {
       }));
     } else {
       // No cache results — try fetching exact ticker match from Alpha Vantage
-      const profile = await alphaVantageEtfProvider.getEtfProfile(query);
+      let profile = await alphaVantageEtfProvider.getEtfProfile(query);
       if (profile) {
-        // Supplement with fund name
-        const name = await alphaVantageEtfProvider.getEtfName(query);
-        if (name) {
-          profile.fundName = name;
+        if (!profile.fundName) {
+          const metadata = await GeminiService.recoverEtfMetadata(query);
+          if (metadata) Object.assign(profile, metadata);
         }
+      } else {
+        profile = await GeminiService.generateEtfProfile(query);
+      }
+
+      if (profile) {
 
         // Cache the result
         await etfCacheService.cacheEtf(query, profile);

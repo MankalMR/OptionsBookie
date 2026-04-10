@@ -12,7 +12,11 @@ const mockEtfCacheService = {
 };
 const mockAlphaVantageEtfProvider = {
   getEtfProfile: jest.fn() as jest.MockedFunction<any>,
-  getEtfName: jest.fn() as jest.MockedFunction<any>,
+};
+
+const mockGeminiService = {
+  recoverEtfMetadata: jest.fn() as jest.MockedFunction<any>,
+  generateEtfProfile: jest.fn() as jest.MockedFunction<any>,
 };
 
 jest.mock('next-auth', () => ({
@@ -29,6 +33,10 @@ jest.mock('@/lib/etf-cache', () => ({
 
 jest.mock('@/lib/etf-provider-alphavantage', () => ({
   alphaVantageEtfProvider: mockAlphaVantageEtfProvider,
+}));
+
+jest.mock('@/lib/gemini-service', () => ({
+  GeminiService: mockGeminiService,
 }));
 
 jest.mock('@/lib/logger', () => ({
@@ -110,7 +118,7 @@ describe('GET /api/etfs/search', () => {
       ticker: 'SPY',
       fundName: null,
     });
-    mockAlphaVantageEtfProvider.getEtfName.mockResolvedValue('SPDR S&P 500 ETF');
+    mockGeminiService.recoverEtfMetadata.mockResolvedValue({ fundName: 'SPDR S&P 500 ETF' });
     mockEtfCacheService.cacheEtf.mockResolvedValue(undefined);
     mockEtfCacheService.getUserSavedTickers.mockResolvedValue([]);
 
@@ -130,6 +138,7 @@ describe('GET /api/etfs/search', () => {
     mockGetServerSession.mockResolvedValue(mockSession);
     mockEtfCacheService.searchCache.mockResolvedValue([]);
     mockAlphaVantageEtfProvider.getEtfProfile.mockResolvedValue(null);
+    mockGeminiService.generateEtfProfile.mockResolvedValue(null);
 
     const { GET } = await import('./route');
     const request = new NextRequest('http://localhost/api/etfs/search?q=FAKE');

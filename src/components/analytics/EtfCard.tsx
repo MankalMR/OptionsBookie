@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { AlertTriangle, RefreshCw, Star, ChevronDown, ChevronUp, X } from 'lucide-react';
+import { AlertTriangle, RefreshCw, Star, ChevronDown, ChevronUp, X, Sparkles } from 'lucide-react';
 import EtfHoldingsTable from './EtfHoldingsTable';
 import { formatAum, formatPercent } from '@/lib/etf-utils';
 import type { EtfProfile, SavedEtf } from '@/types/etf';
@@ -90,6 +90,12 @@ export default function EtfCard({ data, onToggleSave, onRemove, isSaved: propIsS
              <Badge variant="outline" className="text-[10px] text-orange-400 border-orange-900/50 bg-orange-950/20 rounded-sm uppercase tracking-wider">
                <RefreshCw className="h-3 w-3 mr-1" />
                Stale Data
+             </Badge>
+          )}
+          {data.isAiGenerated && (
+             <Badge variant="outline" className="text-[10px] text-purple-400 border-purple-900/50 bg-purple-950/20 rounded-sm uppercase tracking-wider">
+               <Sparkles className="h-3 w-3 mr-1" />
+               AI Insight
              </Badge>
           )}
           {data.leveraged === 'YES' && (

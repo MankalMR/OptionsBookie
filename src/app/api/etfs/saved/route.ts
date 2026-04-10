@@ -38,6 +38,7 @@ export async function GET() {
         isSaved: row.is_saved !== false, // Default to true if null or true (for legacy data)
         notes: row.notes,
         isStale: row.cached_at && row.expires_at ? new Date(row.expires_at) < new Date() : false,
+        isAiGenerated: row.provider === 'gemini',
       };
     });
 

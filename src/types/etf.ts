@@ -31,6 +31,7 @@ export interface EtfProfile {
   cachedAt: string;
   isStale: boolean;
   isSaved: boolean;
+  isAiGenerated?: boolean;
 }
 
 export interface EtfSearchResult {
@@ -58,6 +59,7 @@ export interface SavedEtf {
   isSaved: boolean;
   notes: string | null;
   isStale: boolean;
+  isAiGenerated?: boolean;
 }
 
 // Database row types (snake_case)

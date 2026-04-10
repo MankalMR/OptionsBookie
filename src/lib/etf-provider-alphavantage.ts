@@ -117,57 +117,6 @@ export class AlphaVantageEtfProvider {
     }
   }
 
-  async getEtfName(ticker: string): Promise<string | null> {
-    try {
-      if (!this.apiKey) return null;
-
-      if (this.isCurrentlyRateLimited()) {
-        logger.info(`Skipping ETF name lookup for ${ticker} - rate limited`);
-        return null;
-      }
-
-      const url = `${this.baseUrl}?function=OVERVIEW&symbol=${encodeURIComponent(ticker)}&apikey=${this.apiKey}`;
-      logger.info(`Alpha Vantage OVERVIEW URL: ${url.replace(this.apiKey, '[REDACTED]')}`);
-
-      const response = await fetch(url);
-
-      if (!response.ok) {
-        if (response.status === 429) {
-          this.setRateLimited();
-          return null;
-        }
-        return null;
-      }
-
-      const data = await response.json();
-
-      if ('Note' in data || 'Information' in data) {
-        this.setRateLimited();
-        return null;
-      }
-
-      if (data.Name) return data.Name;
-
-      // Fallback: Try SYMBOL_SEARCH if OVERVIEW fails or is limited
-      const searchUrl = `${this.baseUrl}?function=SYMBOL_SEARCH&keywords=${encodeURIComponent(ticker)}&apikey=${this.apiKey}`;
-      const searchRes = await fetch(searchUrl);
-      if (searchRes.ok) {
-        const searchData = await searchRes.json();
-        if (searchData.bestMatches && searchData.bestMatches.length > 0) {
-          // Look for an exact match
-          const match = searchData.bestMatches.find((m: any) => m['1. symbol'] === ticker);
-          if (match && match['2. name']) {
-            return match['2. name'];
-          }
-        }
-      }
-      
-      return null;
-    } catch (error) {
-      logger.error({ error }, `Error fetching ETF name for ${ticker}:`);
-      return null;
-    }
-  }
 }
 
 // Singleton instance

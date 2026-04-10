@@ -15,6 +15,7 @@ Email: manohar.mankala@gmail.com
 - **AI-Powered Queries**: Natural language search to filter winning/losing trades using Google Gemini.
 - **COT Producer Analysis**: Free, zero-login access to CFTC Commitments of Traders insider positioning data and historical buy signals.
 - **Real-time Analytics**: View portfolio performance and trade statistics.
+- **ETF Intelligence Terminal**: Robust ETF search engine featuring zero-downtime AI failover to generate profiles during API rate limits.
 - **Secure Authentication**: Google OAuth integration with NextAuth.js.
 - **Responsive Design**: Modern UI built with Tailwind CSS.
 - **Data Persistence**: PostgreSQL database with Supabase.
@@ -146,6 +147,11 @@ options-bookie/
 - **CFTC API Integration**: Real-time fetching of Disaggregated Commitments of Traders data from the public CFTC Socrata API
 - **Visual Analytics**: Visualizes Producer/Merchant net positioning to detect historically rare bullish shifts in the commodity markets
 - **Algorithmic Signals**: Automatic buy signal detection based on historical percentile lookbacks and net-long flips
+
+### ETF Intelligence Terminal
+- **Unified Feed Architecture**: Search and manage a personalized feed of favorite ETFs, analyzing portfolio weights, top sector concentrations, and yield stats.
+- **AI-Powered Failover**: Generates "Shadow Profiles" using Google Gemini when primary stock market APIs hit arbitrary free-tier rate limits.
+- **Dynamic Asset Enrichment**: Automatically backfills missing metadata (like ETF Issuer and Fund Name) utilizing LLM intelligence.
 
 ## Security
 

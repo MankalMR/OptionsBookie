@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { Input } from '@/components/ui/input';
-import { Search, Heart } from 'lucide-react';
+import { Search } from 'lucide-react';
 import type { EtfSearchResult } from '@/types/etf';
 
 interface EtfSearchBarProps {
@@ -10,7 +10,6 @@ interface EtfSearchBarProps {
   loading: boolean;
   onSearch: (query: string) => void;
   onSelect: (ticker: string) => void;
-  onToggleSave: (ticker: string, isSaved: boolean) => void;
 }
 
 export default function EtfSearchBar({
@@ -18,7 +17,6 @@ export default function EtfSearchBar({
   loading,
   onSearch,
   onSelect,
-  onToggleSave,
 }: EtfSearchBarProps) {
   const [query, setQuery] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
@@ -57,11 +55,6 @@ export default function EtfSearchBar({
     setShowDropdown(false);
     setQuery(ticker);
     onSelect(ticker);
-  };
-
-  const handleSaveClick = (e: React.MouseEvent, ticker: string, isSaved: boolean) => {
-    e.stopPropagation();
-    onToggleSave(ticker, isSaved);
   };
 
   return (

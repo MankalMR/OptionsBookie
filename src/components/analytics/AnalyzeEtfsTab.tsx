@@ -32,7 +32,6 @@ export default function AnalyzeEtfsTab() {
             loading={loading}
             onSearch={search}
             onSelect={handleSelect}
-            onToggleSave={() => {}}
           />
         </div>
       </div>

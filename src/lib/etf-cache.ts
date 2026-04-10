@@ -60,7 +60,7 @@ export class EtfCacheService {
         asset_category: profile.assetCategory,
         top_holdings: profile.topHoldings,
         sector_allocation: profile.sectorAllocation,
-        provider: 'alphavantage',
+        provider: profile.isAiGenerated ? 'gemini' : 'alphavantage',
         cached_at: now.toISOString(),
         expires_at: expiresAt.toISOString(),
       };

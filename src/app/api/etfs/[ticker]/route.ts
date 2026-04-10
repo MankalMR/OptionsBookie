@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth';
 import { etfCacheService } from '@/lib/etf-cache';
 import { alphaVantageEtfProvider } from '@/lib/etf-provider-alphavantage';
 import { logger } from "@/lib/logger";
+import { GeminiService } from '@/lib/gemini-service';
 import { calculateTopTenConcentration } from '@/lib/etf-utils';
 import type { EtfProfile } from '@/types/etf';
 
@@ -50,6 +51,7 @@ export async function GET(
         cachedAt: row.cached_at,
         isStale: cached.isStale,
         isSaved: false,
+        isAiGenerated: row.provider === 'gemini',
       };
 
       // If stale, refetch in background after response is sent
@@ -58,10 +60,18 @@ export async function GET(
           try {
             const fresh = await alphaVantageEtfProvider.getEtfProfile(ticker);
             if (fresh) {
-              const name = await alphaVantageEtfProvider.getEtfName(ticker);
-              if (name) fresh.fundName = name;
+              if (!fresh.fundName) {
+                const metadata = await GeminiService.recoverEtfMetadata(ticker);
+                if (metadata) Object.assign(fresh, metadata);
+              }
               await etfCacheService.cacheEtf(ticker, fresh);
               logger.info(`Successfully refreshed stale ETF cache for ${ticker}`);
+            } else {
+              const shadow = await GeminiService.generateEtfProfile(ticker);
+              if (shadow) {
+                await etfCacheService.cacheEtf(ticker, shadow);
+                logger.info(`Successfully refreshed stale ETF cache for ${ticker} via Gemini Shadow`);
+              }
             }
           } catch (err) {
             logger.error({ error: err }, `Error refreshing stale ETF ${ticker}:`);
@@ -73,8 +83,16 @@ export async function GET(
       profile = await alphaVantageEtfProvider.getEtfProfile(ticker);
 
       if (profile) {
-        const name = await alphaVantageEtfProvider.getEtfName(ticker);
-        if (name) profile.fundName = name;
+        if (!profile.fundName) {
+          const metadata = await GeminiService.recoverEtfMetadata(ticker);
+          if (metadata) Object.assign(profile, metadata);
+        }
+      } else {
+        logger.warn(`Primary provider failed for ${ticker}, generating shadow profile via Gemini`);
+        profile = await GeminiService.generateEtfProfile(ticker);
+      }
+      
+      if (profile) {
         await etfCacheService.cacheEtf(ticker, profile);
       }
     }

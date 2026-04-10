@@ -26,6 +26,7 @@ jest.mock('lucide-react', () => ({
   ChevronDown: () => <svg data-testid="chevron-down" />,
   ChevronUp: () => <svg data-testid="chevron-up" />,
   X: () => <svg data-testid="x-icon" />,
+  Sparkles: () => <svg data-testid="sparkles-icon" />,
 }));
 
 // Mock Holdings Table
@@ -133,5 +134,11 @@ describe('EtfCard', () => {
     render(<EtfCard data={{ ...mockProfile, topTenConcentration: 0.75 }} onToggleSave={onToggleSave} onRemove={onRemove} />);
     
     expect(screen.getByText(/High Concentration/i)).toBeInTheDocument();
+  });
+
+  it('should show AI Insight badge when data is AI generated', () => {
+    render(<EtfCard data={{ ...mockProfile, isAiGenerated: true }} onToggleSave={onToggleSave} onRemove={onRemove} />);
+    
+    expect(screen.getByText(/AI Insight/i)).toBeInTheDocument();
   });
 });

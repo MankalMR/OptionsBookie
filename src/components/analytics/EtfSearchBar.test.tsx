@@ -40,7 +40,7 @@ describe('EtfSearchBar', () => {
 
   it('should render search input with placeholder', () => {
     render(
-      <EtfSearchBar results={[]} loading={false} onSearch={onSearch} onSelect={onSelect} onToggleSave={onToggleSave} />
+      <EtfSearchBar results={[]} loading={false} onSearch={onSearch} onSelect={onSelect} />
     );
 
     expect(screen.getByTestId('search-input')).toBeInTheDocument();
@@ -49,7 +49,7 @@ describe('EtfSearchBar', () => {
 
   it('should debounce search calls by 400ms', () => {
     render(
-      <EtfSearchBar results={[]} loading={false} onSearch={onSearch} onSelect={onSelect} onToggleSave={onToggleSave} />
+      <EtfSearchBar results={[]} loading={false} onSearch={onSearch} onSelect={onSelect} />
     );
 
     const input = screen.getByTestId('search-input');
@@ -70,7 +70,7 @@ describe('EtfSearchBar', () => {
 
   it('should not search for empty input', () => {
     render(
-      <EtfSearchBar results={[]} loading={false} onSearch={onSearch} onSelect={onSelect} onToggleSave={onToggleSave} />
+      <EtfSearchBar results={[]} loading={false} onSearch={onSearch} onSelect={onSelect} />
     );
 
     const input = screen.getByTestId('search-input');
@@ -85,7 +85,7 @@ describe('EtfSearchBar', () => {
 
   it('should show dropdown when results exist', () => {
     const { rerender } = render(
-      <EtfSearchBar results={[]} loading={false} onSearch={onSearch} onSelect={onSelect} onToggleSave={onToggleSave} />
+      <EtfSearchBar results={[]} loading={false} onSearch={onSearch} onSelect={onSelect} />
     );
 
     const input = screen.getByTestId('search-input');
@@ -93,7 +93,7 @@ describe('EtfSearchBar', () => {
 
     // Re-render with results (simulating async response)
     rerender(
-      <EtfSearchBar results={mockResults} loading={false} onSearch={onSearch} onSelect={onSelect} onToggleSave={onToggleSave} />
+      <EtfSearchBar results={mockResults} loading={false} onSearch={onSearch} onSelect={onSelect} />
     );
 
     expect(screen.getByRole('listbox')).toBeInTheDocument();
@@ -104,7 +104,7 @@ describe('EtfSearchBar', () => {
 
   it('should call onSelect when a result is clicked', () => {
     render(
-      <EtfSearchBar results={mockResults} loading={false} onSearch={onSearch} onSelect={onSelect} onToggleSave={onToggleSave} />
+      <EtfSearchBar results={mockResults} loading={false} onSearch={onSearch} onSelect={onSelect} />
     );
 
     const input = screen.getByTestId('search-input');
@@ -119,7 +119,7 @@ describe('EtfSearchBar', () => {
 
   it('should show loading spinner when loading', () => {
     render(
-      <EtfSearchBar results={[]} loading={true} onSearch={onSearch} onSelect={onSelect} onToggleSave={onToggleSave} />
+      <EtfSearchBar results={[]} loading={true} onSearch={onSearch} onSelect={onSelect} />
     );
 
     const spinner = document.querySelector('.animate-spin');
@@ -130,7 +130,7 @@ describe('EtfSearchBar', () => {
     render(
       <div>
         <div data-testid="outside">Outside</div>
-        <EtfSearchBar results={mockResults} loading={false} onSearch={onSearch} onSelect={onSelect} onToggleSave={onToggleSave} />
+        <EtfSearchBar results={mockResults} loading={false} onSearch={onSearch} onSelect={onSelect} />
       </div>
     );
 
@@ -146,7 +146,7 @@ describe('EtfSearchBar', () => {
 
   it('should update input value to ticker when result is selected', () => {
     render(
-      <EtfSearchBar results={mockResults} loading={false} onSearch={onSearch} onSelect={onSelect} onToggleSave={onToggleSave} />
+      <EtfSearchBar results={mockResults} loading={false} onSearch={onSearch} onSelect={onSelect} />
     );
 
     const input = screen.getByTestId('search-input') as HTMLInputElement;
@@ -160,7 +160,7 @@ describe('EtfSearchBar', () => {
 
   it('should support keyboard selection with Enter', () => {
     render(
-      <EtfSearchBar results={mockResults} loading={false} onSearch={onSearch} onSelect={onSelect} onToggleSave={onToggleSave} />
+      <EtfSearchBar results={mockResults} loading={false} onSearch={onSearch} onSelect={onSelect} />
     );
 
     const input = screen.getByTestId('search-input');
@@ -174,7 +174,7 @@ describe('EtfSearchBar', () => {
 
   it('should support keyboard selection with Space', () => {
     render(
-      <EtfSearchBar results={mockResults} loading={false} onSearch={onSearch} onSelect={onSelect} onToggleSave={onToggleSave} />
+      <EtfSearchBar results={mockResults} loading={false} onSearch={onSearch} onSelect={onSelect} />
     );
 
     const input = screen.getByTestId('search-input');

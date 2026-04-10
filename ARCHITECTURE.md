@@ -144,7 +144,7 @@ For full details, see **[DEMO_ARCHITECTURE.md](./DEMO_ARCHITECTURE.md)**.
 *   **Key files**: `src/lib/demo-store.ts`, `src/lib/demo-seed-data.ts`, `src/app/api/demo/**`, `src/app/demo/page.tsx`.
 *   **Configuration**: Enable with `ENABLE_DEMO_MODE=1` in environment variables.
 +
-+### 3.7 Market Data Reliability Subsystem
+### 3.7 Market Data Reliability Subsystem
 +To mitigate the strict rate limits of free-tier market data providers (Alpha Vantage and Finnhub), the system implements a proprietary tiered retrieval strategy.
 +
 +*   **Orchestration Logic**:
@@ -157,7 +157,7 @@ For full details, see **[DEMO_ARCHITECTURE.md](./DEMO_ARCHITECTURE.md)**.
 +    *   **Non-Blocking UI**: Loading states are synchronized across components to ensure the UI remains responsive even during lengthy sequential batch fetches.
 +*   **Key Modules**: `stock-price-cached.ts` (The Orchestrator), `stock-price-alphavantage.ts`, `stock-price-finnhub.ts`.
 
-### 3.7 AI Filtering Subsystem
+### 3.8 AI Filtering Subsystem
 The AI filtering subsystem allows users to perform complex, natural-language searches across their trade history.
 
 *   **Responsibilities**:
@@ -171,7 +171,7 @@ The AI filtering subsystem allows users to perform complex, natural-language sea
     *   **Natural Language to Schema (NL2Schema)**: Mapping unstructured text to a defined TypeScript interface.
     *   **Context Propagation**: Passing an `isDemo` flag through the component tree to the API layer for logical branching.
 
-### 3.8 COT Analysis Subsystem (Free Tool)
+### 3.9 COT Analysis Subsystem (Free Tool)
 An open-access dashboard that connects directly to the CFTC (Commodity Futures Trading Commission) Socrata API to analyze Producer/Merchant Commitments of Traders data.
 
 *   **Responsibilities**:
@@ -184,6 +184,21 @@ An open-access dashboard that connects directly to the CFTC (Commodity Futures T
 *   **Patterns**:
     *   **Serverless/Edge Fetching**: API queries are executed entirely client-side against the public API (`publicreporting.cftc.gov`), requiring zero server-side storage, cron jobs, or backend proxying.
     *   **Zero-Auth Gateway**: Accessible completely without NextAuth authentication or Supabase DB interactions.
+
+### 3.10 ETF Intelligence Subsystem
+A robust data aggregation pipeline that provides complete ETF profiles (Holdings, Yield, Concentration, etc.) while overcoming strict rate limits of free-tier APIs via AI fallback generation.
+
+*   **Responsibilities**:
+    *   **Data Hydration**: Fetching deep metric constraints like top-10 concentration and dynamic sector weighting.
+    *   **Intelligence Enrichment**: Seamlessly utilizing LLMs (`GeminiService`) to fill missing metadata gaps left by providers (e.g. recovering proper Fund Names).
+    *   **Shadow AI Failover**: Guaranteed UI stability by dynamically generating best-guess ETF profiles via Gemini when primary APIs return 429 rate limits or null responses.
+*   **Key Modules**:
+    *   **`src/lib/gemini-service.ts`**: The centralized AI orchestrator connecting to `@google/genai` to parse natural language financial knowledge into strict JSON schemas.
+    *   **`src/lib/etf-provider-alphavantage.ts`**: Primary gateway for fetching raw, verified ETF profiles.
+    *   **`src/app/api/etfs/[ticker]/route.ts`**: The coordination route evaluating cache freshness, managing the provider waterfall, and executing the AI failover when needed.
+*   **Patterns**:
+    *   **Zero-Downtime Fallback Map**: Cache -> Primary verified Provider -> Shadow AI Provider -> 404.
+    *   **Opaque Data Provenance**: Badging UI elements with a `Sparkles` "AI Insight" indicator whenever a displayed profile originated natively from the Language Model rather than the structured market API.
 
 ---
 
