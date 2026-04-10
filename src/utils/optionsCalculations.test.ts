@@ -356,6 +356,74 @@ describe('optionsCalculations', () => {
       // Strike - Premium = 150 - 4.25 = 145.75
       expect(result).toBe(145.75);
     });
+
+    it('should handle zero premium correctly', () => {
+      const callTransaction = createMockTransaction({
+        callOrPut: 'Call',
+        strikePrice: 150.00,
+        premium: 0,
+      });
+      const putTransaction = createMockTransaction({
+        callOrPut: 'Put',
+        strikePrice: 150.00,
+        premium: 0,
+      });
+
+      expect(calculateBreakEven(callTransaction)).toBe(150.00);
+      expect(calculateBreakEven(putTransaction)).toBe(150.00);
+    });
+
+    it('should handle zero strike price correctly', () => {
+      const callTransaction = createMockTransaction({
+        callOrPut: 'Call',
+        strikePrice: 0,
+        premium: 5.50,
+      });
+      const putTransaction = createMockTransaction({
+        callOrPut: 'Put',
+        strikePrice: 0,
+        premium: 5.50,
+      });
+
+      expect(calculateBreakEven(callTransaction)).toBe(5.50);
+      expect(calculateBreakEven(putTransaction)).toBe(-5.50);
+    });
+
+    it('should handle floating point values correctly', () => {
+      const transaction = createMockTransaction({
+        callOrPut: 'Call',
+        strikePrice: 150.125,
+        premium: 4.375,
+      });
+
+      expect(calculateBreakEven(transaction)).toBe(154.50);
+    });
+
+    it('should handle large values correctly', () => {
+      const transaction = createMockTransaction({
+        callOrPut: 'Call',
+        strikePrice: 1000000,
+        premium: 25000,
+      });
+
+      expect(calculateBreakEven(transaction)).toBe(1025000);
+    });
+
+    it('should handle negative values correctly', () => {
+      const callTransaction = createMockTransaction({
+        callOrPut: 'Call',
+        strikePrice: -100,
+        premium: 10,
+      });
+      const putTransaction = createMockTransaction({
+        callOrPut: 'Put',
+        strikePrice: 150,
+        premium: -20,
+      });
+
+      expect(calculateBreakEven(callTransaction)).toBe(-90);
+      expect(calculateBreakEven(putTransaction)).toBe(170); // 150 - (-20) = 170
+    });
   });
 
   describe('calculateDaysHeld', () => {
