@@ -183,4 +183,36 @@ describe('GeminiService', () => {
       expect(result).toBeNull();
     });
   });
+
+  describe('ETF Holdings Enrichment', () => {
+    it('should fill in missing n/a symbols', async () => {
+      const incomplete = [
+        { symbol: 'n/a', description: 'CAMECO CORP', weight: 0.23 },
+        { symbol: 'n/a', description: 'NEXGEN ENERGY LTD', weight: 0.06 },
+        { symbol: 'OKLO', description: 'OKLO INC', weight: 0.06 }
+      ];
+
+      mockGenerateContent.mockResolvedValue({
+        text: JSON.stringify([
+          { symbol: 'CCJ', description: 'CAMECO CORP', weight: 0.23 },
+          { symbol: 'NXE', description: 'NEXGEN ENERGY LTD', weight: 0.06 },
+          { symbol: 'OKLO', description: 'OKLO INC', weight: 0.06 }
+        ])
+      });
+
+      const result = await GeminiService.enrichEtfHoldings('URA', incomplete as any);
+
+      expect(result[0].symbol).toBe('CCJ');
+      expect(result[1].symbol).toBe('NXE');
+      expect(result[2].symbol).toBe('OKLO');
+    });
+
+    it('should return original list if AI failure occurs', async () => {
+      mockGenerateContent.mockRejectedValue(new Error('AI Failure'));
+      const list = [{ symbol: 'n/a', description: 'LOST CORP', weight: 0.1 }];
+      
+      const result = await GeminiService.enrichEtfHoldings('TEST', list as any);
+      expect(result).toEqual(list);
+    });
+  });
 });

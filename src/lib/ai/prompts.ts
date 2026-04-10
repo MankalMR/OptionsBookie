@@ -47,6 +47,29 @@ export const AI_PROMPTS = {
   `,
 
   /**
+   * Used to fill in missing ticker symbols (n/a) in ETF holdings.
+   */
+  ETF_HOLDINGS_ENRICHMENT: (ticker: string, holdings: string) => `
+    You are a strict financial data API. The ETF "${ticker}" has a list of top holdings, but some ticker symbols are missing (marked as "n/a").
+    
+    Current Holdings Data:
+    ${holdings}
+    
+    Task:
+    1. Identify the correct ticker symbols for any "n/a" entries based on their company description.
+    2. Maintain the exact same order and weights.
+    3. Return ONLY a valid JSON array of objects with "symbol", "description", and "weight".
+    
+    Example Input Format:
+    [{"symbol": "n/a", "description": "CAMECO CORP", "weight": 0.23}]
+    
+    Example Output Format:
+    [{"symbol": "CCJ", "description": "CAMECO CORP", "weight": 0.23}]
+    
+    Return ONLY the JSON array. Do not include markdown or backticks.
+  `,
+
+  /**
    * Used for generating the performance narrative in the History & Analytics tab.
    */
   PORTFOLIO_SUMMARY: (timeframe: string, metrics: { totalPnL: number; winRate: number; topSymbols: string[]; totalRoC?: number }) => `
