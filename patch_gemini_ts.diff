@@ -1,0 +1,6 @@
+<<<<<<< SEARCH
+  static async parseQuery(query: string): Promise<any> {
+=======
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  static async parseQuery(query: string): Promise<any> {
+>>>>>>> REPLACE

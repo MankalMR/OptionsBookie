@@ -4,7 +4,7 @@ import { authOptions } from '@/lib/auth';
 import { etfCacheService } from '@/lib/etf-cache';
 import { alphaVantageEtfProvider } from '@/lib/etf-provider-alphavantage';
 import { logger } from "@/lib/logger";
-import { GeminiService } from '@/lib/ai/gemini-service';
+import { GeminiService } from '@/lib/gemini-service';
 import { calculateTopTenConcentration } from '@/lib/etf-utils';
 import type { EtfProfile } from '@/types/etf';
 

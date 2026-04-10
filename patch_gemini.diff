@@ -1,0 +1,85 @@
+<<<<<<< SEARCH
+export class GeminiService {
+=======
+export class GeminiService {
+  /**
+   * Parses natural language query into filter parameters.
+   */
+  static async parseQuery(query: string): Promise<any> {
+    try {
+      const ai = getGeminiClient();
+
+      const prompt = `You are a financial query parser for a stock options trade history dashboard.
+      Extract the following optional filters from the user's natural language query.
+      If a filter is not mentioned, omit it from the JSON.
+
+      Fields:
+      - symbol: The stock ticker or ETF symbol (e.g. "AAPL", "TSLA", "SOXX", "SPY"). Always return as uppercase.
+      - type: The options strategy type. Can be "Call" or "Put".
+      - outcome: Whether the trade was a win or loss. Can be "win" or "loss".
+
+      Examples:
+      1. "Show me winning SOXX trades" -> {"symbol": "SOXX", "outcome": "win"}
+      2. "Losing TSLA puts" -> {"symbol": "TSLA", "type": "Put", "outcome": "loss"}
+      3. "All calls" -> {"type": "Call"}
+
+      Return ONLY a valid JSON object. Do not include markdown formatting, backticks, or any explanation.
+
+      Query: "${query}"`;
+
+      const response = await ai.models.generateContent({
+        model: process.env.GEMINI_MODEL || "gemini-2.5-flash",
+        contents: prompt,
+      });
+
+      if (!response.text) {
+        throw new Error("No text response from Gemini");
+      }
+
+      const text = response.text;
+      logger.info({ text }, "Gemini API parsed query:");
+
+      // Attempt to clean JSON (remove markdown ticks if present despite prompt)
+      const jsonStr = text.replace(/```json/g, "").replace(/```/g, "").trim();
+      return JSON.parse(jsonStr);
+    } catch (error) {
+      logger.error({ error }, `Failed to parse query via Gemini`);
+      throw error;
+    }
+  }
+
+  /**
+   * Generates a plain-English narrative summary of portfolio performance.
+   */
+  static async generatePortfolioSummary(totalPnL: number, winRate: number, topSymbols: string[], totalRoC?: number, timeframe: string = "All Time"): Promise<string> {
+    try {
+      const ai = getGeminiClient();
+
+      const prompt = `You are a helpful and professional financial trading assistant.
+      Provide a brief, plain-English narrative summary (2-3 sentences max) of a user's options trading portfolio performance.
+
+      Here are the metrics for the timeframe: "${timeframe}"
+      - Total P&L: $${totalPnL}
+      - Win Rate: ${winRate}%
+      - Top Traded Symbols: ${topSymbols?.join(', ') || 'None'}
+      - Total Return on Capital (RoC): ${totalRoC}%
+
+      Draft a concise, natural language summary. Do not include introductory filler like "Here is a summary". Just return the summary text.`;
+
+      const response = await ai.models.generateContent({
+        model: process.env.GEMINI_MODEL || "gemini-2.5-flash",
+        contents: prompt,
+      });
+
+      if (!response.text) {
+        throw new Error("No text response from Gemini");
+      }
+
+      return response.text.trim();
+    } catch (error) {
+      logger.error({ error }, `Failed to generate portfolio summary via Gemini`);
+      throw error;
+    }
+  }
+
+>>>>>>> REPLACE

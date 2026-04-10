@@ -12,10 +12,10 @@ Email: manohar.mankala@gmail.com
 - **Multi-Portfolio Support**: Organize trades across multiple portfolios.
 - **Capital Efficiency Tracking**: Analysis of time-overlapping trades and concurrent capital exposure.
 - **Reliable Market Data**: High-availability stock price engine with multi-provider fallback (Alpha Vantage & Finnhub) and local cache recovery.
-- **Unified AI Architecture**: A centralized, service-oriented AI subsystem that provides consistent LLM intelligence across all features (Search, Portfolio Narratives, ETF Intelligence).
 - **AI-Powered Queries**: Natural language search to filter winning/losing trades using Google Gemini.
-- **AI Portfolio Narratives**: Automated performance summaries that provide human-readable insights into trade success and headwinds.
-- **ETF Intelligence Terminal**: Robust ETF search engine featuring zero-downtime AI failover and metadata enrichment.
+- **COT Producer Analysis**: Free, zero-login access to CFTC Commitments of Traders insider positioning data and historical buy signals.
+- **Real-time Analytics**: View portfolio performance and trade statistics.
+- **ETF Intelligence Terminal**: Robust ETF search engine featuring zero-downtime AI failover to generate profiles during API rate limits.
 - **Secure Authentication**: Google OAuth integration with NextAuth.js.
 - **Responsive Design**: Modern UI built with Tailwind CSS.
 - **Data Persistence**: PostgreSQL database with Supabase.

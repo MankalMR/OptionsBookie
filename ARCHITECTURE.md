@@ -40,10 +40,10 @@ graph TD
 
     subgraph "Backend Services (API Routes)"
         NextApp -->|API Requests| APIRoutes[/api/transactions]
-        NextApp -->|AI Queries & Summaries| AIService[src/lib/ai/gemini-service.ts]
+        NextApp -->|AI Queries| AIService[/api/ai/parse-query]
         APIRoutes -->|Server Session| NextAuth[NextAuth.js]
         APIRoutes --> DAL[Data Access Layer (lib/database)]
-        AIService -->|LLM Operations| Gemini[Google Gemini API]
+        AIService -->|LLM Parsing| Gemini[Google Gemini API]
     end
 
     subgraph "External Services"
@@ -180,15 +180,14 @@ The AI filtering subsystem allows users to perform complex, natural-language sea
 
 *   **Responsibilities**:
     *   **Intent Extraction**: Translating natural language queries (e.g., "winning AAPL puts") into structured JSON filters (`symbol`, `type`, `outcome`).
-    *   **Unified AI Branding**: Providing a consistent "Sparkles" indicator via `AIHint.tsx` across all AI-powered views.
+    *   **Context-Aware Parsing**: Differentiating between authenticated LLM usage and unauthenticated demo/mock usage.
     *   **State Management**: Lifting filter state to top-level analytics views (`SummaryView`) to ensure consistent data presentation across all charts and tables.
 *   **Key Modules**:
-    *   **`src/lib/ai/gemini-service.ts`**: The central AI orchestrator, handling both query parsing and portfolio narrative generation.
-    *   **`src/lib/ai/prompts.ts`**: A centralized registry for all LLM prompt templates.
-    *   **`src/app/api/ai/parse-query/route.ts`**: A thin API bridge that utilizes the unified `GeminiService`.
+    *   **`src/app/api/ai/parse-query/route.ts`**: The central API bridge to the Google Gemini LLM, featuring a regex-based fallback for demo sessions.
+    *   **`TransactionsTable` (with `showSearch` toggle)**: A specialized component that handles the rendering and UI feedback for active filters.
 *   **Patterns**:
     *   **Natural Language to Schema (NL2Schema)**: Mapping unstructured text to a defined TypeScript interface.
-    *   **Service-Oriented AI**: Decoupling LLM logic from API routes to improve testability and consistency.
+    *   **Context Propagation**: Passing an `isDemo` flag through the component tree to the API layer for logical branching.
 
 ### 3.9 COT Analysis Subsystem (Free Tool)
 An open-access dashboard that connects directly to the CFTC (Commodity Futures Trading Commission) Socrata API to analyze Producer/Merchant Commitments of Traders data.
@@ -212,7 +211,7 @@ A robust data aggregation pipeline that provides complete ETF profiles (Holdings
     *   **Intelligence Enrichment**: Seamlessly utilizing LLMs (`GeminiService`) to fill missing metadata gaps left by providers (e.g. recovering proper Fund Names).
     *   **Shadow AI Failover**: Guaranteed UI stability by dynamically generating best-guess ETF profiles via Gemini when primary APIs return 429 rate limits or null responses.
 *   **Key Modules**:
-    *   **`src/lib/ai/gemini-service.ts`**: The centralized AI orchestrator connecting to `@google/genai` to parse natural language financial knowledge into strict JSON schemas.
+    *   **`src/lib/gemini-service.ts`**: The centralized AI orchestrator connecting to `@google/genai` to parse natural language financial knowledge into strict JSON schemas.
     *   **`src/lib/etf-provider-alphavantage.ts`**: Primary gateway for fetching raw, verified ETF profiles.
     *   **`src/app/api/etfs/[ticker]/route.ts`**: The coordination route evaluating cache freshness, managing the provider waterfall, and executing the AI failover when needed.
 *   **Patterns**:

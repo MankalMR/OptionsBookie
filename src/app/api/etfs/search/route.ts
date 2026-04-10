@@ -3,7 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { etfCacheService } from '@/lib/etf-cache';
 import { alphaVantageEtfProvider } from '@/lib/etf-provider-alphavantage';
-import { GeminiService } from '@/lib/ai/gemini-service';
+import { GeminiService } from '@/lib/gemini-service';
 import { logger } from "@/lib/logger";
 import type { EtfSearchResult } from '@/types/etf';
 

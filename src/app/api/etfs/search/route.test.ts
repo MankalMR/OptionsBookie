@@ -35,7 +35,7 @@ jest.mock('@/lib/etf-provider-alphavantage', () => ({
   alphaVantageEtfProvider: mockAlphaVantageEtfProvider,
 }));
 
-jest.mock('@/lib/ai/gemini-service', () => ({
+jest.mock('@/lib/gemini-service', () => ({
   GeminiService: mockGeminiService,
 }));
 

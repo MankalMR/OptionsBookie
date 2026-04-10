@@ -166,9 +166,14 @@ NEXTAUTH_SECRET=your_nextauth_secret_here
 ALPHA_VANTAGE_KEY=your_alpha_vantage_key_here
 FINNHUB_API_KEY=your_finnhub_api_key_here
 
-# AI Features (Required for natural language search and narratives)
+# AI Features (Required for natural language search)
 GEMINI_API_KEY=your_gemini_api_key_here
-GEMINI_MODEL=gemini-2.0-flash # Optional override
+
+## 🛠️ Market Data Tip
+The system implements a tiered fallback strategy:
+1. It tries **Alpha Vantage** first.
+2. If Alpha Vantage is rate-limited, it automatically fails over to **Finnhub**.
+3. If both fail, it uses the last known **cached price** (marked as STALE in the UI).
 ```
 
 ### Optional Variables

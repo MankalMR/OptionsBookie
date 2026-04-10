@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { Sparkles } from 'lucide-react';
 import { useIsMobile } from '@/hooks/useMediaQuery';
-import AIHint from '@/components/ui/AIHint';
 
 interface AIPortfolioSummaryProps {
   totalPnL: number;
@@ -72,7 +72,10 @@ export default function AIPortfolioSummary({
   return (
     <div className={`bg-card rounded-lg shadow border p-6 ${isMobile ? 'mb-4' : 'mb-8'}`}>
       <div className="flex items-center justify-between mb-4">
-        <AIHint>AI Portfolio Summary</AIHint>
+        <div className="flex items-center gap-2 text-card-foreground">
+          <Sparkles className="h-5 w-5 text-sky-500" />
+          <h3 className="text-lg font-semibold">AI Portfolio Summary</h3>
+        </div>
         <button
           onClick={generateSummary}
           disabled={isLoading}

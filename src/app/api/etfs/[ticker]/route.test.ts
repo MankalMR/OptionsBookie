@@ -6,9 +6,8 @@ import { GET } from './route';
 import { getServerSession } from 'next-auth';
 import { etfCacheService } from '@/lib/etf-cache';
 import { alphaVantageEtfProvider } from '@/lib/etf-provider-alphavantage';
-import { GeminiService } from '@/lib/ai/gemini-service';
-import { calculateTopTenConcentration } from '@/lib/etf-utils';
-import type { EtfProfile, EtfHolding } from '@/types/etf';
+import { GeminiService } from '@/lib/gemini-service';
+import type { EtfProfile } from '@/types/etf';
 
 // === Mocks ===
 jest.mock('@/lib/auth', () => ({
