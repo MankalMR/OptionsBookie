@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { etfCacheService } from '@/lib/etf-cache';
 import { logger } from "@/lib/logger";
+import { calculateTopTenConcentration } from '@/lib/etf-utils';
 import type { SavedEtf } from '@/types/etf';
 
 export async function GET() {
@@ -15,16 +16,30 @@ export async function GET() {
     const userEmail = session.user.email;
     const savedRows = await etfCacheService.getSavedEtfs(userEmail);
 
-    const savedEtfs: SavedEtf[] = savedRows.map(row => ({
-      ticker: row.ticker,
-      fundName: row.fund_name ?? null,
-      netExpenseRatio: row.net_expense_ratio ?? null,
-      dividendYield: row.dividend_yield ?? null,
-      netAssets: row.net_assets ?? null,
-      savedAt: row.saved_at,
-      notes: row.notes,
-      isStale: row.expires_at ? new Date(row.expires_at) < new Date() : false,
-    }));
+    const savedEtfs: SavedEtf[] = savedRows.map(row => {
+      const topHoldings = row.top_holdings || [];
+      const topTenWeight = calculateTopTenConcentration(topHoldings);
+
+      return {
+        ticker: row.ticker,
+        fundName: row.fund_name ?? null,
+        netExpenseRatio: row.net_expense_ratio ?? null,
+        dividendYield: row.dividend_yield ?? null,
+        netAssets: row.net_assets ?? null,
+        portfolioTurnover: row.portfolio_turnover ?? null,
+        leveraged: row.leveraged ?? null,
+        topTenConcentration: (topTenWeight !== null && topTenWeight > 0) ? topTenWeight : null,
+        topHoldings,
+        sectorAllocation: row.sector_allocation || [],
+        assetCategory: row.asset_category ?? null,
+        cachedAt: row.cached_at ? new Date(row.cached_at).toISOString() : new Date().toISOString(),
+        savedAt: row.saved_at ? new Date(row.saved_at).toISOString() : new Date().toISOString(),
+        lastViewedAt: row.last_viewed_at ? new Date(row.last_viewed_at).toISOString() : (row.saved_at ? new Date(row.saved_at).toISOString() : new Date().toISOString()),
+        isSaved: row.is_saved !== false, // Default to true if null or true (for legacy data)
+        notes: row.notes,
+        isStale: row.cached_at && row.expires_at ? new Date(row.expires_at) < new Date() : false,
+      };
+    });
 
     return NextResponse.json(savedEtfs);
   } catch (error) {

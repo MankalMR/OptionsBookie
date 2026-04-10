@@ -137,7 +137,7 @@ export class EtfCacheService {
     }
   }
 
-  async saveEtf(userId: string, ticker: string, notes?: string): Promise<void> {
+  async recordView(userId: string, ticker: string): Promise<void> {
     try {
       const { error } = await this.supabase
         .from(this.SAVED_TABLE)
@@ -145,13 +145,51 @@ export class EtfCacheService {
           {
             user_id: userId,
             ticker: ticker.toUpperCase(),
+            last_viewed_at: new Date().toISOString(),
+          },
+          { onConflict: 'user_id,ticker' }
+        );
+
+      if (error && error.code !== '42703') { // 42703 is "column does not exist"
+        logger.error({ error }, `Error recording view for ETF ${ticker}:`);
+      }
+    } catch (error) {
+      // Silently ignore if column doesn't exist yet
+    }
+  }
+
+  async saveEtf(userId: string, ticker: string, notes?: string): Promise<void> {
+    try {
+      // Try with new columns
+      const { error } = await this.supabase
+        .from(this.SAVED_TABLE)
+        .upsert(
+          {
+            user_id: userId,
+            ticker: ticker.toUpperCase(),
+            is_saved: true,
             notes: notes || null,
+            last_viewed_at: new Date().toISOString(),
           },
           { onConflict: 'user_id,ticker' }
         );
 
       if (error) {
-        logger.error({ error }, `Error saving ETF ${ticker}:`);
+        if (error.code === '42703') {
+          // Fallback to old schema
+          await this.supabase
+            .from(this.SAVED_TABLE)
+            .upsert(
+              {
+                user_id: userId,
+                ticker: ticker.toUpperCase(),
+                notes: notes || null,
+              },
+              { onConflict: 'user_id,ticker' }
+            );
+        } else {
+          logger.error({ error }, `Error saving ETF ${ticker}:`);
+        }
       } else {
         logger.info(`Saved ETF ${ticker} for user ${userId}`);
       }
@@ -160,11 +198,29 @@ export class EtfCacheService {
     }
   }
 
-  async unsaveEtf(userId: string, ticker: string): Promise<void> {
+  async removeFromFeed(userId: string, ticker: string): Promise<void> {
     try {
       const { error } = await this.supabase
         .from(this.SAVED_TABLE)
         .delete()
+        .eq('user_id', userId)
+        .eq('ticker', ticker.toUpperCase());
+
+      if (error) {
+        logger.error({ error }, `Error removing ETF ${ticker} from feed:`);
+      } else {
+        logger.info(`Removed ETF ${ticker} from feed for user ${userId}`);
+      }
+    } catch (error) {
+      logger.error({ error }, `Error removing ETF ${ticker} from feed:`);
+    }
+  }
+
+  async unsaveEtf(userId: string, ticker: string): Promise<void> {
+    try {
+      const { error } = await this.supabase
+        .from(this.SAVED_TABLE)
+        .update({ is_saved: false })
         .eq('user_id', userId)
         .eq('ticker', ticker.toUpperCase());
 
@@ -180,11 +236,23 @@ export class EtfCacheService {
 
   async getSavedEtfs(userId: string): Promise<Array<UserSavedEtfRow & Partial<EtfCacheRow>>> {
     try {
-      const { data: savedRows, error: savedError } = await this.supabase
+      // Attempt with new ordering column
+      let { data: savedRows, error: savedError } = await this.supabase
         .from(this.SAVED_TABLE)
         .select('*')
         .eq('user_id', userId)
-        .order('saved_at', { ascending: false });
+        .order('last_viewed_at', { ascending: false });
+
+      // Fallback if column missing
+      if (savedError && savedError.code === '42703') {
+        const fallback = await this.supabase
+          .from(this.SAVED_TABLE)
+          .select('*')
+          .eq('user_id', userId)
+          .order('saved_at', { ascending: false });
+        savedRows = fallback.data;
+        savedError = fallback.error;
+      }
 
       if (savedError || !savedRows?.length) {
         if (savedError) logger.error({ error: savedError }, 'Error fetching saved ETFs:');

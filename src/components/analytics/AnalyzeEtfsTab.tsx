@@ -1,88 +1,46 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState } from 'react';
 import EtfSearchBar from './EtfSearchBar';
-import EtfDetailCard from './EtfDetailCard';
-import SavedEtfsList from './SavedEtfsList';
+import EtfsList from './EtfsList';
 import { useEtfSearch } from '@/hooks/useEtfSearch';
-import { useEtfProfile } from '@/hooks/useEtfProfile';
-import { useSavedEtfs } from '@/hooks/useSavedEtfs';
 
 export default function AnalyzeEtfsTab() {
-  const [selectedTicker, setSelectedTicker] = useState<string | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const { results, loading, search, clearResults } = useEtfSearch();
 
-  const { results, loading: searchLoading, search, clearResults } = useEtfSearch();
-  const { profile, loading: profileLoading, error: profileError } = useEtfProfile(selectedTicker);
-  const { savedEtfs, loading: savedLoading, saveEtf, unsaveEtf, fetchSavedEtfs } = useSavedEtfs();
-
-  const handleSelect = useCallback((ticker: string) => {
-    setSelectedTicker(ticker);
-    clearResults();
-  }, [clearResults]);
-
-  const handleToggleSaveFromSearch = useCallback(async (ticker: string, isSaved: boolean) => {
-    if (isSaved) {
-      await unsaveEtf(ticker);
-    } else {
-      await saveEtf(ticker);
+  const handleSelect = async (ticker: string) => {
+    // When a ticker is selected, it hits the [ticker] API route which records the view.
+    // We trigger a refresh of the unified list to show the new item at the top.
+    
+    // First, we trigger the search API to ensure it's recorded/cached
+    try {
+      await fetch(`/api/etfs/${ticker}`);
+      setRefreshKey(prev => prev + 1);
+      clearResults();
+    } catch (err) {
+      console.error('Error selecting ETF:', err);
     }
-  }, [saveEtf, unsaveEtf]);
-
-  const handleToggleSaveFromDetail = useCallback(async () => {
-    if (!profile) return;
-    if (profile.isSaved) {
-      await unsaveEtf(profile.ticker);
-    } else {
-      await saveEtf(profile.ticker);
-    }
-    // Refresh saved list
-    await fetchSavedEtfs();
-  }, [profile, saveEtf, unsaveEtf, fetchSavedEtfs]);
-
-  const handleUnsave = useCallback(async (ticker: string) => {
-    await unsaveEtf(ticker);
-  }, [unsaveEtf]);
+  };
 
   return (
-    <div className="space-y-6">
-      {/* Search Bar */}
-      <EtfSearchBar
-        results={results}
-        loading={searchLoading}
-        onSearch={search}
-        onSelect={handleSelect}
-        onToggleSave={handleToggleSaveFromSearch}
-      />
-
-      {/* Profile Detail */}
-      {profileLoading && (
-        <div className="flex items-center justify-center py-8">
-          <div className="h-6 w-6 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent" />
-          <span className="ml-2 text-sm text-muted-foreground">Loading ETF profile...</span>
+    <div className="space-y-8">
+      <div className="flex flex-col md:flex-row md:items-center justify-start gap-4 border-b border-border/40 pb-6">
+        <div className="w-full md:w-96">
+          <EtfSearchBar 
+            results={results}
+            loading={loading}
+            onSearch={search}
+            onSelect={handleSelect}
+            onToggleSave={() => {}}
+          />
         </div>
-      )}
-
-      {profileError && (
-        <div className="text-sm text-red-500 py-4">{profileError}</div>
-      )}
-
-      {profile && !profileLoading && (
-        <EtfDetailCard
-          profile={profile}
-          onToggleSave={handleToggleSaveFromDetail}
-        />
-      )}
-
-      {/* Saved ETFs */}
-      <div>
-        <h2 className="text-lg font-semibold mb-3">Saved ETFs</h2>
-        <SavedEtfsList
-          savedEtfs={savedEtfs}
-          loading={savedLoading}
-          onSelect={handleSelect}
-          onUnsave={handleUnsave}
-        />
       </div>
+
+      <EtfsList 
+        refreshKey={refreshKey} 
+        onRefresh={() => setRefreshKey(prev => prev + 1)} 
+      />
     </div>
   );
 }

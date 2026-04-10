@@ -103,14 +103,6 @@ export default function EtfSearchBar({
                   <span className="text-muted-foreground truncate">{result.fundName}</span>
                 )}
               </div>
-              <button
-                onClick={(e) => handleSaveClick(e, result.ticker, result.isSaved)}
-                className="shrink-0 ml-2 p-1 hover:bg-muted-foreground/10 rounded"
-              >
-                <Heart
-                  className={`h-4 w-4 ${result.isSaved ? 'fill-red-500 text-red-500' : 'text-muted-foreground'}`}
-                />
-              </button>
             </div>
           ))}
         </div>

@@ -31,12 +31,34 @@ export async function GET(request: NextRequest) {
     if (cacheResults.length > 0) {
       const savedTickers = await etfCacheService.getUserSavedTickers(userEmail);
       const savedSet = new Set(savedTickers);
+      
+      // Self-healing: If name is null, we try to fetch it and update cache
+      results = await Promise.all(cacheResults.map(async (row) => {
+        let name = row.fund_name;
+        
+        if (!name) {
+          logger.info(`Self-healing missing name for ${row.ticker}...`);
+          name = await alphaVantageEtfProvider.getEtfName(row.ticker);
+          
+          if (name) {
+            // Background update: we don't await this to keep search fast
+            etfCacheService.getCachedEtf(row.ticker).then(cached => {
+              if (cached?.data) {
+                etfCacheService.cacheEtf(row.ticker, {
+                  ...cached.data,
+                  fundName: name,
+                } as any);
+              }
+            });
+          }
+        }
 
-      results = cacheResults.map(row => ({
-        ticker: row.ticker,
-        fundName: row.fund_name,
-        isCached: true,
-        isSaved: savedSet.has(row.ticker),
+        return {
+          ticker: row.ticker,
+          fundName: name,
+          isCached: true,
+          isSaved: savedSet.has(row.ticker),
+        };
       }));
     } else {
       // No cache results — try fetching exact ticker match from Alpha Vantage

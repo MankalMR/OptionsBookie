@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth';
 import { etfCacheService } from '@/lib/etf-cache';
 import { alphaVantageEtfProvider } from '@/lib/etf-provider-alphavantage';
 import { logger } from "@/lib/logger";
+import { calculateTopTenConcentration } from '@/lib/etf-utils';
 import type { EtfProfile } from '@/types/etf';
 
 export async function GET(
@@ -27,9 +28,7 @@ export async function GET(
 
     if (cached) {
       const row = cached.data;
-      const topTenWeight = (row.top_holdings || [])
-        .slice(0, 10)
-        .reduce((sum, h) => sum + (h.weight || 0), 0);
+      const topTenWeight = calculateTopTenConcentration(row.top_holdings);
 
       profile = {
         ticker: row.ticker,
@@ -46,7 +45,7 @@ export async function GET(
         portfolioTurnover: row.portfolio_turnover,
         leveraged: row.leveraged,
         topHoldings: row.top_holdings || [],
-        topTenConcentration: topTenWeight > 0 ? topTenWeight : null,
+        topTenConcentration: (topTenWeight !== null && topTenWeight > 0) ? topTenWeight : null,
         sectorAllocation: row.sector_allocation || [],
         cachedAt: row.cached_at,
         isStale: cached.isStale,
@@ -91,6 +90,7 @@ export async function GET(
     const savedTickers = await etfCacheService.getUserSavedTickers(userEmail);
     profile.isSaved = savedTickers.includes(ticker);
 
+    await etfCacheService.recordView(userEmail, ticker);
     return NextResponse.json(profile);
   } catch (error) {
     logger.error({ error }, 'Error fetching ETF profile:');

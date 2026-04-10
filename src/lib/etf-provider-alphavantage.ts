@@ -1,4 +1,5 @@
 import { logger } from "@/lib/logger";
+import { calculateTopTenConcentration } from "@/lib/etf-utils";
 import type { EtfProfile, AlphaVantageEtfProfileResponse } from "@/types/etf";
 
 export class AlphaVantageEtfProvider {
@@ -76,6 +77,9 @@ export class AlphaVantageEtfProvider {
         return null;
       }
 
+      // Fetch name and metadata in parallel to avoid multiple sequential delays
+      const fundName = await this.getEtfName(ticker);
+
       const holdings = (etfData.holdings || []).map(h => ({
         symbol: h.symbol,
         description: h.description,
@@ -87,11 +91,11 @@ export class AlphaVantageEtfProvider {
         weight: parseFloat(s.weight) || 0,
       }));
 
-      const topTenWeight = holdings.slice(0, 10).reduce((sum, h) => sum + h.weight, 0);
+      const topTenWeight = calculateTopTenConcentration(holdings);
 
       return {
         ticker: ticker.toUpperCase(),
-        fundName: null, // ETF_PROFILE doesn't return fund name; supplement via getEtfName
+        fundName: fundName || null, 
         issuer: null,
         netAssets: etfData.net_assets ? parseFloat(etfData.net_assets) : null,
         netExpenseRatio: etfData.net_expense_ratio ? parseFloat(etfData.net_expense_ratio) : null,
@@ -99,12 +103,12 @@ export class AlphaVantageEtfProvider {
         dividendFrequency: null,
         exDividendDate: null,
         benchmarkIndex: null,
-        assetCategory: null,
+        assetCategory: null, // Still searching for a reliable source for this in AV
         inceptionDate: etfData.inception_date || null,
         portfolioTurnover: etfData.portfolio_turnover ? parseFloat(etfData.portfolio_turnover) : null,
         leveraged: etfData.leveraged || null,
         topHoldings: holdings,
-        topTenConcentration: topTenWeight > 0 ? topTenWeight : null,
+        topTenConcentration: (topTenWeight !== null && topTenWeight > 0) ? topTenWeight : null,
         sectorAllocation: sectors,
         cachedAt: new Date().toISOString(),
         isStale: false,
@@ -145,7 +149,23 @@ export class AlphaVantageEtfProvider {
         return null;
       }
 
-      return data.Name || null;
+      if (data.Name) return data.Name;
+
+      // Fallback: Try SYMBOL_SEARCH if OVERVIEW fails or is limited
+      const searchUrl = `${this.baseUrl}?function=SYMBOL_SEARCH&keywords=${encodeURIComponent(ticker)}&apikey=${this.apiKey}`;
+      const searchRes = await fetch(searchUrl);
+      if (searchRes.ok) {
+        const searchData = await searchRes.json();
+        if (searchData.bestMatches && searchData.bestMatches.length > 0) {
+          // Look for an exact match
+          const match = searchData.bestMatches.find((m: any) => m['1. symbol'] === ticker);
+          if (match && match['2. name']) {
+            return match['2. name'];
+          }
+        }
+      }
+      
+      return null;
     } catch (error) {
       logger.error({ error }, `Error fetching ETF name for ${ticker}:`);
       return null;

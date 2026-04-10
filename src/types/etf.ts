@@ -46,7 +46,16 @@ export interface SavedEtf {
   netExpenseRatio: number | null;
   dividendYield: number | null;
   netAssets: number | null;
+  portfolioTurnover: number | null;
+  leveraged: string | null;
+  topTenConcentration: number | null;
+  topHoldings: EtfHolding[];
+  sectorAllocation: EtfSector[];
+  assetCategory: string | null;
+  cachedAt: string;
   savedAt: string;
+  lastViewedAt: string;
+  isSaved: boolean;
   notes: string | null;
   isStale: boolean;
 }
@@ -78,8 +87,10 @@ export interface UserSavedEtfRow {
   id: string;
   user_id: string;
   ticker: string;
+  is_saved: boolean;
   notes: string | null;
   saved_at: string;
+  last_viewed_at: string;
 }
 
 // Alpha Vantage ETF_PROFILE response shape
