@@ -1,5 +1,5 @@
 ## Status
-pending-implementation
+done
 
 ## Context
 Traders reviewing their History & Analytics tab currently see raw charts and metrics (like win rate, RoC, and P&L). While useful, these require mental effort to interpret. Providing a plain-English narrative summary of their performance would make the analytics more digestible and accessible, quickly surfacing the 'story' behind the numbers without making the trader hunt through charts.
@@ -44,9 +44,18 @@ sequenceDiagram
 ```
 
 ## Acceptance Criteria
-- [ ] A new AI Summary component is visible in the History & Analytics view.
-- [ ] The component sends top-level portfolio metrics to a dedicated API route.
-- [ ] The API route uses an LLM to generate a short, readable 2-3 sentence summary.
-- [ ] A loading state is clearly visible while the summary is being generated.
-- [ ] If the API request fails, the component degrades gracefully (hides or shows a fallback message) without affecting the rest of the app.
-- [ ] No new database tables or backend data pipelines are created.
+- [x] A new AI Summary component is visible in the History & Analytics view.
+- [x] The component sends top-level portfolio metrics to a dedicated API route.
+- [x] The API route uses an LLM to generate a short, readable 2-3 sentence summary.
+- [x] A loading state is clearly visible while the summary is being generated.
+- [x] If the API request fails, the component degrades gracefully (hides or shows a fallback message) without affecting the rest of the app.
+- [x] No new database tables or backend data pipelines are created.
+
+## Implementation Notes
+- Files changed: `src/components/SummaryView.tsx`, `src/components/analytics/AIPortfolioSummary.tsx`, `src/app/api/ai/portfolio-summary/route.ts`
+- Behavior:
+  - Added an AI Portfolio Summary component that displays an LLM-generated summary of the user's overall portfolio metrics.
+  - Placed gracefully within the `SummaryView` on desktop and mobile, automatically invoking the API using existing metrics like total P&L, win rate, and top symbols.
+  - Built an API endpoint `/api/ai/portfolio-summary` to handle both authenticated standard users via Gemini AI and unauthenticated users on the Demo site with a mock delay.
+- Tests: Verified the build success and standard test suite passed. UI interactions are protected by fallback checks when API returns failures.
+- Known follow-ups: The AI summary currently focuses only on the "All Time" metrics in the Summary View. Future iterations could add it to `YearlyPerformanceCard` for year-specific summaries.

@@ -173,12 +173,12 @@ Set these in your `.env.local` (local) or Vercel Project Settings (production):
 
 ### 3.7 AI Parsing Fallback
 
-To support AI filtering without requiring a Gemini API key or external network calls during demo sessions, the system implements a context-aware parsing fallback.
+To support AI filtering and portfolio summaries without requiring a Gemini API key or external network calls during demo sessions, the system implements a context-aware parsing fallback.
 
-- **Trigger**: When `SummaryView` is initialized with `isDemo={true}`, it propagates this flag down to the `TransactionsTable`.
-- **API Branching**: The `/api/ai/parse-query` route checks for the `isDemo` payload property. If true and the user is unauthenticated, it skips the LLM and uses the **Mock Parser**.
-- **Mock Logic**: A robust regex-based heuristic that identifies:
+- **Trigger**: Components (like `AIPortfolioSummary` or `SummaryView`) propagate their `isDemo` status to the API.
+- **Service Integration**: The `GeminiService` class handles this branching internally. For any request marked `isDemo: true`, the service skips the external LLM call.
+- **Mock Logic**: A robust regex-based heuristic in `GeminiService` that identifies:
     - **Tickers**: Any 3-5 letter uppercase word (e.g., `SOXX`, `AAPL`).
     - **Strategies**: Keywords like `put` or `call`.
     - **Outcomes**: Keywords like `win`, `loss`, `losing`.
-- **Latency Emulation**: The mock parser includes an artificial 800ms delay to maintain parity with the "feel" of the real AI service.
+- **Latency Emulation**: The service includes an artificial delay to maintain parity with the "feel" of the real AI service.

@@ -7,11 +7,7 @@ import { isDemoEnabled } from "@/lib/demo-guards";
 
 export async function POST(req: Request) {
   try {
-    const { query, isDemo } = await req.json();
-
-    if (!query || typeof query !== "string") {
-      return NextResponse.json({ error: "Invalid query" }, { status: 400 });
-    }
+    const { totalPnL, winRate, topSymbols, totalRoC, timeframe, isDemo } = await req.json();
 
     const session = await getServerSession(authOptions);
     const isSiteDemoEnabled = isDemoEnabled();
@@ -24,10 +20,21 @@ export async function POST(req: Request) {
       return new NextResponse("Unauthorized", { status: 401 });
     }
 
-    const filters = await GeminiService.parsePortfolioQuery(query, useMock);
-    return NextResponse.json(filters);
-  } catch (error) {
-    logger.error({ err: error }, "Error in parse-query API:");
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+    const summary = await GeminiService.generatePortfolioSummary({
+      totalPnL,
+      winRate,
+      topSymbols,
+      totalRoC,
+      timeframe,
+      isDemo: useMock
+    });
+
+    return NextResponse.json({ summary });
+  } catch (error: any) {
+    logger.error({ err: error }, "Error in portfolio-summary API:");
+    return NextResponse.json(
+      { error: error?.message || "Internal Server Error" },
+      { status: 500 }
+    );
   }
 }

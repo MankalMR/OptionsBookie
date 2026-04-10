@@ -29,6 +29,8 @@ import StrategyPerformanceCard from './analytics/StrategyPerformanceCard';
 import YearlyPerformanceCard from './analytics/YearlyPerformanceCard';
 import AllTimePortfolioAnalytics from './analytics/AllTimePortfolioAnalytics';
 import BenchmarkComparisonChart from './analytics/BenchmarkComparisonChart';
+import AIPortfolioSummary from './analytics/AIPortfolioSummary';
+import AIHint from './ui/AIHint';
 
 interface SummaryViewProps {
   transactions: OptionsTransaction[];
@@ -499,9 +501,12 @@ export default function SummaryView({
     <div className={isMobile ? "space-y-4" : "space-y-8"}>
       {/* AI Filter UI - Now visible on all devices */}
       <div className="bg-muted/30 p-3 sm:p-4 rounded-lg border border-border">
+        <div className="mb-3">
+          <AIHint>AI Search Filters</AIHint>
+        </div>
         <form onSubmit={handleAiSearch} className="flex flex-col sm:flex-row gap-2">
           <div className="relative flex-1">
-            <Sparkles className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Sparkles className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-sky-500/70" />
             <input
               type="text"
               value={aiQuery}
@@ -556,6 +561,20 @@ export default function SummaryView({
           </div>
         )}
       </div>
+
+      <AIPortfolioSummary
+        totalPnL={quickStatsData.totalPnL}
+        winRate={quickStatsData.winRate}
+        topSymbols={
+          Array.from(new Set([
+            quickStatsData.bestStockByPnL?.ticker,
+            quickStatsData.bestStockByRoR?.ticker
+          ].filter(Boolean))) as string[]
+        }
+        totalRoC={quickStatsData.avgRoR}
+        timeframe="All Time"
+        isDemo={isDemo}
+      />
 
       {!isMobile && (
         <AllTimePortfolioAnalytics selectedPortfolioName={selectedPortfolioName}>
