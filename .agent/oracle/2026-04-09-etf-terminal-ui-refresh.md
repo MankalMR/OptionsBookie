@@ -1,7 +1,7 @@
 # Feature Ticket: ETF Terminal Cards UI Refresh
 
 ## Status
-pending-implementation
+done
 
 ## Context
 Currently, the OptionsBookie ETF analysis feature uses a straightforward visual style for its components. Options traders require a denser, "terminal-like" view to quickly parse detailed stats and constituents for ETFs. The goal is to modernize the individual component cards without altering the outer page layout.
