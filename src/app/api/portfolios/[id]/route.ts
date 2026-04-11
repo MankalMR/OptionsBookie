@@ -105,7 +105,7 @@ export async function PATCH(
   } catch (error) {
     logger.error({ error }, 'Error updating portfolio:');
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to update portfolio' },
+      { error: 'Failed to update portfolio' },
       { status: 500 }
     );
   }
@@ -131,7 +131,7 @@ export async function DELETE(
   } catch (error) {
     logger.error({ error }, 'Error deleting portfolio:');
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to delete portfolio' },
+      { error: 'Failed to delete portfolio' },
       { status: 500 }
     );
   }
