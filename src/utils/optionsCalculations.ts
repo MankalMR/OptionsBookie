@@ -1129,13 +1129,28 @@ export const calculateSmartCapital = (
   const breakdown: SmartCapitalResult['breakdown'] = [];
   const processedChains = new Set<string>();
 
-  // Group transactions by stock
+  // ⚡ Bolt: Pre-calculate maps for O(1) lookups to avoid nested O(N*M) bottlenecks inside the loops
+  const chainMap = new Map<string, TradeChain>();
+  for (const c of chains) {
+    chainMap.set(c.id, c);
+  }
+
+  const txnsByChain = new Map<string, OptionsTransaction[]>();
+  // Group transactions by stock and chain
   const byStock = new Map<string, OptionsTransaction[]>();
+
   transactions.forEach(t => {
+    // Populate stock grouping
     if (!byStock.has(t.stockSymbol)) {
       byStock.set(t.stockSymbol, []);
     }
     byStock.get(t.stockSymbol)!.push(t);
+
+    // Populate chain grouping
+    if (t.chainId) {
+      if (!txnsByChain.has(t.chainId)) txnsByChain.set(t.chainId, []);
+      txnsByChain.get(t.chainId)!.push(t);
+    }
   });
 
   // Process each stock independently
@@ -1156,7 +1171,8 @@ export const calculateSmartCapital = (
         transactionsForDetection.push(t);
       } else if (!processedChainIdsForDetection.has(t.chainId)) {
         // 2. Synthesize chain
-        const chainLegs = stockTransactions.filter(l => l.chainId === t.chainId);
+        // ⚡ Bolt: Use pre-calculated map instead of O(N) filter
+        const chainLegs = txnsByChain.get(t.chainId) || [];
         if (chainLegs.length > 0) {
           // Find min Open and max Close
           // Sort by open date
@@ -1215,9 +1231,11 @@ export const calculateSmartCapital = (
     // Process chains (Average Capital)
     for (const t of chainTrades) {
       if (t.chainId && !processedChains.has(t.chainId) && t.status !== 'Rolled') {
-        const chain = chains.find(c => c.id === t.chainId);
+        // ⚡ Bolt: O(1) map lookup instead of O(C) find
+        const chain = chainMap.get(t.chainId);
         if (chain) {
-          const chainTransactions = transactions.filter(x => x.chainId === t.chainId);
+          // ⚡ Bolt: O(1) map lookup instead of O(N) filter
+          const chainTransactions = txnsByChain.get(t.chainId) || [];
           const totalChainCollateral = chainTransactions.reduce((sum, ct) => sum + calculateCollateral(ct), 0);
           const avgChainCollateral = chainTransactions.length > 0 ? totalChainCollateral / chainTransactions.length : 0;
 
