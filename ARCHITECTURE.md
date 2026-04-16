@@ -1,0 +1,263 @@
+# System Architecture
+
+## 1. Executive Summary
+
+**OptionsBookie** is a comprehensive, full-stack web application designed for options traders. It serves as a specialized trading journal and analytics platform, differentiating itself with advanced domain logic that models capital efficiency and complex trading strategies (e.g., chains, rolls, cash-secured puts).
+
+The system is built as a **Next.js Monolith** leveraging a **Serverless/BaaS** architecture with Supabase. It balances strict server-side security using Row Level Security (RLS) with a responsive "thick client" approach where complex financial calculations are performed in the browser for real-time interactivity.
+
+### Key System Capabilities
+- **Multi-Portfolio Management**: Segregation of trades into distinct portfolios (e.g., Roth, Speculative).
+- **Advanced Performance Metrics**: Real-time calculation of P&L, Annualized Return on Risk (RoR), and Win Rates.
+- **Capital Efficiency Analysis**: A proprietary "Dual Metric" system that calculates returns based on both *Peak Exposure* (concurrent trades) and *Time-Weighted Capital* (capital reuse).
+- **Strategy & Chain Tracking**: Grouping related trades (e.g., rolling a position) into "Chains" to track the lifecycle of a strategy involving multiple transactions.
+
+---
+
+## 2. High-Level Architecture
+
+The system follows a standard modern web application flow:
+1.  **Identity Provider**: Authenticates users.
+2.  **Next.js Server**: Serves the UI and proxies API requests.
+3.  **Database Layer**: Enforces security policies and stores data.
+4.  **Client Application**: Performs heavy lifting for data visualization and calculation.
+
+```mermaid
+graph TD
+    User[User] -->|HTTPS| NextApp[Next.js Application (Vercel)]
+    
+    subgraph "Frontend Layer (Client Browser)"
+        NextApp --> Components[UI Components]
+        Components --> LogicEngine[Domain Logic Engine]
+        LogicEngine -->|Calculates| Analytics[Analytics & Metrics]
+        
+        subgraph "Logic Engine Modules"
+            Calc[optionsCalculations.ts]
+            Overlap[timeOverlapDetection.ts]
+            AIFilter[SummaryView AI Search]
+        end
+    end
+
+    subgraph "Backend Services (API Routes)"
+        NextApp -->|API Requests| APIRoutes[/api/transactions]
+        NextApp -->|AI Queries & Summaries| AIService[src/lib/ai/gemini-service.ts]
+        APIRoutes -->|Server Session| NextAuth[NextAuth.js]
+        APIRoutes --> DAL[Data Access Layer (lib/database)]
+        AIService -->|LLM Operations| Gemini[Google Gemini API]
+    end
+
+    subgraph "External Services"
+        NextAuth -->|OAuth| Google[Google Identity]
+        DAL -->|Postgres Protocol| SupabaseDB[(Supabase PostgreSQL)]
+        DAL -->|HTTP| MarketData[AlphaVantage/Finnhub API]
+        Gemini -->|Natural Language| LLM[Gemini 1.5/2.0 Flash]
+    end
+
+    subgraph "Database Layer (Supabase)"
+        SupabaseDB -->|Enforces| RLS[Row Level Security]
+        RLS --> Tables[Tables: Transactions, Portfolios]
+        Tables -->|Triggers| DBLogic[PL/pgSQL Functions]
+    end
+```
+
+---
+
+## 3. Component Architecture
+
+### 3.1 Frontend Subsystem
+The user interface is built mainly using Client Components to support heavy interactivity (modals, sorting, filtering).
+
+*   **Responsibilities**:
+    *   Primary user interaction and workflow orchestration (`AddTransaction`, `EditTransaction`).
+    *   Real-time data transformation: Converting raw transaction lists into aggregated analytics (Monthly Summaries, Charts).
+    *   Local State Management: Handling UI state (selected portfolio, active tab) via React Hooks.
+*   **Key Modules**:
+    *   **Core Pages**:
+        *   `src/app/page.tsx`: Trading Desk dashboard (Portfolio context).
+        *   `src/app/etfs/page.tsx`: Standalone ETF Intelligence Terminal.
+        *   `src/app/cot-analysis/page.tsx`: Public COT Signals dashboard.
+    *   **Shared Components**:
+        *   `AppHeader.tsx`: Context-aware global navigation shell.
+        *   `UserMenu.tsx`: Unified user action dropdown (Profile, Theme, Auth).
+    *   **Visualization Components** (`src/components/analytics/*`): specialized views like `SummaryView`, `TransactionTable`, and `SymbolGroupedView`.
+    *   **Data Hooks** (`src/hooks/useTransactions.ts`): Custom hooks that encapsulate data fetching logic and error handling.
+*   **Patterns & Frameworks**:
+    *   **Next.js App Router**: Hybrid rendering (Server Shell + Client Leaf Nodes).
+    *   **Tailwind CSS & Shadcn/UI**: Component-first styling system.
+    *   **Thick Client**: Derived data is computed on the fly in the browser, reducing server load and storage redundancy.
+
+### 3.2 Domain Logic Engine
+This subsystem encapsulates the complex mathematical rules of options trading. It is the "Brain" of the application.
+
+*   **Responsibilities**:
+    *   **P&L Calculation**: Computing profit/loss based on premiums, fees, and exit prices.
+    *   **Capital Efficiency**: Detecting if trades overlap in time to accurately measure capital usage ("Dual Metric System").
+    *   **Date Normalization**: Handling timezone complexities inherent in market close times (expiry dates).
+*   **Key Modules**:
+    *   **`optionsCalculations.ts`**: Pure functions for standard financial math (RoR, Collateral, Break-even).
+    *   **`timeOverlapDetection.ts`**: Specialized algorithm that sorts trades by time and detects concurrent exposure vs. sequential capital reuse.
+*   **Patterns**:
+    *   **Functional Programming**: Stateless, pure functions ensuring deterministic calculations.
+    *   **Strategy Pattern**: `getStrategyType` dynamically classifies trades (e.g., "Cash-Secured Put") based on attributes.
+
+### 3.3 Data Access Layer (DAL) & API
+This layer isolates the application from the specific database implementation and handles data sanitization.
+
+*   **Responsibilities**:
+    *   Validation of user sessions before allowing data access.
+    *   Mapping between database rows (snake_case) and application entities (camelCase).
+    *   Abstracting external market data providers.
+*   **Key Modules**:
+    *   **API Routes** (`src/app/api/*`): Next.js API endpoints acting as a secure gateway.
+    *   **Service Adapter** (`src/lib/database-supabase.ts`): The concrete implementation of the repository interface using the Supabase SDK.
+    *   **Market Data Adapter** (`src/lib/stock-price-factory.ts`): Providing a unified interface for fetching stock prices, supporting multiple providers (AlphaVantage, Finnhub, Cache).
+    *   **Fallback Orchestration** (`src/lib/stock-price-cached.ts`): Implements a multi-level recovery strategy to ensure 100% data availability even during API rate limits.
+*   **Patterns**:
+    *   **Repository Pattern**: separating the business logic from the data retrieval mechanism.
+    *   **Factory Pattern**: Instantiating the correct stock price service based on configuration.
+    *   **DTO (Data Transfer Object)**: Standardizing data shapes across the boundary.
+
+### 3.4 Security & Authentication Service
+Security is implemented using a "Defense in Depth" strategy, relying on API-level checks and database-level enforcement.
+
+*   **Responsibilities**:
+    *   **Authentication**: Verifying identity via Google OAuth (NextAuth.js) using a **JWT strategy** (Supabase Adapter is currently decoupled).
+    *   **Authorization**: Ensuring users can strictly access only their own data.
+*   **Key Modules**:
+    *   **NextAuth.js**: Handling the OAuth lifecycle and session management.
+    *   **Row Level Security (RLS)**: PostgreSQL policies defined in `01-initial-database-setup.sql` that physically prevent cross-tenant data access at the database engine level.
+    *   **API Routes**: Each API endpoint manually verifies the session (`getServerSession`) before processing requests.
+    *   **Middleware** (`middleware.ts`): Handles **Security Headers** (HSTS, CSP, XSS) and rate limiting. *Note: It currently does not enforce auth redirects; protection is at the API/Page level.*
+*   **Patterns**:
+    *   **Policy-Based Access Control**: Declarative security rules in the database schema.
+
+### 3.5 Database Layer
+The persistence layer is a Postgres database hosted on Supabase.
+
+*   **Schema Overview**:
+    *   `profiles`: User metadata linked to Auth.
+    *   `portfolios`: Logical groupings of trades.
+    *   `options_transactions`: The core ledger of trading activity.
+*   **Key Features**:
+    *   **Triggers**: `update_updated_at_column` helps maintain data integrity.
+    *   **Constraints**: `ensure_single_default_portfolio` ensures business rules are enforced at the data level.
+
+### 3.6 Demo Mode Subsystem
+A fully isolated sandbox environment available at `/demo` that allows prospective users to explore the app with realistic simulated data, without requiring Google authentication or touching production data.
+
+For full details, see **[DEMO_ARCHITECTURE.md](./DEMO_ARCHITECTURE.md)**.
+
+*   **Key files**: `src/lib/demo-store.ts`, `src/lib/demo-seed-data.ts`, `src/app/api/demo/**`, `src/app/demo/page.tsx`.
+*   **Configuration**: Enable with `ENABLE_DEMO_MODE=1` in environment variables.
+
+### 3.7 Deep-Linked Workspace State
+The Trading Desk implements a URL-driven state pattern to ensure that the user's workspace context (selected portfolio and active tab) is preserved across page refreshes and is shareable via links.
+
+*   **Responsibilities**:
+    *   **Context Persistence**: Reading `tab` and `portfolioId` query parameters from the URL on initial mount.
+    *   **Navigation Synchronization**: Updating the URL seamlessly using `router.replace({ scroll: false })` whenever the user switches tabs or portfolios.
+    *   **Fallback Logic**: Automatically resolving to the database-defined "Default Portfolio" if no specific ID is provided in the URL.
+*   **Key Modules**:
+    *   `src/app/page.tsx`: Orchestrates the `useSearchParams` logic within a `Suspense` boundary.
+*   **Patterns**:
+    *   **URL as Source of Truth**: Lifting UI state into query parameters to enable deep-linking and browser history support.
++
+### 3.7 Market Data Reliability Subsystem
++To mitigate the strict rate limits of free-tier market data providers (Alpha Vantage and Finnhub), the system implements a proprietary tiered retrieval strategy.
++
++*   **Orchestration Logic**:
++    1.  **Shared Cache First**: Checks the regional Supabase cache for a fresh (within 24h) quote.
++    2.  **Primary Provider (Alpha Vantage)**: If cache is stale or missing for an active symbol, attempts a fresh quote from Alpha Vantage.
++    3.  **Secondary Provider (Finnhub)**: If Alpha Vantage is rate-limited (429) or fails, the system immediately fails over to Finnhub.
++    4.  **Zero-Null Recovery Policy**: If all live providers fail, the system retrieves the last known price from the stale cache and marks it as `isStale` in the UI.
++*   **UI Propagation**:
++    *   **Stale Markers**: Quotes older than 24h are greyed out (`opacity-60`), italicized, and marked with a "STALE" badge.
++    *   **Non-Blocking UI**: Loading states are synchronized across components to ensure the UI remains responsive even during lengthy sequential batch fetches.
++*   **Key Modules**: `stock-price-cached.ts` (The Orchestrator), `stock-price-alphavantage.ts`, `stock-price-finnhub.ts`.
+
+### 3.8 AI Filtering Subsystem
+The AI filtering subsystem allows users to perform complex, natural-language searches across their trade history.
+
+*   **Responsibilities**:
+    *   **Intent Extraction**: Translating natural language queries (e.g., "winning AAPL puts") into structured JSON filters (`symbol`, `type`, `outcome`).
+    *   **Unified AI Branding**: Providing a consistent "Sparkles" indicator via `AIHint.tsx` across all AI-powered views.
+    *   **State Management**: Lifting filter state to top-level analytics views (`SummaryView`) to ensure consistent data presentation across all charts and tables.
+*   **Key Modules**:
+    *   **`src/lib/ai/gemini-service.ts`**: The central AI orchestrator, handling both query parsing and portfolio narrative generation.
+    *   **`src/lib/ai/prompts.ts`**: A centralized registry for all LLM prompt templates.
+    *   **`src/app/api/ai/parse-query/route.ts`**: A thin API bridge that utilizes the unified `GeminiService`.
+*   **Patterns**:
+    *   **Natural Language to Schema (NL2Schema)**: Mapping unstructured text to a defined TypeScript interface.
+    *   **Service-Oriented AI**: Decoupling LLM logic from API routes to improve testability and consistency.
+
+### 3.9 COT Analysis Subsystem (Free Tool)
+An open-access dashboard that connects directly to the CFTC (Commodity Futures Trading Commission) Socrata API to analyze Producer/Merchant Commitments of Traders data.
+
+*   **Responsibilities**:
+    *   **Data Aggregation**: Fetching and parsing raw JSON payloads from the public government REST endpoint directly from the browser natively.
+    *   **Signal Math**: Calculating historical percentile ranks and net-position boundaries to identify statistically significant flips in insider hedging behavior (i.e., 'Buy Signals').
+    *   **Visual Representation**: Charting complex open-interest logic overlaid with event markers using Recharts.
+*   **Key Modules**:
+    *   **`src/lib/cftcApi.ts`**: Standalone API adapter handling SoQL formatting, response caching, aggregation of underlying contract markers, and algorithmic signal generation.
+    *   **`src/components/analytics/CotAnalysisTab.tsx`**: The main interface rendering the Recharts graphics and controls.
+*   **Patterns**:
+    *   **Serverless/Edge Fetching**: API queries are executed entirely client-side against the public API (`publicreporting.cftc.gov`), requiring zero server-side storage, cron jobs, or backend proxying.
+    *   **Zero-Auth Gateway**: Accessible completely without NextAuth authentication or Supabase DB interactions.
+
+### 3.10 ETF Intelligence Subsystem
+A robust data aggregation pipeline that provides complete ETF profiles (Holdings, Yield, Concentration, etc.) while overcoming strict rate limits of free-tier APIs via AI fallback generation.
+
+*   **Responsibilities**:
+    *   **Data Hydration**: Fetching deep metric constraints like top-10 concentration and dynamic sector weighting.
+    *   **Intelligence Enrichment**: Seamlessly utilizing LLMs (`GeminiService`) to fill missing metadata gaps and resolve `n/a` ticker symbols in holdings via batch-processed entity resolution.
+    *   **Dual-Speed Search**: Balancing responsiveness with cost-efficiency by splitting search into instant local lookups (keystrokes) and debounced (600ms/3-char) remote fallbacks.
+    *   **Stability & Failover**: Implementing `AbortController` at the UI level for request cancellation and proactive `isLimited()` checks at the backend level to instantly bypass rate-limited providers.
+*   **Key Modules**:
+    *   **`src/lib/ai/gemini-service.ts`**: Centralized AI orchestrator featuring a **Concurrency Guard** (Map-based promise collapsing) to ensure parallel identical requests share a single AI execution.
+    *   **`src/lib/etf-provider-alphavantage.ts`**: Primary gateway for raw ETF profiles, now including internal rate-limit tracking for transparent failover.
+    *   **`src/app/api/etfs/[ticker]/route.ts`**: The coordination route that manages the provider waterfall and executes AI enrichment/failover logic.
+    *   **`src/hooks/useEtfSearch.ts`**: Frontend hook managing the search state and `AbortController` lifecycle.
+*   **Patterns**:
+    *   **Request Collapsing**: Using a static in-flight promise map to prevent redundant LLM invocations.
+    *   **Tiered Retrieval Pipeline**: Cache (Instant) -> Primary verified Provider -> Shadow AI Provider -> 404.
+    *   **Opaque Data Provenance**: Badging UI elements with a `Sparkles` "AI Insight" indicator whenever a displayed profile originated natively from the Language Model rather than the structured market API.
+
+---
+
+
+```text
+options-bookie/
+├── .agent/                 # Workflows and agent-specific configuration
+├── agent_docs/             # Context-specific documentation for AI agents
+├── public/                 # Static assets (images, icons)
+├── scripts/                # Utility scripts for DB migration and debugging
+├── supabase/               # Supabase configuration and schema snapshots
+├── src/
+│   ├── app/                # Next.js App Router root
+│   │   ├── api/            # Server-side API Routes (REST endpoints)
+│   │   ├── auth/           # NextAuth.js configuration
+│   │   ├── cot-analysis/   # COT Signals page
+│   │   ├── etfs/           # ETF Intelligence page
+│   │   ├── layout.tsx      # Root application shell
+│   │   └── page.tsx        # Trading Desk main page
+│   ├── components/
+│   │   ├── analytics/      # specialized charts and summary cards
+│   │   ├── ui/             # Reusable UI primitives (buttons, inputs)
+│   │   ├── *Modals.tsx     # Forms for data entry (Add, Edit, Delete)
+│   │   └── *Views.tsx      # Different data presentations (Table vs Grouped)
+│   ├── hooks/              # React hooks for fetching data & managing state
+│   ├── lib/                # Backend services & adapters
+│   │   ├── database-*.ts   # Database repository implementations
+│   │   └── stock-price-*.ts# Market data service implementations
+│   ├── types/              # TypeScript definitions (Interfaces & DTOs)
+│   ├── utils/              # Pure domain logic functions
+│   │   ├── optionsCalculations.ts # Financial math core
+│   │   └── timeOverlapDetection.ts# Capital efficiency algorithms
+│   └── middleware.ts       # Route protection middleware
+├── 01-initial-database-setup.sql  # Canonical source for DB Schema & RLS
+├── ARCHITECTURE.md                  # This document — system overview
+├── DEMO_ARCHITECTURE.md             # Demo Mode deep dive
+├── CAPITAL_CALCULATION_ARCHITECTURE.md # Deep dive into the math engine
+├── README.md               # User-facing project documentation
+└── package.json            # Dependencies and scripts
+```
