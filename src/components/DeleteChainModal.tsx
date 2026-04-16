@@ -117,9 +117,9 @@ export default function DeleteChainModal({
               Cancel
             </Button>
             <Button
+              variant="destructive"
               onClick={handleConfirm}
               disabled={isDeleting}
-              className="bg-red-600 hover:bg-red-700 text-white"
             >
               {isDeleting ? (
                 <>
