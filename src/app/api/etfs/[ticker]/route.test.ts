@@ -31,6 +31,7 @@ jest.mock('@/lib/etf-cache', () => ({
 jest.mock('@/lib/etf-provider-alphavantage', () => ({
   alphaVantageEtfProvider: {
     getEtfProfile: jest.fn(),
+    isLimited: jest.fn().mockReturnValue(false),
   },
 }));
 
@@ -38,6 +39,7 @@ jest.mock('@/lib/ai/gemini-service', () => ({
   GeminiService: {
     recoverEtfMetadata: jest.fn(),
     generateEtfProfile: jest.fn(),
+    enrichEtfHoldings: jest.fn().mockImplementation((t, h) => Promise.resolve(h)),
   },
 }));
 
