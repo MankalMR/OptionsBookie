@@ -2,6 +2,7 @@
 import { cachedStockService, CachedStockService } from './stock-price-cached';
 import { finnhubStockService, FinnhubStockService } from './stock-price-finnhub';
 import { alphaVantageStockService, AlphaVantageStockService } from './stock-price-alphavantage';
+import { geminiStockService } from './stock-price-gemini';
 import { logger } from "@/lib/logger";
 
 export interface StockPriceResponse {
@@ -11,6 +12,7 @@ export interface StockPriceResponse {
   changePercent: number;
   timestamp: string;
   isStale?: boolean;
+  isAiGenerated?: boolean;
 }
 
 export interface StockPriceService {
@@ -25,7 +27,7 @@ export interface StockPriceService {
   };
 }
 
-export type StockPriceProvider = 'alphavantage' | 'finnhub' | 'cached' | 'none';
+export type StockPriceProvider = 'alphavantage' | 'finnhub' | 'gemini' | 'cached' | 'none';
 
 export class StockPriceFactory {
   private static instance: StockPriceService | null = null;
@@ -43,6 +45,9 @@ export class StockPriceFactory {
         break;
       case 'finnhub':
         this.instance = finnhubStockService;
+        break;
+      case 'gemini':
+        this.instance = geminiStockService;
         break;
       case 'cached':
         this.instance = cachedStockService;
@@ -82,6 +87,8 @@ export class StockPriceFactory {
         return !!process.env.ALPHA_VANTAGE_KEY;
       case 'finnhub':
         return !!process.env.FINNHUB_API_KEY;
+      case 'gemini':
+        return !!process.env.GEMINI_API_KEY;
       case 'cached':
         return true; // No API key required
       case 'none':
@@ -107,6 +114,10 @@ export class StockPriceFactory {
 
     if (this.isProviderAvailable('finnhub')) {
       providers.push('finnhub');
+    }
+
+    if (this.isProviderAvailable('gemini')) {
+      providers.push('gemini');
     }
 
     return providers;
