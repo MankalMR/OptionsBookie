@@ -132,23 +132,31 @@ export default function SummaryView({
   }, [initialTransactions, activeAiFilters]);
   // ⚡ Bolt: Memoize expensive O(N) getRealizedTransactions call to prevent
   // O(N*M) redundant evaluations inside subsequent loops and useMemos
-  const memoizedRealizedTransactions = useMemo(() => {
-    return getRealizedTransactions(transactions, chains);
-  }, [transactions, chains]);
+  // ⚡ Bolt: Global chains Map and transactions grouping for O(1) efficiency across all analytics
+  const globalChainsMap = useMemo(() => {
+    const map = new Map<string, TradeChain>();
+    chains.forEach(c => map.set(c.id, c));
+    return map;
+  }, [chains]);
 
-  const yearlySummaries = useMemo(() => {
-    // ⚡ Bolt: Initialize Maps for O(1) lookups to avoid O(N*M) bottlenecks
-    const chainsMap = new Map<string, TradeChain>();
-    chains.forEach(c => chainsMap.set(c.id, c));
-
-    const txnsByChain = new Map<string, OptionsTransaction[]>();
+  const globalTxnsByChain = useMemo(() => {
+    const map = new Map<string, OptionsTransaction[]>();
     transactions.forEach(t => {
       if (t.chainId) {
-        if (!txnsByChain.has(t.chainId)) txnsByChain.set(t.chainId, []);
-        txnsByChain.get(t.chainId)!.push(t);
+        if (!map.has(t.chainId)) map.set(t.chainId, []);
+        map.get(t.chainId)!.push(t);
       }
     });
+    return map;
+  }, [transactions]);
 
+  // ⚡ Bolt: Memoize expensive O(N) getRealizedTransactions call to prevent
+  // O(N*M) redundant evaluations inside subsequent loops and useMemos
+  const memoizedRealizedTransactions = useMemo(() => {
+    return getRealizedTransactions(transactions, chains, globalChainsMap);
+  }, [transactions, chains, globalChainsMap]);
+
+  const yearlySummaries = useMemo(() => {
     // ⚡ Bolt: Using memoizedRealizedTransactions instead of getRealizedTransactions
     const completedTransactions = memoizedRealizedTransactions.filter(t =>
       t.closeDate || t.status === 'Assigned' || t.status === 'Expired'
@@ -159,7 +167,7 @@ export default function SummaryView({
 
     // Initialize yearly data structures based on effective close dates
     completedTransactions.forEach(transaction => {
-      const effectiveCloseDate = getEffectiveCloseDate(transaction, completedTransactions, chains, chainsMap, txnsByChain);
+      const effectiveCloseDate = getEffectiveCloseDate(transaction, completedTransactions, chains, globalChainsMap, globalTxnsByChain);
       const year = effectiveCloseDate.getFullYear();
 
       if (!yearlyData[year]) {
@@ -190,18 +198,18 @@ export default function SummaryView({
       const monthsWithTransactions = new Set<number>();
       completedTransactions
         .filter(t => {
-          const effectiveCloseDate = getEffectiveCloseDate(t, completedTransactions, chains, chainsMap, txnsByChain);
+          const effectiveCloseDate = getEffectiveCloseDate(t, completedTransactions, chains, globalChainsMap, globalTxnsByChain);
           return effectiveCloseDate.getFullYear() === yearData.year;
         })
         .forEach(transaction => {
-          const effectiveCloseDate = getEffectiveCloseDate(transaction, completedTransactions, chains, chainsMap, txnsByChain);
+          const effectiveCloseDate = getEffectiveCloseDate(transaction, completedTransactions, chains, globalChainsMap, globalTxnsByChain);
           monthsWithTransactions.add(effectiveCloseDate.getMonth());
         });
 
       // Calculate chain-aware P&L for each month
       monthsWithTransactions.forEach(month => {
         // ⚡ Bolt: Pass through pre-calculated maps for O(1) efficiency
-        const monthlyPnL = calculateChainAwareMonthlyPnL(transactions, chains, yearData.year, month, chainsMap, txnsByChain);
+        const monthlyPnL = calculateChainAwareMonthlyPnL(transactions, chains, yearData.year, month, globalChainsMap, globalTxnsByChain);
 
 
         // Create month name from a sample date
@@ -244,9 +252,9 @@ export default function SummaryView({
           if (transaction.chainId && !processedChains.has(transaction.chainId)) {
             // Chain transaction - check if entire chain is profitable
             // ⚡ Bolt: Use O(1) Map lookup instead of O(N) array find
-            const chain = chainsMap.get(transaction.chainId);
+            const chain = globalChainsMap.get(transaction.chainId);
             if (chain && chain.chainStatus === 'Closed') {
-              const chainPnL = calculateChainPnL(transaction.chainId, transactions, txnsByChain);
+              const chainPnL = calculateChainPnL(transaction.chainId, transactions, globalTxnsByChain);
               if (chainPnL > 0) winningTrades++;
               processedChains.add(transaction.chainId);
             }
@@ -270,12 +278,12 @@ export default function SummaryView({
         const monthsWithMetrics = yearData.monthlyBreakdown.map(monthData => {
           // Use effective close dates to filter transactions (consistent with monthly breakdown)
           const monthTransactions = completedTransactions.filter(t => {
-            const effectiveCloseDate = getEffectiveCloseDate(t, completedTransactions, chains, chainsMap, txnsByChain);
+            const effectiveCloseDate = getEffectiveCloseDate(t, completedTransactions, chains, globalChainsMap, globalTxnsByChain);
             return effectiveCloseDate.getFullYear() === yearData.year && effectiveCloseDate.getMonth() === monthData.month;
           });
 
           // Use smart capital calculation (overlap-aware) for monthly views
-          const capitalResult = calculateSmartCapital(monthTransactions, chains, chainsMap, txnsByChain);
+          const capitalResult = calculateSmartCapital(monthTransactions, chains, globalChainsMap, globalTxnsByChain);
           const totalCollateral = capitalResult.totalCapital;
 
           const totalPnL = monthTransactions.reduce((sum, t) => sum + (t.profitLoss || 0), 0);
@@ -345,24 +353,6 @@ export default function SummaryView({
         : 0
     };
   }, [yearlySummaries, memoizedRealizedTransactions]);
-
-  // ⚡ Bolt: Global chains Map and transactions grouping for child view optimizations
-  const globalChainsMap = useMemo(() => {
-    const map = new Map<string, TradeChain>();
-    chains.forEach(c => map.set(c.id, c));
-    return map;
-  }, [chains]);
-
-  const globalTxnsByChain = useMemo(() => {
-    const map = new Map<string, OptionsTransaction[]>();
-    transactions.forEach(t => {
-      if (t.chainId) {
-        if (!map.has(t.chainId)) map.set(t.chainId, []);
-        map.get(t.chainId)!.push(t);
-      }
-    });
-    return map;
-  }, [transactions]);
 
   const strategyPerformance = useMemo(() => {
     return calculateStrategyPerformance(transactions, chains, globalChainsMap, globalTxnsByChain);

@@ -3831,4 +3831,84 @@ describe('optionsCalculations', () => {
       expect(result.totalTrades).toBe(1);
     });
   });
+
+  describe('Map-based optimizations (Performance)', () => {
+    const chainId = 'perf-chain';
+    const chains: TradeChain[] = [
+      createMockChain({ id: chainId, chainStatus: 'Closed', symbol: 'PERF' })
+    ];
+    const transactions = [
+      createMockTransaction({ id: 't1', chainId, status: 'Rolled', profitLoss: 100, stockSymbol: 'PERF', closeDate: '2025-01-10' }),
+      createMockTransaction({ id: 't2', chainId, status: 'Closed', profitLoss: 200, stockSymbol: 'PERF', closeDate: '2025-01-20' }),
+      createMockTransaction({ id: 't3', status: 'Closed', profitLoss: -50, stockSymbol: 'IND', closeDate: '2025-01-15' })
+    ];
+
+    const chainMap = new Map(chains.map(c => [c.id, c]));
+    const txnsByChain = new Map<string, OptionsTransaction[]>();
+    transactions.forEach(t => {
+      if (t.chainId) {
+        if (!txnsByChain.has(t.chainId)) txnsByChain.set(t.chainId, []);
+        txnsByChain.get(t.chainId)!.push(t);
+      }
+    });
+
+    it('calculateTotalRealizedPnL should return identical results with pre-calculated Maps', () => {
+      const resultNoMap = calculateTotalRealizedPnL(transactions, chains);
+      const resultWithMap = calculateTotalRealizedPnL(transactions, chains, chainMap, txnsByChain);
+
+      expect(resultWithMap).toBe(resultNoMap);
+      expect(resultWithMap).toBe(250);
+    });
+
+    it('calculateChainAwareMonthlyPnL should return identical results with pre-calculated Maps', () => {
+      const resultNoMap = calculateChainAwareMonthlyPnL(transactions, chains, 2025, 0);
+      const resultWithMap = calculateChainAwareMonthlyPnL(transactions, chains, 2025, 0, chainMap, txnsByChain);
+
+      expect(resultWithMap.totalPnL).toBe(resultNoMap.totalPnL);
+      expect(resultWithMap.totalPnL).toBe(250);
+    });
+
+    it('calculateSmartCapital should return identical results with pre-calculated Maps', () => {
+      const resultNoMap = calculateSmartCapital(transactions, chains);
+      const resultWithMap = calculateSmartCapital(transactions, chains, chainMap, txnsByChain);
+
+      expect(resultWithMap.totalCapital).toBe(resultNoMap.totalCapital);
+    });
+
+    it('calculateStrategyPerformance should return identical results with pre-calculated Maps', () => {
+      const resultNoMap = calculateStrategyPerformance(transactions, chains);
+      const resultWithMap = calculateStrategyPerformance(transactions, chains, chainMap, txnsByChain);
+
+      expect(resultWithMap).toEqual(resultNoMap);
+    });
+
+    it('calculateMonthlyTopTickers should return identical results with pre-calculated Maps', () => {
+      const resultNoMap = calculateMonthlyTopTickers(transactions, chains);
+      const resultWithMap = calculateMonthlyTopTickers(transactions, chains, chainMap, txnsByChain);
+
+      expect(resultWithMap).toEqual(resultNoMap);
+    });
+
+    it('calculateChainAwareStockPerformance should return identical results with pre-calculated Maps', () => {
+      const resultNoMap = calculateChainAwareStockPerformance(transactions, chains);
+      const resultWithMap = calculateChainAwareStockPerformance(transactions, chains, chainMap, txnsByChain);
+
+      expect(resultWithMap).toEqual(resultNoMap);
+    });
+
+    it('getEffectiveCloseDate should return identical results with pre-calculated Maps', () => {
+      const txn = transactions[0];
+      const resultNoMap = getEffectiveCloseDate(txn, transactions, chains);
+      const resultWithMap = getEffectiveCloseDate(txn, transactions, chains, chainMap, txnsByChain);
+
+      expect(resultWithMap).toEqual(resultNoMap);
+    });
+
+    it('getRealizedTransactions should return identical results with pre-calculated Maps', () => {
+      const resultNoMap = getRealizedTransactions(transactions, chains);
+      const resultWithMap = getRealizedTransactions(transactions, chains, chainMap);
+
+      expect(resultWithMap).toEqual(resultNoMap);
+    });
+  });
 });
