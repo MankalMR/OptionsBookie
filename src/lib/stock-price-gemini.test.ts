@@ -3,17 +3,22 @@ import { Type } from "@google/genai";
 const mockGenerateContent = jest.fn();
 
 jest.mock('@google/genai', () => ({
-  GoogleGenAI: jest.fn().mockImplementation(() => ({
-    models: {
-      generateContent: mockGenerateContent,
-    },
-  })),
   Type: {
     OBJECT: 'OBJECT',
     STRING: 'STRING',
     NUMBER: 'NUMBER',
     ARRAY: 'ARRAY'
   }
+}));
+
+jest.mock('./ai/gemini-service', () => ({
+  getGeminiClient: jest.fn().mockImplementation(() => ({
+    models: {
+      generateContent: mockGenerateContent,
+    },
+  })),
+  DEFAULT_MODEL: 'gemini-2.5-flash',
+  cleanJsonResponse: (text: string) => JSON.parse(text)
 }));
 
 jest.mock('@/lib/logger', () => ({

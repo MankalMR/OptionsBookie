@@ -1,15 +1,10 @@
-import { GoogleGenAI, Type } from "@google/genai";
+import { Type } from "@google/genai";
 import { logger } from "@/lib/logger";
 import { StockPriceResponse, StockPriceService } from "./stock-price-factory";
+import { getGeminiClient, DEFAULT_MODEL } from "./ai/gemini-service";
+import { AI_PROMPTS } from "./ai/prompts";
 
 export class GeminiStockService implements StockPriceService {
-  private ai: GoogleGenAI;
-
-  constructor() {
-    this.ai = new GoogleGenAI({
-      apiKey: process.env.GEMINI_API_KEY || ''
-    });
-  }
 
   async getStockPrice(symbol: string, _activeSymbols?: string[]): Promise<StockPriceResponse | null> {
     try {
@@ -18,10 +13,11 @@ export class GeminiStockService implements StockPriceService {
         return null;
       }
 
-      const prompt = `Get the current stock price, change, and change percentage for ${symbol}. Return the response in strictly valid JSON format conforming to the schema.`;
+      const prompt = AI_PROMPTS.STOCK_PRICE_FALLBACK(symbol);
+      const ai = getGeminiClient();
 
-      const response = await this.ai.models.generateContent({
-        model: 'gemini-2.5-flash',
+      const response = await ai.models.generateContent({
+        model: DEFAULT_MODEL,
         contents: prompt,
         config: {
           responseMimeType: "application/json",
@@ -70,10 +66,11 @@ export class GeminiStockService implements StockPriceService {
     }
 
     try {
-      const prompt = `Get the current stock price, change, and change percentage for the following symbols: ${symbols.join(', ')}. Return the response in strictly valid JSON format conforming to the schema.`;
+      const prompt = AI_PROMPTS.MULTIPLE_STOCK_PRICE_FALLBACK(symbols.join(', '));
+      const ai = getGeminiClient();
 
-      const response = await this.ai.models.generateContent({
-        model: 'gemini-2.5-flash',
+      const response = await ai.models.generateContent({
+        model: DEFAULT_MODEL,
         contents: prompt,
         config: {
           responseMimeType: "application/json",
