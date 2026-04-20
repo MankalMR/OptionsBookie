@@ -132,9 +132,29 @@ export default function SummaryView({
   }, [initialTransactions, activeAiFilters]);
   // ⚡ Bolt: Memoize expensive O(N) getRealizedTransactions call to prevent
   // O(N*M) redundant evaluations inside subsequent loops and useMemos
+  // ⚡ Bolt: Global chains Map and transactions grouping for O(1) efficiency across all analytics
+  const globalChainsMap = useMemo(() => {
+    const map = new Map<string, TradeChain>();
+    chains.forEach(c => map.set(c.id, c));
+    return map;
+  }, [chains]);
+
+  const globalTxnsByChain = useMemo(() => {
+    const map = new Map<string, OptionsTransaction[]>();
+    transactions.forEach(t => {
+      if (t.chainId) {
+        if (!map.has(t.chainId)) map.set(t.chainId, []);
+        map.get(t.chainId)!.push(t);
+      }
+    });
+    return map;
+  }, [transactions]);
+
+  // ⚡ Bolt: Memoize expensive O(N) getRealizedTransactions call to prevent
+  // O(N*M) redundant evaluations inside subsequent loops and useMemos
   const memoizedRealizedTransactions = useMemo(() => {
-    return getRealizedTransactions(transactions, chains);
-  }, [transactions, chains]);
+    return getRealizedTransactions(transactions, chains, globalChainsMap);
+  }, [transactions, chains, globalChainsMap]);
 
   const yearlySummaries = useMemo(() => {
     // ⚡ Bolt: Using memoizedRealizedTransactions instead of getRealizedTransactions
@@ -147,7 +167,7 @@ export default function SummaryView({
 
     // Initialize yearly data structures based on effective close dates
     completedTransactions.forEach(transaction => {
-      const effectiveCloseDate = getEffectiveCloseDate(transaction, completedTransactions, chains);
+      const effectiveCloseDate = getEffectiveCloseDate(transaction, completedTransactions, chains, globalChainsMap, globalTxnsByChain);
       const year = effectiveCloseDate.getFullYear();
 
       if (!yearlyData[year]) {
@@ -178,17 +198,18 @@ export default function SummaryView({
       const monthsWithTransactions = new Set<number>();
       completedTransactions
         .filter(t => {
-          const effectiveCloseDate = getEffectiveCloseDate(t, completedTransactions, chains);
+          const effectiveCloseDate = getEffectiveCloseDate(t, completedTransactions, chains, globalChainsMap, globalTxnsByChain);
           return effectiveCloseDate.getFullYear() === yearData.year;
         })
         .forEach(transaction => {
-          const effectiveCloseDate = getEffectiveCloseDate(transaction, completedTransactions, chains);
+          const effectiveCloseDate = getEffectiveCloseDate(transaction, completedTransactions, chains, globalChainsMap, globalTxnsByChain);
           monthsWithTransactions.add(effectiveCloseDate.getMonth());
         });
 
       // Calculate chain-aware P&L for each month
       monthsWithTransactions.forEach(month => {
-        const monthlyPnL = calculateChainAwareMonthlyPnL(transactions, chains, yearData.year, month);
+        // ⚡ Bolt: Pass through pre-calculated maps for O(1) efficiency
+        const monthlyPnL = calculateChainAwareMonthlyPnL(transactions, chains, yearData.year, month, globalChainsMap, globalTxnsByChain);
 
 
         // Create month name from a sample date
@@ -230,9 +251,10 @@ export default function SummaryView({
 
           if (transaction.chainId && !processedChains.has(transaction.chainId)) {
             // Chain transaction - check if entire chain is profitable
-            const chain = chains.find(c => c.id === transaction.chainId);
+            // ⚡ Bolt: Use O(1) Map lookup instead of O(N) array find
+            const chain = globalChainsMap.get(transaction.chainId);
             if (chain && chain.chainStatus === 'Closed') {
-              const chainPnL = calculateChainPnL(transaction.chainId, transactions);
+              const chainPnL = calculateChainPnL(transaction.chainId, transactions, globalTxnsByChain);
               if (chainPnL > 0) winningTrades++;
               processedChains.add(transaction.chainId);
             }
@@ -256,12 +278,12 @@ export default function SummaryView({
         const monthsWithMetrics = yearData.monthlyBreakdown.map(monthData => {
           // Use effective close dates to filter transactions (consistent with monthly breakdown)
           const monthTransactions = completedTransactions.filter(t => {
-            const effectiveCloseDate = getEffectiveCloseDate(t, completedTransactions, chains);
+            const effectiveCloseDate = getEffectiveCloseDate(t, completedTransactions, chains, globalChainsMap, globalTxnsByChain);
             return effectiveCloseDate.getFullYear() === yearData.year && effectiveCloseDate.getMonth() === monthData.month;
           });
 
           // Use smart capital calculation (overlap-aware) for monthly views
-          const capitalResult = calculateSmartCapital(monthTransactions, chains);
+          const capitalResult = calculateSmartCapital(monthTransactions, chains, globalChainsMap, globalTxnsByChain);
           const totalCollateral = capitalResult.totalCapital;
 
           const totalPnL = monthTransactions.reduce((sum, t) => sum + (t.profitLoss || 0), 0);
@@ -333,12 +355,13 @@ export default function SummaryView({
   }, [yearlySummaries, memoizedRealizedTransactions]);
 
   const strategyPerformance = useMemo(() => {
-    return calculateStrategyPerformance(transactions, chains);
-  }, [transactions, chains]);
+    return calculateStrategyPerformance(transactions, chains, globalChainsMap, globalTxnsByChain);
+  }, [transactions, chains, globalChainsMap, globalTxnsByChain]);
 
   const monthlyTopTickers = useMemo(() => {
-    return calculateMonthlyTopTickers(transactions, chains);
-  }, [transactions, chains]);
+    // ⚡ Bolt: Pass through pre-calculated maps for O(1) efficiency
+    return calculateMonthlyTopTickers(transactions, chains, globalChainsMap, globalTxnsByChain);
+  }, [transactions, chains, globalChainsMap, globalTxnsByChain]);
 
 
   // Helper functions for child components
@@ -350,12 +373,12 @@ export default function SummaryView({
       // Calculate RoR for this month by getting all transactions for this month
       const monthTransactions = memoizedRealizedTransactions.filter(t => {
         if (!t.closeDate) return false;
-        const effectiveCloseDate = getEffectiveCloseDate(t, memoizedRealizedTransactions, chains);
+        const effectiveCloseDate = getEffectiveCloseDate(t, memoizedRealizedTransactions, chains, globalChainsMap, globalTxnsByChain);
         return effectiveCloseDate.getFullYear() === year && effectiveCloseDate.getMonth() === month.month;
       });
 
       // Use smart capital calculation (overlap-aware) for monthly chart data
-      const capitalResult = calculateSmartCapital(monthTransactions, chains);
+      const capitalResult = calculateSmartCapital(monthTransactions, chains, globalChainsMap, globalTxnsByChain);
       const totalCollateral = capitalResult.totalCapital;
 
       const ror = totalCollateral > 0 ? (month.totalPnL / totalCollateral * 100) : 0;
@@ -371,14 +394,14 @@ export default function SummaryView({
   const getAllTickersForYear = (year: number) => {
     const realizedTransactions = memoizedRealizedTransactions.filter(t => {
       if (!t.closeDate) return false;
-      const effectiveCloseDate = getEffectiveCloseDate(t, memoizedRealizedTransactions, chains);
+      const effectiveCloseDate = getEffectiveCloseDate(t, memoizedRealizedTransactions, chains, globalChainsMap, globalTxnsByChain);
       return effectiveCloseDate.getFullYear() === year;
     });
 
     // For YEARLY stock views, we CAN use overlap detection because all trades
     // opened and closed within the same year, so date ranges are meaningful
-    const yearTickerTotals = calculateChainAwareStockPerformance(realizedTransactions, chains);
-    const capitalResult = calculateSmartCapital(realizedTransactions, chains);
+    const yearTickerTotals = calculateChainAwareStockPerformance(realizedTransactions, chains, globalChainsMap, globalTxnsByChain);
+    const capitalResult = calculateSmartCapital(realizedTransactions, chains, globalChainsMap, globalTxnsByChain);
 
     // Create a map of stock to capital from the breakdown
     const stockCapitalMap = new Map<string, number>();
@@ -414,8 +437,8 @@ export default function SummaryView({
 
   // Calculate best stocks overall
   const bestStocks = useMemo(() => {
-    const yearTickerTotals = calculateChainAwareStockPerformance(memoizedRealizedTransactions, chains);
-    const capitalResult = calculateSmartCapital(memoizedRealizedTransactions, chains);
+    const yearTickerTotals = calculateChainAwareStockPerformance(memoizedRealizedTransactions, chains, globalChainsMap, globalTxnsByChain);
+    const capitalResult = calculateSmartCapital(memoizedRealizedTransactions, chains, globalChainsMap, globalTxnsByChain);
 
     // Create a map of stock to capital from the breakdown
     const stockCapitalMap = new Map<string, number>();
@@ -448,10 +471,10 @@ export default function SummaryView({
   }, [memoizedRealizedTransactions, chains]);
 
   // Calculate quick stats data
-  const preciseAvgRoR = calculateSmartPortfolioRoR(transactions, chains);
+  const preciseAvgRoR = calculateSmartPortfolioRoR(transactions, chains, globalChainsMap, globalTxnsByChain);
 
   // Use the common function to calculate yearly annualized RoR with active months
-  const yearlyRoRData = calculateYearlyAnnualizedRoRWithActiveMonths(transactions, chains);
+  const yearlyRoRData = calculateYearlyAnnualizedRoRWithActiveMonths(transactions, chains, undefined, globalChainsMap, globalTxnsByChain);
   const activeTradingDays = yearlyRoRData.activeTradingDays;
 
   // For consistency, use the same active trading days approach for all-time calculation

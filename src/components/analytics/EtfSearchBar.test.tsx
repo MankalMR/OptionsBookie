@@ -47,25 +47,34 @@ describe('EtfSearchBar', () => {
     expect(screen.getByPlaceholderText('Search ETF ticker or name...')).toBeInTheDocument();
   });
 
-  it('should debounce search calls by 400ms', () => {
+  it('should debounce search calls by 600ms for queries >= 3 chars', () => {
     render(
       <EtfSearchBar results={[]} loading={false} onSearch={onSearch} onSelect={onSelect} />
     );
 
     const input = screen.getByTestId('search-input');
 
-    fireEvent.change(input, { target: { value: 'Q' } });
-    expect(onSearch).not.toHaveBeenCalled();
+    // Use a 3-char string to trigger both local and debounced remote search
+    fireEvent.change(input, { target: { value: 'QQQ' } });
+
+    // Should trigger immediate local-only search
+    expect(onSearch).toHaveBeenCalledWith('QQQ', true);
+    expect(onSearch).toHaveBeenCalledTimes(1);
 
     act(() => {
-      jest.advanceTimersByTime(200);
+      jest.advanceTimersByTime(300);
     });
-    expect(onSearch).not.toHaveBeenCalled();
+
+    // Still only the initial local-only search
+    expect(onSearch).toHaveBeenCalledTimes(1);
 
     act(() => {
-      jest.advanceTimersByTime(200);
+      jest.advanceTimersByTime(400); // 300 + 400 = 700ms (covers 600ms debounce)
     });
-    expect(onSearch).toHaveBeenCalledWith('Q');
+
+    // Now should have triggered the full remote search
+    expect(onSearch).toHaveBeenCalledWith('QQQ', false);
+    expect(onSearch).toHaveBeenCalledTimes(2);
   });
 
   it('should not search for empty input', () => {

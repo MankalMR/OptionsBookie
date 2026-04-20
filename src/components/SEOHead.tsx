@@ -52,9 +52,14 @@ export default function SEOHead({
       {noIndex && <meta name="robots" content="noindex, nofollow" />}
 
       {/* Structured Data */}
-      {structuredData && (
+      {structuredData && typeof structuredData === 'object' && (
         <script
           type="application/ld+json"
+          /*
+             Using dangerouslySetInnerHTML is necessary for JSON-LD in <Head>.
+             We mitigate XSS risks by using safeJsonLdStringify which escapes
+             dangerous characters (<, >, &, /, etc.) to their Unicode equivalents.
+          */
           dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(structuredData) }}
         />
       )}

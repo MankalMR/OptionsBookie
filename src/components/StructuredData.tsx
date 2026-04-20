@@ -19,6 +19,10 @@ interface StructuredDataProps {
 
 export default function StructuredData({ data }: StructuredDataProps) {
   useEffect(() => {
+    if (!data || typeof data !== 'object') {
+      return;
+    }
+
     // Remove existing structured data
     const existingScript = document.querySelector('script[type="application/ld+json"]');
     if (existingScript) {
@@ -28,7 +32,7 @@ export default function StructuredData({ data }: StructuredDataProps) {
     // Add new structured data
     const script = document.createElement('script');
     script.type = 'application/ld+json';
-    script.text = safeJsonLdStringify(data);
+    script.textContent = safeJsonLdStringify(data);
     document.head.appendChild(script);
 
     return () => {

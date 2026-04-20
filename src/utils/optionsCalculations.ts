@@ -100,10 +100,14 @@ export const shouldUpdateTradeStatus = (transaction: OptionsTransaction): boolea
 
 // Centralized utility to get all realized transactions
 // Only truly completed trades count as realized - rolled trades are ongoing strategies
-export const getRealizedTransactions = (transactions: OptionsTransaction[], chains: TradeChain[] = []) => {
-  // Use a Map for O(1) chain lookups instead of O(C) .find() inside the loop
-  const chainMap = new Map<string, TradeChain>();
-  if (chains.length > 0) {
+export const getRealizedTransactions = (
+  transactions: OptionsTransaction[],
+  chains: TradeChain[] = [],
+  chainMapInput?: Map<string, TradeChain>
+) => {
+  // ⚡ Bolt: Use provided Map for O(1) chain lookups or build it once
+  const chainMap = chainMapInput || new Map<string, TradeChain>();
+  if (!chainMapInput && chains.length > 0) {
     for (const chain of chains) {
       chainMap.set(chain.id, chain);
     }
@@ -129,25 +133,31 @@ export const getRealizedTransactions = (transactions: OptionsTransaction[], chai
 };
 
 // Centralized utility to calculate total realized P&L (chain-aware)
-export const calculateTotalRealizedPnL = (transactions: OptionsTransaction[], chains: TradeChain[] = []): number => {
-  const realizedTransactions = getRealizedTransactions(transactions, chains);
+export const calculateTotalRealizedPnL = (
+  transactions: OptionsTransaction[],
+  chains: TradeChain[] = [],
+  chainMapInput?: Map<string, TradeChain>,
+  txnsByChainInput?: Map<string, OptionsTransaction[]>
+): number => {
+  const realizedTransactions = getRealizedTransactions(transactions, chains, chainMapInput);
   const processedChains = new Set<string>();
   let totalPnL = 0;
 
-  // Use a Map for O(1) chain lookups instead of O(C) .find() inside the loop
-  const chainMap = new Map<string, TradeChain>();
-  if (chains.length > 0) {
+  // ⚡ Bolt: Use provided Maps for O(1) lookups or build them once to avoid O(N*M) bottlenecks
+  const chainMap = chainMapInput || new Map<string, TradeChain>();
+  if (!chainMapInput && chains.length > 0) {
     for (const chain of chains) {
       chainMap.set(chain.id, chain);
     }
   }
 
-  // Pre-calculate grouping by chain for calculateChainPnL optimization
-  const txnsByChain = new Map<string, OptionsTransaction[]>();
-  for (const t of transactions) {
-    if (t.chainId) {
-      if (!txnsByChain.has(t.chainId)) txnsByChain.set(t.chainId, []);
-      txnsByChain.get(t.chainId)!.push(t);
+  const txnsByChain = txnsByChainInput || new Map<string, OptionsTransaction[]>();
+  if (!txnsByChainInput) {
+    for (const t of transactions) {
+      if (t.chainId) {
+        if (!txnsByChain.has(t.chainId)) txnsByChain.set(t.chainId, []);
+        txnsByChain.get(t.chainId)!.push(t);
+      }
     }
   }
 
@@ -485,7 +495,12 @@ export const getStrategyType = (transaction: OptionsTransaction): string => {
 };
 
 // Calculate strategy performance analytics
-export const calculateStrategyPerformance = (transactions: OptionsTransaction[], chains: TradeChain[] = []) => {
+export const calculateStrategyPerformance = (
+  transactions: OptionsTransaction[],
+  chains: TradeChain[] = [],
+  chainMapInput?: Map<string, TradeChain>,
+  txnsByChainInput?: Map<string, OptionsTransaction[]>
+) => {
   const strategies = new Map<string, {
     trades: OptionsTransaction[];
     totalPnL: number;
@@ -519,16 +534,17 @@ export const calculateStrategyPerformance = (transactions: OptionsTransaction[],
   strategies.forEach((strategy) => {
     const { trades } = strategy;
 
+    // ⚡ Bolt: Pass through pre-calculated maps for O(1) efficiency
     // Only include realized trades for most metrics (now chain-aware)
-    const realizedTrades = getRealizedTransactions(trades, chains);
+    const realizedTrades = getRealizedTransactions(trades, chains, chainMapInput);
 
     // Calculate chain-aware total P&L for this strategy
-    const stockPerformance = calculateChainAwareStockPerformance(trades, chains);
+    const stockPerformance = calculateChainAwareStockPerformance(trades, chains, chainMapInput, txnsByChainInput);
     strategy.totalPnL = Array.from(stockPerformance.values()).reduce((sum, stock) => sum + stock.pnl, 0);
 
     // Calculate Smart Capital (Capital Efficiency Aware)
     // This represents the Peak Capital Required to run this strategy, accounting for reuse.
-    const capitalResult = calculateSmartCapital(realizedTrades, chains);
+    const capitalResult = calculateSmartCapital(realizedTrades, chains, chainMapInput, txnsByChainInput);
     strategy.totalCollateral = capitalResult.totalCapital;
 
     // Calculate RoR based on Smart Capital (Total PnL / Peak Capital Required)
@@ -654,20 +670,29 @@ export const calculateMonthlyChartData = (transactions: OptionsTransaction[]) =>
 };
 
 // Calculate top tickers by P&L and RoR for each month using chain-aware logic
-export const calculateMonthlyTopTickers = (transactions: OptionsTransaction[], chains: TradeChain[] = []) => {
-  // Use local pre-calculation for performance optimization
-  const chainMap = new Map<string, TradeChain>();
-  for (const chain of chains) {
-    chainMap.set(chain.id, chain);
+export const calculateMonthlyTopTickers = (
+  transactions: OptionsTransaction[],
+  chains: TradeChain[] = [],
+  chainMapInput?: Map<string, TradeChain>,
+  txnsByChainInput?: Map<string, OptionsTransaction[]>
+) => {
+  // ⚡ Bolt: Use provided Maps for O(1) lookups or build them once to avoid O(N*M) bottlenecks
+  const chainMap = chainMapInput || new Map<string, TradeChain>();
+  if (!chainMapInput) {
+    for (const chain of chains) {
+      chainMap.set(chain.id, chain);
+    }
   }
 
-  const txnsByChainFull = new Map<string, OptionsTransaction[]>();
-  for (const t of transactions) {
-    if (t.chainId) {
-      if (!txnsByChainFull.has(t.chainId)) {
-        txnsByChainFull.set(t.chainId, []);
+  const txnsByChainFull = txnsByChainInput || new Map<string, OptionsTransaction[]>();
+  if (!txnsByChainInput) {
+    for (const t of transactions) {
+      if (t.chainId) {
+        if (!txnsByChainFull.has(t.chainId)) {
+          txnsByChainFull.set(t.chainId, []);
+        }
+        txnsByChainFull.get(t.chainId)!.push(t);
       }
-      txnsByChainFull.get(t.chainId)!.push(t);
     }
   }
 
@@ -908,23 +933,29 @@ export const calculateChainAwareMonthlyPnL = (
   transactions: OptionsTransaction[],
   chains: TradeChain[] = [],
   year: number,
-  month: number
+  month: number,
+  chainMapInput?: Map<string, TradeChain>,
+  txnsByChainInput?: Map<string, OptionsTransaction[]>
 ): { totalPnL: number; totalTrades: number; fees: number } => {
   let totalPnL = 0;
   let totalTrades = 0;
   let fees = 0;
   const processedChains = new Set<string>();
 
-  // Pre-calculate lookups for getEffectiveCloseDate
-  const chainMap = new Map<string, TradeChain>();
-  for (const c of chains) {
-    chainMap.set(c.id, c);
+  // ⚡ Bolt: Use provided Maps for O(1) lookups or build them once to avoid O(N*M) bottlenecks
+  const chainMap = chainMapInput || new Map<string, TradeChain>();
+  if (!chainMapInput) {
+    for (const c of chains) {
+      chainMap.set(c.id, c);
+    }
   }
-  const txnsByChain = new Map<string, OptionsTransaction[]>();
-  for (const t of transactions) {
-    if (t.chainId) {
-      if (!txnsByChain.has(t.chainId)) txnsByChain.set(t.chainId, []);
-      txnsByChain.get(t.chainId)!.push(t);
+  const txnsByChain = txnsByChainInput || new Map<string, OptionsTransaction[]>();
+  if (!txnsByChainInput) {
+    for (const t of transactions) {
+      if (t.chainId) {
+        if (!txnsByChain.has(t.chainId)) txnsByChain.set(t.chainId, []);
+        txnsByChain.get(t.chainId)!.push(t);
+      }
     }
   }
 
@@ -1120,7 +1151,9 @@ export interface SmartCapitalResult {
 
 export const calculateSmartCapital = (
   transactions: OptionsTransaction[],
-  chains: TradeChain[] = []
+  chains: TradeChain[] = [],
+  chainMapInput?: Map<string, TradeChain>,
+  txnsByChainInput?: Map<string, OptionsTransaction[]>
 ): SmartCapitalResult => {
   let totalCapital = 0;
   let totalTrades = 0;
@@ -1129,28 +1162,31 @@ export const calculateSmartCapital = (
   const breakdown: SmartCapitalResult['breakdown'] = [];
   const processedChains = new Set<string>();
 
-  // ⚡ Bolt: Pre-calculate maps for O(1) lookups to avoid nested O(N*M) bottlenecks inside the loops
-  const chainMap = new Map<string, TradeChain>();
-  for (const c of chains) {
-    chainMap.set(c.id, c);
+  // ⚡ Bolt: Use provided Maps for O(1) lookups or build them once to avoid O(N*M) bottlenecks
+  const chainMap = chainMapInput || new Map<string, TradeChain>();
+  if (!chainMapInput) {
+    for (const c of chains) {
+      chainMap.set(c.id, c);
+    }
   }
 
-  const txnsByChain = new Map<string, OptionsTransaction[]>();
-  // Group transactions by stock and chain
-  const byStock = new Map<string, OptionsTransaction[]>();
+  const txnsByChain = txnsByChainInput || new Map<string, OptionsTransaction[]>();
+  if (!txnsByChainInput) {
+    for (const t of transactions) {
+      if (t.chainId) {
+        if (!txnsByChain.has(t.chainId)) txnsByChain.set(t.chainId, []);
+        txnsByChain.get(t.chainId)!.push(t);
+      }
+    }
+  }
 
+  // Group transactions by stock
+  const byStock = new Map<string, OptionsTransaction[]>();
   transactions.forEach(t => {
-    // Populate stock grouping
     if (!byStock.has(t.stockSymbol)) {
       byStock.set(t.stockSymbol, []);
     }
     byStock.get(t.stockSymbol)!.push(t);
-
-    // Populate chain grouping
-    if (t.chainId) {
-      if (!txnsByChain.has(t.chainId)) txnsByChain.set(t.chainId, []);
-      txnsByChain.get(t.chainId)!.push(t);
-    }
   });
 
   // Process each stock independently
@@ -1171,8 +1207,8 @@ export const calculateSmartCapital = (
         transactionsForDetection.push(t);
       } else if (!processedChainIdsForDetection.has(t.chainId)) {
         // 2. Synthesize chain
-        // ⚡ Bolt: Use pre-calculated map instead of O(N) filter
-        const chainLegs = txnsByChain.get(t.chainId) || [];
+        // ⚡ Bolt: Using txnsByChain Map instead of .filter for O(1) lookup
+        const chainLegs = txnsByChain.get(t.chainId!) || [];
         if (chainLegs.length > 0) {
           // Find min Open and max Close
           // Sort by open date
@@ -1231,10 +1267,9 @@ export const calculateSmartCapital = (
     // Process chains (Average Capital)
     for (const t of chainTrades) {
       if (t.chainId && !processedChains.has(t.chainId) && t.status !== 'Rolled') {
-        // ⚡ Bolt: O(1) map lookup instead of O(C) find
+        // ⚡ Bolt: Using Maps for O(1) lookups instead of .find and .filter
         const chain = chainMap.get(t.chainId);
         if (chain) {
-          // ⚡ Bolt: O(1) map lookup instead of O(N) filter
           const chainTransactions = txnsByChain.get(t.chainId) || [];
           const totalChainCollateral = chainTransactions.reduce((sum, ct) => sum + calculateCollateral(ct), 0);
           const avgChainCollateral = chainTransactions.length > 0 ? totalChainCollateral / chainTransactions.length : 0;
@@ -1276,7 +1311,14 @@ export const calculateSmartCapital = (
     }
 
     if (stockCapital > 0) {
-      //   console.log(`[DEBUG] ${stock}: capital=${stockCapital}, trades=${stockTradeCount}, sequential=${stockIsSequential && transactionsForDetection.length > 1}, hasOverlap=${stockOverlapResult?.hasOverlap}`);
+      logger.debug({
+        stock,
+        capital: stockCapital,
+        trades: stockTradeCount,
+        sequential: stockIsSequential && transactionsForDetection.length > 1,
+        hasOverlap: stockOverlapResult?.hasOverlap
+      }, 'Stock smart capital breakdown');
+
       breakdown.push({
         stock,
         capital: stockCapital,
@@ -1289,7 +1331,7 @@ export const calculateSmartCapital = (
     totalTrades += stockTradeCount;
   }
 
-  // console.log(`[DEBUG] Final totalCapital: ${totalCapital}`);
+  logger.debug({ totalCapital }, 'Final total smart capital');
 
   return {
     totalCapital,
@@ -1309,12 +1351,14 @@ export const calculateSmartCapital = (
  */
 export const calculateSmartPortfolioRoR = (
   transactions: OptionsTransaction[],
-  chains: TradeChain[] = []
+  chains: TradeChain[] = [],
+  chainMapInput?: Map<string, TradeChain>,
+  txnsByChainInput?: Map<string, OptionsTransaction[]>
 ): number => {
-  const realizedTransactions = getRealizedTransactions(transactions, chains);
+  const realizedTransactions = getRealizedTransactions(transactions, chains, chainMapInput);
 
   // Numerator: Chain-aware PnL
-  const totalPnL = calculateTotalRealizedPnL(realizedTransactions, chains);
+  const totalPnL = calculateTotalRealizedPnL(realizedTransactions, chains, chainMapInput, txnsByChainInput);
 
   // Denominator: Smart Capital
   // Note: We use ALL transactions for capital calculation to capture the capital usage,
@@ -1322,7 +1366,7 @@ export const calculateSmartPortfolioRoR = (
   // Wait, RoR is usually Realized PnL / Realized Capital Usage? 
   // Or Realized PnL / Avg Capital Deployed?
   // Let's use realizedTransactions for consistency with the numerator's scope.
-  const { totalCapital } = calculateSmartCapital(realizedTransactions, chains);
+  const { totalCapital } = calculateSmartCapital(realizedTransactions, chains, chainMapInput, txnsByChainInput);
 
   return totalCapital > 0 ? (totalPnL / totalCapital * 100) : 0;
 };
@@ -1527,7 +1571,9 @@ export function calculateActiveTradingDays(transactions: OptionsTransaction[]): 
 export function calculateYearlyAnnualizedRoRWithActiveMonths(
   transactions: OptionsTransaction[],
   chains: TradeChain[] = [],
-  year?: number
+  year?: number,
+  chainMapInput?: Map<string, TradeChain>,
+  txnsByChainInput?: Map<string, OptionsTransaction[]>
 ) {
   const targetYear = year || new Date().getFullYear();
 
@@ -1544,8 +1590,9 @@ export function calculateYearlyAnnualizedRoRWithActiveMonths(
     return { annualizedRoR: 0, activeTradingDays: 0, baseRoR: 0 };
   }
 
+  // ⚡ Bolt: Pass through pre-calculated maps for O(1) efficiency
   // Use Smart Portfolio RoR for the base calculation
-  const baseRoR = calculateSmartPortfolioRoR(yearTransactions, chains);
+  const baseRoR = calculateSmartPortfolioRoR(yearTransactions, chains, chainMapInput, txnsByChainInput);
 
   const activeTradingDays = calculateActiveTradingDays(yearTransactions);
   const annualizedRoR = activeTradingDays > 0 ? baseRoR * (365 / activeTradingDays) : baseRoR;
