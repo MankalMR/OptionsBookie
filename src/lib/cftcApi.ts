@@ -162,15 +162,6 @@ export async function fetchCotData(commodity: string, years: number): Promise<Co
   }));
 }
 
-/** Helper to calculate percentile rank of a value within a lookback window. */
-function calculatePercentile(value: number, lookback: number[]): number {
-  if (lookback.length === 0) return 0;
-  const sorted = [...lookback].sort((a, b) => a - b);
-  let rank = sorted.findIndex((v) => v >= value);
-  if (rank === -1) rank = sorted.length; // new high — ranks above everything in lookback
-  return (rank / sorted.length) * 100;
-}
-
 /** Buy signal detection — returns dates when producers flipped to net long or hit 95th percentile. */
 export function detectBuySignals(data: CotDataPoint[]): BuySignal[] {
   if (data.length < 52) return [];
@@ -179,9 +170,17 @@ export function detectBuySignals(data: CotDataPoint[]): BuySignal[] {
   const nets = data.map((d) => d.prodMercNet);
 
   for (let i = 52; i < data.length; i++) {
-    // ⚡ Bolt: Use helper for consistent percentile calculation (prevents duplicate signals on new high streaks)
-    const pct = calculatePercentile(nets[i], nets.slice(Math.max(0, i - 156), i));
-    const prevPct = calculatePercentile(nets[i - 1], nets.slice(Math.max(0, i - 157), i - 1));
+    const lookback = nets.slice(Math.max(0, i - 156), i);
+    const sorted   = [...lookback].sort((a, b) => a - b);
+    let rank      = sorted.findIndex((v) => v >= nets[i]);
+    if (rank === -1) rank = sorted.length; // new high — ranks above everything in lookback
+    const pct     = (rank / sorted.length) * 100;
+
+    const prevLookback = nets.slice(Math.max(0, i - 157), i - 1);
+    const prevSorted   = [...prevLookback].sort((a, b) => a - b);
+    let prevRank       = prevSorted.findIndex((v) => v >= nets[i - 1]);
+    if (prevRank === -1) prevRank = prevSorted.length; // same fix for previous bar
+    const prevPct      = (prevRank / prevSorted.length) * 100;
 
     // Trigger on net-long flip OR first entry into extreme 95th percentile
     if ((nets[i - 1] <= 0 && nets[i] > 0) || (pct >= 95 && prevPct < 95)) {

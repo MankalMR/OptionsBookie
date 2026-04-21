@@ -56,7 +56,7 @@ describe('EtfSearchBar', () => {
 
     // Use a 3-char string to trigger both local and debounced remote search
     fireEvent.change(input, { target: { value: 'QQQ' } });
-    
+
     // Should trigger immediate local-only search
     expect(onSearch).toHaveBeenCalledWith('QQQ', true);
     expect(onSearch).toHaveBeenCalledTimes(1);
@@ -64,14 +64,14 @@ describe('EtfSearchBar', () => {
     act(() => {
       jest.advanceTimersByTime(300);
     });
-    
+
     // Still only the initial local-only search
     expect(onSearch).toHaveBeenCalledTimes(1);
 
     act(() => {
       jest.advanceTimersByTime(400); // 300 + 400 = 700ms (covers 600ms debounce)
     });
-    
+
     // Now should have triggered the full remote search
     expect(onSearch).toHaveBeenCalledWith('QQQ', false);
     expect(onSearch).toHaveBeenCalledTimes(2);
