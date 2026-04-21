@@ -151,16 +151,6 @@ export const calculateTotalRealizedPnL = (
     }
   }
 
-  const txnsByChain = txnsByChainInput || new Map<string, OptionsTransaction[]>();
-  if (!txnsByChainInput) {
-    for (const t of transactions) {
-      if (t.chainId) {
-        if (!txnsByChain.has(t.chainId)) txnsByChain.set(t.chainId, []);
-        txnsByChain.get(t.chainId)!.push(t);
-      }
-    }
-  }
-
   realizedTransactions.forEach(t => {
     // Skip rolled transactions - they're part of chains
     if (t.status === 'Rolled') {
@@ -171,7 +161,8 @@ export const calculateTotalRealizedPnL = (
       const chain = chainMap.get(t.chainId);
       if (chain && chain.chainStatus === 'Closed') {
         // For closed chains, use total chain P&L
-        totalPnL += calculateChainPnL(t.chainId, transactions, txnsByChain);
+        // ⚡ Bolt: Pass txnsByChainInput directly; calculateChainPnL handles the fallback correctly
+        totalPnL += calculateChainPnL(t.chainId, transactions, txnsByChainInput);
         processedChains.add(t.chainId);
       }
     } else if (!t.chainId) {
@@ -684,18 +675,6 @@ export const calculateMonthlyTopTickers = (
     }
   }
 
-  const txnsByChainFull = txnsByChainInput || new Map<string, OptionsTransaction[]>();
-  if (!txnsByChainInput) {
-    for (const t of transactions) {
-      if (t.chainId) {
-        if (!txnsByChainFull.has(t.chainId)) {
-          txnsByChainFull.set(t.chainId, []);
-        }
-        txnsByChainFull.get(t.chainId)!.push(t);
-      }
-    }
-  }
-
   const realizedTransactions = getRealizedTransactions(transactions, chains);
 
   // Group transactions by month using chain-aware effective close dates
@@ -703,7 +682,8 @@ export const calculateMonthlyTopTickers = (
   realizedTransactions.forEach(transaction => {
     if (!transaction.closeDate) return;
 
-    const effectiveCloseDate = getEffectiveCloseDate(transaction, realizedTransactions, chains, chainMap, txnsByChainFull);
+    // ⚡ Bolt: Pass txnsByChainInput directly instead of fallback local map
+    const effectiveCloseDate = getEffectiveCloseDate(transaction, realizedTransactions, chains, chainMap, txnsByChainInput);
     const monthKey = `${effectiveCloseDate.getFullYear()}-${String(effectiveCloseDate.getMonth() + 1).padStart(2, '0')}`;
 
     if (!monthlyTransactions.has(monthKey)) {
@@ -949,20 +929,11 @@ export const calculateChainAwareMonthlyPnL = (
       chainMap.set(c.id, c);
     }
   }
-  const txnsByChain = txnsByChainInput || new Map<string, OptionsTransaction[]>();
-  if (!txnsByChainInput) {
-    for (const t of transactions) {
-      if (t.chainId) {
-        if (!txnsByChain.has(t.chainId)) txnsByChain.set(t.chainId, []);
-        txnsByChain.get(t.chainId)!.push(t);
-      }
-    }
-  }
-
   // Get all transactions for this month using chain-aware effective close dates
   const monthTransactions = transactions.filter(t => {
     if (!t.closeDate && t.status !== 'Assigned' && t.status !== 'Expired') return false;
-    const effectiveCloseDate = getEffectiveCloseDate(t, transactions, chains, chainMap, txnsByChain);
+    // ⚡ Bolt: Pass txnsByChainInput directly to getEffectiveCloseDate instead of a local fallback map
+    const effectiveCloseDate = getEffectiveCloseDate(t, transactions, chains, chainMap, txnsByChainInput);
     return effectiveCloseDate.getFullYear() === year && effectiveCloseDate.getMonth() === month;
   });
 
@@ -978,8 +949,11 @@ export const calculateChainAwareMonthlyPnL = (
 
       if (chain && chain.chainStatus === 'Closed') {
         // For closed chains, attribute the entire chain P&L to this month
-        const chainPnL = calculateChainPnL(transaction.chainId, transactions, txnsByChain);
-        const chainTransactions = txnsByChain.get(transaction.chainId) || [];
+        const chainPnL = calculateChainPnL(transaction.chainId, transactions, txnsByChainInput);
+        const chainTransactions = txnsByChainInput
+          ? (txnsByChainInput.get(transaction.chainId) || [])
+          : transactions.filter(x => x.chainId === transaction.chainId);
+
         const chainFees = chainTransactions.reduce((sum, t) => sum + (t.fees || 0), 0);
 
         totalPnL += chainPnL;
@@ -1068,18 +1042,6 @@ export const calculateChainAwareStockPerformance = (
     }
   }
 
-  const txnsByChain = txnsByChainInput || new Map<string, OptionsTransaction[]>();
-  if (!txnsByChainInput) {
-    for (const t of transactions) {
-      if (t.chainId) {
-        if (!txnsByChain.has(t.chainId)) {
-          txnsByChain.set(t.chainId, []);
-        }
-        txnsByChain.get(t.chainId)!.push(t);
-      }
-    }
-  }
-
   transactions.forEach(transaction => {
     // Skip rolled transactions - they're part of chains
     if (transaction.status === 'Rolled') {
@@ -1099,7 +1061,11 @@ export const calculateChainAwareStockPerformance = (
       const chain = chainMap.get(transaction.chainId);
 
       if (chain && chain.chainStatus === 'Closed') {
-        const chainTransactions = txnsByChain.get(transaction.chainId) || [];
+        // ⚡ Bolt: Use txnsByChainInput or fallback to .filter directly
+        const chainTransactions = txnsByChainInput
+          ? (txnsByChainInput.get(transaction.chainId) || [])
+          : transactions.filter(x => x.chainId === transaction.chainId);
+
         const chainPnL = chainTransactions.reduce((total, t) => total + (t.profitLoss || 0), 0);
 
         // For chains (rolled positions), use AVERAGE collateral since it's the same capital being redeployed
@@ -1170,16 +1136,6 @@ export const calculateSmartCapital = (
     }
   }
 
-  const txnsByChain = txnsByChainInput || new Map<string, OptionsTransaction[]>();
-  if (!txnsByChainInput) {
-    for (const t of transactions) {
-      if (t.chainId) {
-        if (!txnsByChain.has(t.chainId)) txnsByChain.set(t.chainId, []);
-        txnsByChain.get(t.chainId)!.push(t);
-      }
-    }
-  }
-
   // Group transactions by stock
   const byStock = new Map<string, OptionsTransaction[]>();
   transactions.forEach(t => {
@@ -1207,8 +1163,11 @@ export const calculateSmartCapital = (
         transactionsForDetection.push(t);
       } else if (!processedChainIdsForDetection.has(t.chainId)) {
         // 2. Synthesize chain
-        // ⚡ Bolt: Using txnsByChain Map instead of .filter for O(1) lookup
-        const chainLegs = txnsByChain.get(t.chainId!) || [];
+        // ⚡ Bolt: Using txnsByChain Map or fallback to .filter directly
+        const chainLegs = txnsByChainInput
+          ? (txnsByChainInput.get(t.chainId!) || [])
+          : stockTransactions.filter(l => l.chainId === t.chainId);
+
         if (chainLegs.length > 0) {
           // Find min Open and max Close
           // Sort by open date
@@ -1270,7 +1229,10 @@ export const calculateSmartCapital = (
         // ⚡ Bolt: Using Maps for O(1) lookups instead of .find and .filter
         const chain = chainMap.get(t.chainId);
         if (chain) {
-          const chainTransactions = txnsByChain.get(t.chainId) || [];
+          const chainTransactions = txnsByChainInput
+            ? (txnsByChainInput.get(t.chainId) || [])
+            : transactions.filter(x => x.chainId === t.chainId);
+
           const totalChainCollateral = chainTransactions.reduce((sum, ct) => sum + calculateCollateral(ct), 0);
           const avgChainCollateral = chainTransactions.length > 0 ? totalChainCollateral / chainTransactions.length : 0;
 

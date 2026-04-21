@@ -7,7 +7,7 @@ import { AI_PROMPTS } from "./prompts";
 /**
  * Shared utility to get the configured Gemini client.
  */
-export const getGeminiClient = () => {
+const getGeminiClient = () => {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     throw new Error("GEMINI_API_KEY is not set.");
@@ -15,12 +15,12 @@ export const getGeminiClient = () => {
   return new GoogleGenAI({ apiKey });
 };
 
-export const DEFAULT_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+const DEFAULT_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
 
 /**
  * Shared utility to strip markdown and handle potential parsing errors
  */
-export const cleanJsonResponse = (text: string) => {
+const cleanJsonResponse = (text: string) => {
   try {
     // Standard cleaning for LLM outputs that might include markdown blocks
     const jsonStr = text.replace(/```json/g, "").replace(/```/g, "").trim();

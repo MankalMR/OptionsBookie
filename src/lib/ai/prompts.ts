@@ -98,19 +98,5 @@ export const AI_PROMPTS = {
     - outcome: Whether the trade was a win or loss. Can be "win" or "loss".
 
     Return ONLY a valid JSON object. Do not include markdown formatting or backticks.
-  `,
-
-  /**
-   * Used to generate a stock price fallback using Gemini.
-   */
-  STOCK_PRICE_FALLBACK: (symbol: string) => `
-    Get the current stock price, change, and change percentage for ${symbol}. Return the response in strictly valid JSON format conforming to the schema.
-  `,
-
-  /**
-   * Used to generate multiple stock price fallbacks using Gemini.
-   */
-  MULTIPLE_STOCK_PRICE_FALLBACK: (symbols: string) => `
-    Get the current stock price, change, and change percentage for the following symbols: ${symbols}. Return the response in strictly valid JSON format conforming to the schema.
   `
 };

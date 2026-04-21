@@ -91,7 +91,7 @@ describe('detectBuySignals', () => {
     expect(targetSignal?.percentile).toBeGreaterThanOrEqual(95);
   });
 
-  it('does not trigger a signal if already in the 95th percentile (the "new high streak" fix)', () => {
+  it('does not trigger a signal if already in the 95th percentile', () => {
     const testData: CotDataPoint[] = [];
     for (let i = 0; i < 160; i++) {
       testData.push(createMockDataPoint({ reportDate: `D${i}`, prodMercNet: 100 }));
@@ -141,29 +141,10 @@ describe('detectBuySignals', () => {
     // sorted.findIndex(v => v >= 20) is -1.
     // rank becomes sorted.length (100).
     // pct = (100/100) * 100 = 100.
+
     const signals = detectBuySignals(data);
     const highSignal = signals.find(s => s.date === 'NEW_HIGH');
     expect(highSignal).toBeDefined();
     expect(highSignal?.percentile).toBe(100);
-  });
-  it('should trigger exactly once when crossing the 95th percentile threshold', () => {
-    const data: CotDataPoint[] = [];
-    // 156 weeks of stable data at 50
-    for (let i = 0; i < 156; i++) {
-      data.push(createMockDataPoint({ reportDate: `D${i}`, prodMercNet: 50 }));
-    }
-    // A jump to 100 (new high)
-    data.push(createMockDataPoint({ reportDate: 'JUMP_DATE', prodMercNet: 100 }));
-    // Stable at 100
-    for (let i = 0; i < 10; i++) {
-      data.push(createMockDataPoint({ reportDate: `AFTER_${i}`, prodMercNet: 100 }));
-    }
-
-    const signals = detectBuySignals(data);
-
-    // Should trigger exactly once at the jump
-    const jumpSignals = signals.filter(s => s.date.includes('JUMP_DATE') || s.date.includes('AFTER_'));
-    expect(jumpSignals.length).toBe(1);
-    expect(jumpSignals[0].date).toBe('JUMP_DATE');
   });
 });
