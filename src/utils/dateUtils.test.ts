@@ -1,0 +1,348 @@
+/**
+ * Tests for date utilities
+ * Critical for options trading app - any date bugs could affect DTE, P&L, expiry calculations
+ */
+
+import {
+  dateToLocalString,
+  dateToInputString,
+  parseLocalDate,
+  formatDisplayDate,
+  formatDisplayDateShort,
+  formatDateForStorage,
+  isSameDay
+} from './dateUtils';
+import { logger } from "@/lib/logger";
+
+describe('dateUtils', () => {
+  describe('parseLocalDate', () => {
+    it('should handle Date objects correctly', () => {
+      const inputDate = new Date('2025-09-18T10:00:00.000Z');
+      const result = parseLocalDate(inputDate);
+      expect(result).toBe(inputDate);
+    });
+
+    it('should parse YYYY-MM-DD string format correctly', () => {
+      const result = parseLocalDate('2025-09-18');
+      expect(result.getFullYear()).toBe(2025);
+      expect(result.getMonth()).toBe(8); // 0-indexed (September)
+      expect(result.getDate()).toBe(18);
+    });
+
+    it('should parse ISO date strings correctly', () => {
+      const result = parseLocalDate('2025-09-18T15:30:00.000Z');
+      expect(result.getFullYear()).toBe(2025);
+      expect(result.getMonth()).toBe(8); // 0-indexed (September)
+      expect(result.getDate()).toBe(18);
+    });
+
+    it('should handle edge cases', () => {
+      expect(() => parseLocalDate('')).not.toThrow();
+      expect(() => parseLocalDate('invalid')).not.toThrow();
+    });
+  });
+
+  describe('dateToLocalString', () => {
+    it('should convert Date to YYYY-MM-DD format', () => {
+      const date = new Date(2025, 8, 18); // September 18, 2025 (month is 0-indexed)
+      const result = dateToLocalString(date);
+      expect(result).toBe('2025-09-18');
+    });
+
+    it('should handle string dates correctly', () => {
+      const result = dateToLocalString('2025-09-18');
+      expect(result).toBe('2025-09-18');
+    });
+
+    it('should handle empty inputs', () => {
+      expect(dateToLocalString('')).toBe('');
+    });
+
+    it('should pad single-digit months and days with zeros', () => {
+      const date = new Date(2025, 0, 5); // January 5, 2025
+      const result = dateToLocalString(date);
+      expect(result).toBe('2025-01-05');
+    });
+  });
+
+  describe('dateToInputString', () => {
+    it('should convert Date to ISO date string format', () => {
+      const date = new Date('2025-09-18T15:30:00.000Z');
+      const result = dateToInputString(date);
+      expect(result).toBe('2025-09-18');
+    });
+
+    it('should work with current date', () => {
+      const now = new Date();
+      const result = dateToInputString(now);
+      expect(result).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    });
+  });
+
+  describe('formatDisplayDate', () => {
+    it('should format Date objects correctly', () => {
+      const date = new Date(2025, 8, 18); // September 18, 2025
+      const result = formatDisplayDate(date);
+      expect(result).toBe('Sep 18, 2025');
+    });
+
+    it('should format string dates correctly', () => {
+      const result = formatDisplayDate('2025-09-18');
+      expect(result).toBe('Sep 18, 2025');
+    });
+
+    it('should handle invalid dates gracefully', () => {
+      expect(formatDisplayDate('invalid-date')).toBe('Invalid Date');
+      expect(formatDisplayDate('')).toBe('Invalid Date');
+    });
+  });
+
+  describe('formatDisplayDateShort', () => {
+    it('should return month/day and year separately', () => {
+      const result = formatDisplayDateShort('2025-09-18');
+      expect(result).toEqual({
+        monthDay: 'Sep 18',
+        year: '2025'
+      });
+    });
+
+    it('should handle Date objects', () => {
+      const date = new Date(2025, 8, 18); // September 18, 2025
+      const result = formatDisplayDateShort(date);
+      expect(result).toEqual({
+        monthDay: 'Sep 18',
+        year: '2025'
+      });
+    });
+
+    it('should handle invalid dates gracefully', () => {
+      const result = formatDisplayDateShort('invalid-date');
+      expect(result).toEqual({
+        monthDay: 'Invalid',
+        year: 'Date'
+      });
+    });
+  });
+
+  describe('Timezone consistency', () => {
+    it('should handle timezone-safe operations consistently', () => {
+      const testDate = '2025-09-18';
+
+      // All operations should work with the same logical date
+      const parsed = parseLocalDate(testDate);
+      const localString = dateToLocalString(parsed);
+      const formatted = formatDisplayDate(localString);
+
+      expect(localString).toBe('2025-09-18');
+      expect(formatted).toBe('Sep 18, 2025');
+    });
+
+    it('should not shift dates when converting between formats', () => {
+      const originalDate = '2025-09-18';
+
+      // Round trip: string -> Date -> string should not change
+      const parsed = parseLocalDate(originalDate);
+      const backToString = dateToLocalString(parsed);
+
+      expect(backToString).toBe(originalDate);
+    });
+
+    it('should handle timezone boundary edge cases correctly', () => {
+      // Test dates that could be problematic in different timezones
+      const edgeCaseDates = [
+        '2025-10-01',                    // Simple date string
+        '2025-10-01T00:00:00.000Z',     // UTC midnight (could be Sep 30 in some timezones)
+        '2025-10-01T04:00:00.000Z',     // UTC 4 AM (could be Sep 30 in US timezones)
+        '2025-10-01T12:00:00.000Z',     // UTC noon
+        '2025-10-01T23:59:59.999Z',     // UTC almost midnight next day
+      ];
+
+      edgeCaseDates.forEach(dateStr => {
+        const parsed = parseLocalDate(dateStr);
+
+        // All should parse to October 1st regardless of timezone
+        expect(parsed.getFullYear()).toBe(2025);
+        expect(parsed.getMonth()).toBe(9); // October (0-indexed)
+        expect(parsed.getDate()).toBe(1);
+
+        // Should not be affected by timezone shifts that native Date() has
+        const nativeDate = new Date(dateStr);
+        if (nativeDate.getDate() !== parsed.getDate()) {
+          // This confirms our parseLocalDate is fixing timezone issues
+          logger.info(`Fixed timezone issue for ${dateStr}: native=${nativeDate.getDate()}, parsed=${parsed.getDate()}`);
+        }
+      });
+    });
+
+    it('should consistently parse dates across different formats', () => {
+      // All these should represent the same logical date
+      const sameDateFormats = [
+        '2025-12-25',
+        '2025-12-25T00:00:00.000Z',
+        '2025-12-25T12:00:00.000Z',
+        '2025-12-25T23:59:59.999Z',
+      ];
+
+      const parsedDates = sameDateFormats.map(parseLocalDate);
+
+      // All should have the same year, month, and date
+      parsedDates.forEach(date => {
+        expect(date.getFullYear()).toBe(2025);
+        expect(date.getMonth()).toBe(11); // December (0-indexed)
+        expect(date.getDate()).toBe(25);
+      });
+    });
+
+    it('should handle production vs local database date formats', () => {
+      // Simulate different formats that might come from SQLite vs Supabase
+      const productionFormat = '2025-10-01T00:00:00.000Z'; // Supabase might return this
+      const localFormat = '2025-10-01'; // SQLite might return this
+
+      const prodParsed = parseLocalDate(productionFormat);
+      const localParsed = parseLocalDate(localFormat);
+
+      // Both should result in the same logical date
+      expect(prodParsed.getFullYear()).toBe(localParsed.getFullYear());
+      expect(prodParsed.getMonth()).toBe(localParsed.getMonth());
+      expect(prodParsed.getDate()).toBe(localParsed.getDate());
+
+      // Both should format to the same string
+      expect(dateToLocalString(prodParsed)).toBe(dateToLocalString(localParsed));
+    });
+  });
+
+  describe('Options trading specific scenarios', () => {
+    it('should handle expiry dates correctly', () => {
+      // Common option expiry dates (third Friday of month)
+      const expiryDates = [
+        '2025-01-17', // January expiry
+        '2025-02-21', // February expiry
+        '2025-03-21', // March expiry (quarterly)
+        '2025-06-20', // June expiry (quarterly)
+        '2025-09-19', // September expiry (quarterly)
+        '2025-12-19', // December expiry (quarterly)
+      ];
+
+      expiryDates.forEach(date => {
+        expect(() => parseLocalDate(date)).not.toThrow();
+        expect(formatDisplayDate(date)).toMatch(/^[A-Z][a-z]{2} \d{1,2}, \d{4}$/);
+        expect(dateToLocalString(date)).toBe(date);
+      });
+    });
+
+    it('should handle trade open dates consistently', () => {
+      // Simulate opening trades on different days
+      const tradeDates = [
+        '2025-09-15', // Monday
+        '2025-09-16', // Tuesday
+        '2025-09-17', // Wednesday
+        '2025-09-18', // Thursday
+        '2025-09-19', // Friday
+      ];
+
+      tradeDates.forEach(date => {
+        const parsed = parseLocalDate(date);
+        const formatted = formatDisplayDate(parsed);
+        const inputString = dateToInputString(parsed);
+
+        expect(parsed).toBeInstanceOf(Date);
+        expect(formatted).toMatch(/^[A-Z][a-z]{2} \d{1,2}, 2025$/);
+        expect(inputString).toMatch(/^2025-09-\d{2}$/);
+      });
+    });
+  });
+
+  describe('Performance and edge cases', () => {
+    it('should handle large numbers of date operations efficiently', () => {
+      const startTime = Date.now();
+
+      for (let i = 0; i < 1000; i++) {
+        const date = `2025-09-${String(i % 28 + 1).padStart(2, '0')}`;
+        parseLocalDate(date);
+        formatDisplayDate(date);
+        dateToLocalString(date);
+      }
+
+      const endTime = Date.now();
+      const duration = endTime - startTime;
+
+      // Should complete 1000 operations in under 1 second
+      expect(duration).toBeLessThan(1000);
+    });
+
+    it('should not throw errors for any reasonable input', () => {
+      const testInputs = [
+        '2025-09-18',
+        '2025-09-18T15:30:00.000Z',
+        new Date(),
+        new Date('2025-09-18'),
+        '',
+        'invalid',
+        '2025-13-45',
+        '0000-00-00',
+      ];
+
+      testInputs.forEach(input => {
+        expect(() => parseLocalDate(input)).not.toThrow();
+        expect(() => formatDisplayDate(input)).not.toThrow();
+        expect(() => dateToLocalString(input)).not.toThrow();
+        expect(() => formatDisplayDateShort(input)).not.toThrow();
+      });
+    });
+
+    it('should maintain consistency across all functions', () => {
+      const testDate = '2025-09-18';
+
+      // All functions should work together consistently
+      const parsed = parseLocalDate(testDate);
+      const localString = dateToLocalString(parsed);
+      const inputString = dateToInputString(parsed);
+      const displayDate = formatDisplayDate(parsed);
+      const shortDate = formatDisplayDateShort(parsed);
+
+      expect(localString).toBe(testDate);
+      expect(inputString).toBe(testDate);
+      expect(displayDate).toBe('Sep 18, 2025');
+      expect(shortDate.monthDay).toBe('Sep 18');
+      expect(shortDate.year).toBe('2025');
+    });
+  });
+
+  describe('isSameDay', () => {
+    it('should return true for dates on the same day with different times', () => {
+      const date1 = new Date(2025, 8, 18, 10, 30, 0);
+      const date2 = new Date(2025, 8, 18, 22, 15, 0);
+      expect(isSameDay(date1, date2)).toBe(true);
+    });
+
+    it('should return false for different days in the same month', () => {
+      const date1 = new Date(2025, 8, 18);
+      const date2 = new Date(2025, 8, 19);
+      expect(isSameDay(date1, date2)).toBe(false);
+    });
+
+    it('should return false for the same day in different months', () => {
+      const date1 = new Date(2025, 8, 18);
+      const date2 = new Date(2025, 9, 18);
+      expect(isSameDay(date1, date2)).toBe(false);
+    });
+
+    it('should return false for the same day and month in different years', () => {
+      const date1 = new Date(2025, 8, 18);
+      const date2 = new Date(2026, 8, 18);
+      expect(isSameDay(date1, date2)).toBe(false);
+    });
+  });
+
+  describe('formatDateForStorage', () => {
+    it('should format Date object to YYYY-MM-DD string', () => {
+      const date = new Date(2025, 8, 18);
+      expect(formatDateForStorage(date)).toBe('2025-09-18');
+    });
+
+    it('should pad single-digit months and days with zero', () => {
+      const date = new Date(2025, 0, 5); // January 5th
+      expect(formatDateForStorage(date)).toBe('2025-01-05');
+    });
+  });
+});
