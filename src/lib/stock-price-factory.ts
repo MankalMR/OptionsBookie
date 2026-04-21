@@ -30,52 +30,23 @@ export interface StockPriceService {
 export type StockPriceProvider = 'alphavantage' | 'finnhub' | 'gemini' | 'cached' | 'none';
 
 export class StockPriceFactory {
-  private static instance: StockPriceService | null = null;
-  private static provider: StockPriceProvider = 'none';
-
   /**
-   * Initialize the stock price service
+   * Initialize and return the stock price service for a given provider
    */
   static initialize(provider: StockPriceProvider): StockPriceService {
-    this.provider = provider;
-
     switch (provider) {
       case 'alphavantage':
-        this.instance = alphaVantageStockService;
-        break;
+        return alphaVantageStockService;
       case 'finnhub':
-        this.instance = finnhubStockService;
-        break;
+        return finnhubStockService;
       case 'gemini':
-        this.instance = geminiStockService;
-        break;
+        return geminiStockService;
       case 'cached':
-        this.instance = cachedStockService;
-        break;
+        return cachedStockService;
       case 'none':
       default:
-        this.instance = new NoOpStockService();
-        break;
+        return new NoOpStockService();
     }
-
-    return this.instance;
-  }
-
-  /**
-   * Get the current stock price service instance
-   */
-  static getInstance(): StockPriceService {
-    if (!this.instance) {
-      return this.initialize('none');
-    }
-    return this.instance;
-  }
-
-  /**
-   * Get the current provider
-   */
-  static getProvider(): StockPriceProvider {
-    return this.provider;
   }
 
   /**
@@ -155,5 +126,3 @@ class NoOpStockService implements StockPriceService {
   }
 }
 
-// Export the factory instance
-export const stockPriceService = StockPriceFactory.getInstance();
