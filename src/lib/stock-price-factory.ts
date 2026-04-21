@@ -2,6 +2,7 @@
 import { cachedStockService, CachedStockService } from './stock-price-cached';
 import { finnhubStockService, FinnhubStockService } from './stock-price-finnhub';
 import { alphaVantageStockService, AlphaVantageStockService } from './stock-price-alphavantage';
+import { geminiStockService } from './stock-price-gemini';
 import { logger } from "@/lib/logger";
 
 export interface StockPriceResponse {
@@ -11,6 +12,7 @@ export interface StockPriceResponse {
   changePercent: number;
   timestamp: string;
   isStale?: boolean;
+  isAiGenerated?: boolean;
 }
 
 export interface StockPriceService {
@@ -25,52 +27,26 @@ export interface StockPriceService {
   };
 }
 
-export type StockPriceProvider = 'alphavantage' | 'finnhub' | 'cached' | 'none';
+export type StockPriceProvider = 'alphavantage' | 'finnhub' | 'gemini' | 'cached' | 'none';
 
 export class StockPriceFactory {
-  private static instance: StockPriceService | null = null;
-  private static provider: StockPriceProvider = 'none';
-
   /**
-   * Initialize the stock price service
+   * Initialize and return the stock price service for a given provider
    */
   static initialize(provider: StockPriceProvider): StockPriceService {
-    this.provider = provider;
-
     switch (provider) {
       case 'alphavantage':
-        this.instance = alphaVantageStockService;
-        break;
+        return alphaVantageStockService;
       case 'finnhub':
-        this.instance = finnhubStockService;
-        break;
+        return finnhubStockService;
+      case 'gemini':
+        return geminiStockService;
       case 'cached':
-        this.instance = cachedStockService;
-        break;
+        return cachedStockService;
       case 'none':
       default:
-        this.instance = new NoOpStockService();
-        break;
+        return new NoOpStockService();
     }
-
-    return this.instance;
-  }
-
-  /**
-   * Get the current stock price service instance
-   */
-  static getInstance(): StockPriceService {
-    if (!this.instance) {
-      return this.initialize('none');
-    }
-    return this.instance;
-  }
-
-  /**
-   * Get the current provider
-   */
-  static getProvider(): StockPriceProvider {
-    return this.provider;
   }
 
   /**
@@ -82,6 +58,8 @@ export class StockPriceFactory {
         return !!process.env.ALPHA_VANTAGE_KEY;
       case 'finnhub':
         return !!process.env.FINNHUB_API_KEY;
+      case 'gemini':
+        return !!process.env.GEMINI_API_KEY;
       case 'cached':
         return true; // No API key required
       case 'none':
@@ -107,6 +85,10 @@ export class StockPriceFactory {
 
     if (this.isProviderAvailable('finnhub')) {
       providers.push('finnhub');
+    }
+
+    if (this.isProviderAvailable('gemini')) {
+      providers.push('gemini');
     }
 
     return providers;
@@ -144,5 +126,3 @@ class NoOpStockService implements StockPriceService {
   }
 }
 
-// Export the factory instance
-export const stockPriceService = StockPriceFactory.getInstance();
