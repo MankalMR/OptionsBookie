@@ -12,11 +12,13 @@ const mockEtfCacheService = {
 };
 const mockAlphaVantageEtfProvider = {
   getEtfProfile: jest.fn() as jest.MockedFunction<any>,
+  isLimited: jest.fn().mockReturnValue(false) as jest.MockedFunction<any>,
 };
 
 const mockGeminiService = {
   recoverEtfMetadata: jest.fn() as jest.MockedFunction<any>,
   generateEtfProfile: jest.fn() as jest.MockedFunction<any>,
+  enrichEtfHoldings: jest.fn().mockImplementation((t, h) => Promise.resolve(h)) as jest.MockedFunction<any>,
 };
 
 jest.mock('next-auth', () => ({

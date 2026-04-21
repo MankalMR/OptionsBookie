@@ -59,7 +59,10 @@ describe('useEtfSearch', () => {
       await result.current.search('QQQ');
     });
 
-    expect(mockFetch).toHaveBeenCalledWith('/api/etfs/search?q=QQQ');
+    expect(mockFetch).toHaveBeenCalledWith(
+      '/api/etfs/search?q=QQQ',
+      expect.objectContaining({ signal: expect.any(Object) })
+    );
     expect(result.current.results).toEqual(mockResults);
     expect(result.current.loading).toBe(false);
     expect(result.current.error).toBeNull();
@@ -77,7 +80,10 @@ describe('useEtfSearch', () => {
       await result.current.search('S&P 500');
     });
 
-    expect(mockFetch).toHaveBeenCalledWith('/api/etfs/search?q=S%26P%20500');
+    expect(mockFetch).toHaveBeenCalledWith(
+      '/api/etfs/search?q=S%26P%20500',
+      expect.objectContaining({ signal: expect.any(Object) })
+    );
   });
 
   it('should handle API error response', async () => {
