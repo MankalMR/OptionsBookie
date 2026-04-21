@@ -931,13 +931,17 @@ export default function TransactionTable({
             </div>
 
             <div className="grid grid-cols-2 gap-y-3 text-sm border-b pb-4">
-              <span className="text-muted-foreground font-semibold">Initial Opening Credit:</span>
-              <span className="text-right font-bold text-emerald-600">
+              <span className="text-muted-foreground font-semibold">
+                {selectedInfoTransaction.buyOrSell === 'Buy' ? 'Opening Premium (Debit):' : 'Initial Opening Credit:'}
+              </span>
+              <span className={`text-right font-bold ${selectedInfoTransaction.buyOrSell === 'Buy' ? 'text-red-500' : 'text-emerald-600'}`}>
                 ${selectedInfoTransaction.premium.toFixed(2)}
               </span>
 
-              <span className="text-muted-foreground font-semibold">Exit Cost (To Close):</span>
-              <span className="text-right font-bold text-red-600">
+              <span className="text-muted-foreground font-semibold">
+                {selectedInfoTransaction.buyOrSell === 'Buy' ? 'Exit Credit (Proceeds):' : 'Exit Cost (To Close):'}
+              </span>
+              <span className={`text-right font-bold ${selectedInfoTransaction.buyOrSell === 'Buy' ? 'text-emerald-600' : 'text-red-600'}`}>
                 {selectedInfoTransaction.exitPrice ? `$${selectedInfoTransaction.exitPrice.toFixed(2)}` : '$0.00'}
               </span>
 
@@ -965,18 +969,25 @@ export default function TransactionTable({
 
               if (!nextLeg) return null;
 
-              const rollSpread = nextLeg.premium - (selectedInfoTransaction.exitPrice || 0);
+              const isLongRoll = selectedInfoTransaction.buyOrSell === 'Buy';
+              const netCredit = isLongRoll 
+                ? (selectedInfoTransaction.exitPrice || 0) - nextLeg.premium
+                : nextLeg.premium - (selectedInfoTransaction.exitPrice || 0);
 
               return (
                 <div className="bg-blue-50/50 dark:bg-blue-950/20 p-3 rounded-md border border-blue-100 dark:border-blue-900/50 space-y-2">
                   <div className="text-[11px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider">Roll Analysis</div>
                   <div className="grid grid-cols-2 gap-y-1 text-xs">
-                    <span className="text-muted-foreground">Roll-to Entry Credit:</span>
-                    <span className="text-right font-medium text-emerald-600">${nextLeg.premium.toFixed(2)}</span>
+                    <span className="text-muted-foreground">
+                      {isLongRoll ? 'Roll-to Entry Debit:' : 'Roll-to Entry Credit:'}
+                    </span>
+                    <span className={`text-right font-medium ${isLongRoll ? 'text-red-500' : 'text-emerald-600'}`}>
+                      ${nextLeg.premium.toFixed(2)}
+                    </span>
                     
                     <span className="text-muted-foreground font-semibold pt-1 border-t mt-1">Net Roll Spread:</span>
-                    <span className={`text-right font-bold pt-1 border-t mt-1 ${rollSpread >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                      {rollSpread >= 0 ? '+' : ''}${rollSpread.toFixed(2)}
+                    <span className={`text-right font-bold pt-1 border-t mt-1 ${netCredit >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                      {netCredit >= 0 ? '+' : ''}${netCredit.toFixed(2)}
                     </span>
                   </div>
                 </div>
