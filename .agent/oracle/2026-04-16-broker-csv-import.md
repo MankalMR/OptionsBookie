@@ -79,3 +79,65 @@ sequenceDiagram
 - [ ] Confirmed valid trades are saved to the database and immediately appear in the Transactions table.
 - [ ] The CSV parsing logic is modular, allowing new brokers to be easily added in the future.
 - [ ] Unit tests cover the specific parsing logic for each implemented broker adapter.
+
+
+Broker CSV Import: Architectural Blueprint & Strategy
+Integrating broker CSV imports into a system that already supports manual entries is notoriously complex, especially for options trading. Combining my options trader intuition with a robust React/Next.js architectural mindset, here is the deep-dive analysis of the edge cases and a safe, iterative roadmap to the North Star.
+
+🎩 The Options Trader's Edge Cases
+When merging manual bookkeeping with broker-generated CSVs, we hit several nasty realities of how brokers export options data:
+
+The Partial Fill Nightmare: You manually log a trade as "Bought 10 SOXX Calls at $5.00". Your broker CSV might export this as 3 separate rows executed milliseconds apart: 3 contracts @ $4.95, 5 contracts @ $5.00, 2 contracts @ $5.05. A naive deduplicator will import all 3 rows because none of them exactly match your manual entry of "10 @ $5.00".
+The "Roll" Disconnect: Brokers do not understand "Rolls" as a single metaphysical trade. They just see a "Sell to Close" of one strike and a "Buy to Open" of another. If the user manually tracked a chain, the imported rows will dump in as isolated legs.
+Ghost Expirations & Assignments: When an option expires worthless, some brokers generate a dummy transaction with $0 premium. Others just delete the asset. If assigned, they might spawn a massive stock transaction without explicitly linking it to the option's demise.
+Time & Date Skew: You might manually log a trade on 2026-04-20. The broker might log it on 2026-04-21 if it settled after hours, or due to timezone differences (EST vs Local).
+WARNING
+
+Without handling these edge cases, users will end up with corrupted "hybrid" chains where a manually opened trade remains "Open" forever because the broker's "Sell to Close" leg was imported as a standalone trade.
+
+⚛️ The UX/UI Vision (Frictionless Reconciliation)
+To handle the complexity of hybrid manual/uploaded data, we should use a "Reconciliation Wizard" pattern rather than a simple "Upload & Done" button. We need to build trust.
+
+The UI Flow
+The Drop zone: A clear modal to drop the CSV and select the Broker format.
+The Reconciliation Table (The Magic Step): Instead of just importing blindly, the UI presents a data table with color-coded row states:
+🟢 New Trade: Clean, unrecognized trade. Safe to import.
+🟡 Linked to Open: "This 'Sell to Close' matches your manually entered 'Buy to Open' from last week."
+🟠 Probable Duplicate / Partial Fill: "We found 3 lines that equal your 1 manual entry. We recommend skipping these."
+🔴 Duplicate: "Exact match found. Skipping automatically."
+User Overrides: Checkboxes next to every row allowing the user to override the system's guess before hitting the final "Confirm Import" button.
+🧭 The Iterative Implementation Plan
+To avoid boiling the ocean, we will build this in 4 distinct phases. This ensures structural integrity at each step.
+
+Phase 1: The Isolated Parsers (Data Normalization)
+Goal: Build the engine that converts chaotic broker CSVs into our pristine OptionsTransaction interface. No databases, no UI matching yet.
+
+Set up src/utils/csv-adapters/ with interfaces (e.g., BrokerAdapter).
+Integrate a robust parser like papaparse (client-side only).
+Implement the first broker (e.g., Schwab). Give it hardcoded unit tests for parsing complex strings like "SOXX 01/21/2028 350.00 C".
+Deliverable: A utility function parseBrokerCSV(file, 'schwab') that returns OptionsTransaction[].
+Phase 2: The Confidence Deduplication Engine
+Goal: Create a standalone utility that takes an array of "Incoming Items" and an array of "Existing DB Items" and spits out a categorized map.
+
+Build strict matching (exact Date, Symbol, Strike, Type, Quantity).
+Build fuzzy matching for partial fills (e.g., group incoming rows by Date + Symbol + Strike, sum their quantities and average their premiums, then compare against the manual DB entries).
+Establish the "Confidence Score" interface for the UI to consume.
+Deliverable: A highly tested analyzeImport(incoming, existing) pure function.
+Phase 3: The Reconciliation UI & DB Integration
+Goal: Hook Phase 1 & 2 up to the user interface.
+
+Build the CsvImportWizard.tsx component.
+Ensure the UI elegantly renders the Confidence Engine's results (Green/Yellow/Orange/Red row highlighting).
+Hook up the "Confirm" button to supabase.ts or demo-store.ts via a batch insert method.
+Deliverable: A fully functioning end-to-end import feature for basic trades.
+Phase 4: Chain Auto-Stitching (The North Star)
+Goal: Solve the manual/imported hybrid chain problem.
+
+Up until Phase 3, an imported closing leg will just sit as a "standalone" transaction.
+In Phase 4, we introduce logic that scans new imported trades upon insertion. If it finds a "Sell to Close" LEAP, it hunts for an active "Buy to Open" LEAP in the DB with the same strike/expiry.
+It auto-assigns the imported leg the chainId of the manual leg, beautifully tying the manual open and the broker close into a single logical chain.
+Deliverable: Flawless options lifecycle tracking regardless of whether the trade was typed by hand or uploaded by file.
+Open Questions for You
+Which broker should we build the first adapter for? We need a concrete CSV file template to write the first parser unit tests correctly.
+Partial Fills Policy: If we detect a partial fill mapping (3 broker rows that equal 1 manual entry), should we default the UI to Skip the broker rows and keep the manual row, or Delete the manual row and import the true broker rows?
+
