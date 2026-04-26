@@ -151,6 +151,16 @@ export const calculateTotalRealizedPnL = (
     }
   }
 
+  // ⚡ Fix: Always build a localized chain map from the passed `transactions` array.
+  // Passing a global txnsByChainInput causes subset logic to artificially pull in global chain legs.
+  const localTxnsByChain = new Map<string, OptionsTransaction[]>();
+  transactions.forEach(t => {
+    if (t.chainId) {
+      if (!localTxnsByChain.has(t.chainId)) localTxnsByChain.set(t.chainId, []);
+      localTxnsByChain.get(t.chainId)!.push(t);
+    }
+  });
+
   realizedTransactions.forEach(t => {
     // Skip rolled transactions - they're part of chains
     if (t.status === 'Rolled') {
@@ -161,8 +171,7 @@ export const calculateTotalRealizedPnL = (
       const chain = chainMap.get(t.chainId);
       if (chain && chain.chainStatus === 'Closed') {
         // For closed chains, use total chain P&L
-        // ⚡ Bolt: Pass txnsByChainInput directly; calculateChainPnL handles the fallback correctly
-        totalPnL += calculateChainPnL(t.chainId, transactions, txnsByChainInput);
+        totalPnL += calculateChainPnL(t.chainId, transactions, localTxnsByChain);
         processedChains.add(t.chainId);
       }
     } else if (!t.chainId) {
@@ -522,7 +531,7 @@ export const calculateStrategyPerformance = (
   });
 
   // Calculate metrics for each strategy
-  strategies.forEach((strategy) => {
+  strategies.forEach((strategy, strategyType) => {
     const { trades } = strategy;
 
     // ⚡ Bolt: Pass through pre-calculated maps for O(1) efficiency
@@ -1042,6 +1051,17 @@ export const calculateChainAwareStockPerformance = (
     }
   }
 
+  // ⚡ Fix: Always build a localized chain map from the passed `transactions` array.
+  // Passing a global txnsByChainInput causes subset logic (like strategy grouping) to 
+  // accidentally include out-of-scope chain legs, corrupting RoR and P&L math.
+  const localTxnsByChain = new Map<string, OptionsTransaction[]>();
+  transactions.forEach(t => {
+    if (t.chainId) {
+      if (!localTxnsByChain.has(t.chainId)) localTxnsByChain.set(t.chainId, []);
+      localTxnsByChain.get(t.chainId)!.push(t);
+    }
+  });
+
   transactions.forEach(transaction => {
     // Skip rolled transactions - they're part of chains
     if (transaction.status === 'Rolled') {
@@ -1061,10 +1081,7 @@ export const calculateChainAwareStockPerformance = (
       const chain = chainMap.get(transaction.chainId);
 
       if (chain && chain.chainStatus === 'Closed') {
-        // ⚡ Bolt: Use txnsByChainInput or fallback to .filter directly
-        const chainTransactions = txnsByChainInput
-          ? (txnsByChainInput.get(transaction.chainId) || [])
-          : transactions.filter(x => x.chainId === transaction.chainId);
+        const chainTransactions = localTxnsByChain.get(transaction.chainId) || [];
 
         const chainPnL = chainTransactions.reduce((total, t) => total + (t.profitLoss || 0), 0);
 
@@ -1163,10 +1180,9 @@ export const calculateSmartCapital = (
         transactionsForDetection.push(t);
       } else if (!processedChainIdsForDetection.has(t.chainId)) {
         // 2. Synthesize chain
-        // ⚡ Bolt: Using txnsByChain Map or fallback to .filter directly
-        const chainLegs = txnsByChainInput
-          ? (txnsByChainInput.get(t.chainId!) || [])
-          : stockTransactions.filter(l => l.chainId === t.chainId);
+        // ⚡ Fix: Use a fast filter over stockTransactions (already a small subset) instead of 
+        // passing a global txnsByChain map which corrupts subset detection math.
+        const chainLegs = stockTransactions.filter(l => l.chainId === t.chainId);
 
         if (chainLegs.length > 0) {
           // Find min Open and max Close
@@ -1226,12 +1242,11 @@ export const calculateSmartCapital = (
     // Process chains (Average Capital)
     for (const t of chainTrades) {
       if (t.chainId && !processedChains.has(t.chainId) && t.status !== 'Rolled') {
-        // ⚡ Bolt: Using Maps for O(1) lookups instead of .find and .filter
         const chain = chainMap.get(t.chainId);
         if (chain) {
-          const chainTransactions = txnsByChainInput
-            ? (txnsByChainInput.get(t.chainId) || [])
-            : transactions.filter(x => x.chainId === t.chainId);
+          // ⚡ Fix: Ensure we only measure collateral against the transactions actually provided
+          // to this subset calculation.
+          const chainTransactions = transactions.filter(x => x.chainId === t.chainId);
 
           const totalChainCollateral = chainTransactions.reduce((sum, ct) => sum + calculateCollateral(ct), 0);
           const avgChainCollateral = chainTransactions.length > 0 ? totalChainCollateral / chainTransactions.length : 0;
@@ -1341,8 +1356,11 @@ export const calculateSmartPortfolioRoR = (
  */
 export const calculateDaysHeld = (openDate: string | Date, closeDate?: string | Date): number => {
   try {
-    const opened = parseLocalDate(openDate);
-    const closed = closeDate ? parseLocalDate(closeDate) : new Date();
+    // ⚡ Fix: MUST clone the Date objects before mutating them with setHours.
+    // parseLocalDate can return the exact same object reference if openDate is a Date.
+    // Mutating it here destroys the global state of the transaction object for subsequent math.
+    const opened = new Date(parseLocalDate(openDate));
+    const closed = closeDate ? new Date(parseLocalDate(closeDate)) : new Date();
 
     // Set time to start of day for accurate day calculation
     opened.setHours(0, 0, 0, 0);
