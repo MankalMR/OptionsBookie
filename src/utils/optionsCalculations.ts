@@ -387,14 +387,6 @@ export const calculateAllTimeAnnualizedRoR = (totalRoR: number, portfolioStartDa
 };
 
 /**
- * Calculate yearly annualized RoR using active trading days
- * Formula: R_yearly × (365 ÷ D_active)
- */
-export const calculateYearlyAnnualizedRoRWithActiveDays = (yearlyRoR: number, activeDays: number): number => {
-  return calculateTimeBasedAnnualizedRoR(yearlyRoR, Math.max(activeDays, 1));
-};
-
-/**
  * Get the annualized RoR calculation method based on environment variable
  * ANN_ROR_TYPE: 'time-period' (default) or 'trade-weighted'
  */
