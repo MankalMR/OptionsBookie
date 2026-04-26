@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { StockPriceFactory } from '@/lib/stock-price-factory';
+import { orchestratorStockService } from '@/lib/stock-price-orchestrator';
 import { logger } from "@/lib/logger";
 
 export async function GET(request: NextRequest) {
@@ -28,10 +29,11 @@ export async function GET(request: NextRequest) {
     // Debug: Check if API keys are available
     logger.info({ data0: !!process.env.ALPHA_VANTAGE_KEY }, 'ALPHA_VANTAGE_KEY available:');
     logger.info({ data0: !!process.env.FINNHUB_API_KEY }, 'FINNHUB_API_KEY available:');
+    logger.info({ data0: !!process.env.GEMINI_API_KEY }, 'GEMINI_API_KEY available:');
     logger.info({ data0: StockPriceFactory.getAvailableProviders() }, 'Available providers:');
 
-    // Use cached service (which handles Alpha Vantage -> Finnhub -> Stale Cache fallbacks internally)
-    const stockService = StockPriceFactory.initialize('cached');
+    // Use orchestrator service for fallbacks (Cache -> AV -> Finnhub -> Gemini -> Stale Cache)
+    const stockService = orchestratorStockService;
 
     let result;
     let hasErrors = false;
@@ -88,8 +90,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Use cached service (which falls back to Alpha Vantage internally)
-    const stockService = StockPriceFactory.initialize('cached');
+    // Use orchestrator service for fallbacks
+    const stockService = orchestratorStockService;
     const prices = await stockService.getMultipleStockPrices(symbols);
     return NextResponse.json(prices);
   } catch (error) {

@@ -1,18 +1,11 @@
 import { CachedStockService } from './stock-price-cached';
 import { sharedStockPriceCache } from './stock-price-cache';
-import { alphaVantageStockService } from './stock-price-alphavantage';
 
 // Mock the dependencies
 jest.mock('./stock-price-cache', () => ({
   sharedStockPriceCache: {
     getCachedPrice: jest.fn(),
     cachePrice: jest.fn(),
-  },
-}));
-
-jest.mock('./stock-price-alphavantage', () => ({
-  alphaVantageStockService: {
-    getStockPrice: jest.fn(),
   },
 }));
 
@@ -72,48 +65,15 @@ describe('CachedStockService', () => {
 
       expect(result).toEqual(mockPrice);
       expect(sharedStockPriceCache.getCachedPrice).toHaveBeenCalledWith('AAPL');
-      expect(alphaVantageStockService.getStockPrice).not.toHaveBeenCalled();
     });
 
-    it('should fetch from Alpha Vantage if not in cache', async () => {
-      process.env.ALPHA_VANTAGE_KEY = 'test-key';
-      const mockPrice = {
-        symbol: 'TSLA',
-        price: 700.0,
-        change: -10.0,
-        changePercent: -1.4,
-        timestamp: new Date().toISOString(),
-      };
+    it('should return null if not in cache (fallback decoupled)', async () => {
       (sharedStockPriceCache.getCachedPrice as jest.Mock).mockResolvedValue(null);
-      (alphaVantageStockService.getStockPrice as jest.Mock).mockResolvedValue(mockPrice);
 
       const result = await cachedStockService.getStockPrice('tsla');
 
-      expect(result).toEqual(mockPrice);
+      expect(result).toBeNull();
       expect(sharedStockPriceCache.getCachedPrice).toHaveBeenCalledWith('TSLA');
-      expect(alphaVantageStockService.getStockPrice).toHaveBeenCalledWith('TSLA');
-      expect(sharedStockPriceCache.cachePrice).toHaveBeenCalledWith('TSLA', mockPrice);
-    });
-
-    it('should return null if cache miss and Alpha Vantage fails', async () => {
-      process.env.ALPHA_VANTAGE_KEY = 'test-key';
-      (sharedStockPriceCache.getCachedPrice as jest.Mock).mockResolvedValue(null);
-      (alphaVantageStockService.getStockPrice as jest.Mock).mockRejectedValue(new Error('API Error'));
-
-      const result = await cachedStockService.getStockPrice('MSFT');
-
-      expect(result).toBeNull();
-      expect(sharedStockPriceCache.cachePrice).not.toHaveBeenCalled();
-    });
-
-    it('should return null if cache miss and ALPHA_VANTAGE_KEY is missing', async () => {
-      delete process.env.ALPHA_VANTAGE_KEY;
-      (sharedStockPriceCache.getCachedPrice as jest.Mock).mockResolvedValue(null);
-
-      const result = await cachedStockService.getStockPrice('GOOGL');
-
-      expect(result).toBeNull();
-      expect(alphaVantageStockService.getStockPrice).not.toHaveBeenCalled();
     });
   });
 });

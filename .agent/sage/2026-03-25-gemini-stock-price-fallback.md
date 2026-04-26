@@ -1,5 +1,5 @@
 ## Status
-pending-implementation
+done
 
 ## Context
 The application relies on deterministic market data providers (Alpha Vantage and Finnhub) to fetch current stock prices. Because these APIs use free-tier plans, rate-limiting is common. While caching mitigates some API hits, there is a risk of a "no data" state when rate limits are exhausted. We have the option to use Gemini AI as an approximate fallback provider when deterministic providers and caching fail.
@@ -68,9 +68,15 @@ sequenceDiagram
 ```
 
 ## Acceptance Criteria
-- [ ] `StockPriceResponse` includes an `isAiGenerated` boolean.
-- [ ] A new `GeminiStockService` exists and successfully uses a GenAI provider to return a strict JSON response containing stock price info.
-- [ ] The fallback sequence is exactly: Alpha Vantage -> Finnhub -> Gemini -> Cache.
-- [ ] Gemini data correctly sets `isAiGenerated: true`.
-- [ ] Data retrieved from Gemini AI is never saved into the cache.
-- [ ] The `CachedStockService` no longer directly imports and calls `alphaVantageStockService`.
+- [x] `StockPriceResponse` includes an `isAiGenerated` boolean.
+- [x] A new `GeminiStockService` exists and successfully uses a GenAI provider to return a strict JSON response containing stock price info.
+- [x] The fallback sequence is exactly: Alpha Vantage -> Finnhub -> Gemini -> Cache.
+- [x] Gemini data correctly sets `isAiGenerated: true`.
+- [x] Data retrieved from Gemini AI is never saved into the cache.
+- [x] The `CachedStockService` no longer directly imports and calls `alphaVantageStockService`.
+
+## Implementation Notes
+- Files changed: `src/lib/stock-price-factory.ts`, `src/lib/stock-price-cached.ts`, `src/app/api/stock-prices/route.ts`, `src/lib/stock-price-gemini.ts`, `src/lib/stock-price-orchestrator.ts`
+- Behavior: Added an AI fallback provider (using Gemini) to the stock price fetching pipeline. Decoupled fallback orchestrator logic from the core cache service, establishing a clean execution chain (Cache Check -> Alpha Vantage -> Finnhub -> Gemini AI -> Stale Cache Fallback). Successfully flags AI-generated responses while preventing them from persisting in the shared backend cache.
+- Tests: Added comprehensive testing for `GeminiStockService` and the fallback logic strictly configured in `OrchestratorStockService`. Ensured backwards compatibility within the previous test suites.
+- Known follow-ups: The UI layer needs an update to display the ✨ (Sparkles) icon and tooltip for prices flagged with `isAiGenerated: true`.
