@@ -1,5 +1,11 @@
 import Link from 'next/link';
 import { ArrowLeft, TrendingUp, BarChart3, Target, Users } from 'lucide-react';
+import { Metadata } from 'next';
+
+export const metadata: Metadata = {
+  title: 'About OptionsBookie | Why We Built the Best Options Tracker',
+  description: 'Learn about the mission behind OptionsBookie — a precision options profit tracking tool designed for serious traders who want to eliminate messy spreadsheets.',
+};
 
 export default function AboutPage() {
   return (

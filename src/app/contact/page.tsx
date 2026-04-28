@@ -1,5 +1,11 @@
 import Link from 'next/link';
 import { ArrowLeft, Mail, MessageSquare, Clock, CheckCircle, Linkedin } from 'lucide-react';
+import { Metadata } from 'next';
+
+export const metadata: Metadata = {
+  title: 'Contact Us | Feedback & Support for OptionsBookie',
+  description: 'Have questions or suggestions for OptionsBookie? Get in touch with our team for feature requests, bug reports, or general trading feedback.',
+};
 
 export default function ContactPage() {
   return (

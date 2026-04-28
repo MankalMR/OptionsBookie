@@ -1,16 +1,11 @@
-'use client';
+import { Metadata } from 'next';
+import CotAnalysisPage from './CotAnalysisPage';
 
-import AppHeader from '@/components/AppHeader';
-import CotAnalysisTab from '@/components/analytics/CotAnalysisTab';
+export const metadata: Metadata = {
+  title: 'Commitment of Traders (COT) Analysis | OptionsBookie',
+  description: 'Analyze institutional positioning and sentiment using COT data to identify high-probability options trading opportunities.',
+};
 
-export default function CotAnalysisPage() {
-  return (
-    <div className="min-h-screen bg-background">
-      <AppHeader />
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <CotAnalysisTab />
-      </main>
-    </div>
-  );
+export default function Page() {
+  return <CotAnalysisPage />;
 }
-

@@ -5,43 +5,48 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const baseUrl = getBaseUrl()
   const currentDate = new Date()
 
-  return [
+  const routes = [
     {
-      url: baseUrl,
-      lastModified: currentDate,
+      url: '',
       changeFrequency: 'daily',
       priority: 1,
     },
     {
-      url: `${baseUrl}/auth/signin`,
-      lastModified: currentDate,
-      changeFrequency: 'monthly',
+      url: '/demo',
+      changeFrequency: 'daily',
+      priority: 0.9,
+    },
+    {
+      url: '/etfs',
+      changeFrequency: 'weekly',
       priority: 0.8,
     },
     {
-      url: `${baseUrl}/about`,
-      lastModified: currentDate,
-      changeFrequency: 'monthly',
+      url: '/cot-analysis',
+      changeFrequency: 'weekly',
       priority: 0.7,
     },
     {
-      url: `${baseUrl}/contact`,
-      lastModified: currentDate,
+      url: '/about',
       changeFrequency: 'monthly',
       priority: 0.6,
     },
     {
-      url: `${baseUrl}/etfs`,
-      lastModified: currentDate,
-      changeFrequency: 'weekly',
-      priority: 0.8,
+      url: '/contact',
+      changeFrequency: 'monthly',
+      priority: 0.5,
     },
     {
-      url: `${baseUrl}/cot-analysis`,
-      lastModified: currentDate,
-      changeFrequency: 'weekly',
-      priority: 0.7,
+      url: '/auth/signin',
+      changeFrequency: 'monthly',
+      priority: 0.4,
     },
-  ]
-}
+  ] as const;
 
+  return routes.map((route) => ({
+    url: `${baseUrl}${route.url}`,
+    lastModified: currentDate,
+    changeFrequency: route.changeFrequency,
+    priority: route.priority,
+  }))
+}
