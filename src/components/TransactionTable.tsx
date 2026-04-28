@@ -133,11 +133,16 @@ export default function TransactionTable({
       }
     });
 
-    // Sort transactions within each chain by date (most recent first)
+    // Sort transactions within each chain: Open transactions first, then by date (most recent first)
     chainMap.forEach(chainTransactions => {
-      chainTransactions.sort((a, b) =>
-        new Date(b.tradeOpenDate).getTime() - new Date(a.tradeOpenDate).getTime()
-      );
+      chainTransactions.sort((a, b) => {
+        // Open transactions always come first
+        if (a.status === 'Open' && b.status !== 'Open') return -1;
+        if (b.status === 'Open' && a.status !== 'Open') return 1;
+
+        // Then sort by tradeOpenDate descending (most recent first)
+        return new Date(b.tradeOpenDate).getTime() - new Date(a.tradeOpenDate).getTime();
+      });
     });
 
     return { chainMap, standaloneTransactions };
@@ -145,7 +150,7 @@ export default function TransactionTable({
 
   // Get unique stock symbols for price fetching
   const stockSymbols = [...new Set(transactions.map(t => t.stockSymbol))];
-  
+
   // Only fetch if prices weren't provided via props
   const { stockPrices: internalStockPrices, isAvailable: internalPricesAvailable, loading: internalLoading } = useStockPrices(
     externalStockPrices ? [] : stockSymbols
@@ -222,116 +227,116 @@ export default function TransactionTable({
         {showHeader && (
           <TableHeader className={compact ? "text-xs" : ""}>
             <TableRow className={compact ? "h-8" : ""}>
-            <TableHead
-              className={`cursor-pointer hover:bg-muted/50 ${compact ? "px-2 py-1" : ""} group`}
-              onClick={() => handleSort('stockSymbol')}
-            >
-              <Tooltip content="Stock symbol for the options contract">
-                <div className="flex items-center space-x-1 w-full h-full">
-                  <div className={`${compact ? "h-3 w-3" : "h-5 w-5"} flex-shrink-0`}></div>
-                  <div className="flex items-center space-x-2">
-                    <div className={`${compact ? "h-2 w-2" : "h-4 w-4"} flex-shrink-0`}></div>
-                    <span className={compact ? "text-xs" : ""}>Symbol</span>
-                  </div>
-                </div>
-              </Tooltip>
-            </TableHead>
-            {!isMobile && showPortfolioColumn && (
-              <TableHead className={`${compact ? "px-2 py-1 text-xs" : ""} group`}>
-                <Tooltip content="Portfolio this trade belongs to">
-                  <span className={compact ? "text-xs" : ""}>Portfolio</span>
-                </Tooltip>
-              </TableHead>
-            )}
-            {!isMobile && (
               <TableHead
                 className={`cursor-pointer hover:bg-muted/50 ${compact ? "px-2 py-1" : ""} group`}
-                onClick={() => handleSort('tradeOpenDate')}
+                onClick={() => handleSort('stockSymbol')}
               >
-                <Tooltip content="Date when the trade was opened">
-                  <span className={compact ? "text-xs" : ""}>Opened</span>
+                <Tooltip content="Stock symbol for the options contract">
+                  <div className="flex items-center space-x-1 w-full h-full">
+                    <div className={`${compact ? "h-3 w-3" : "h-5 w-5"} flex-shrink-0`}></div>
+                    <div className="flex items-center space-x-2">
+                      <div className={`${compact ? "h-2 w-2" : "h-4 w-4"} flex-shrink-0`}></div>
+                      <span className={compact ? "text-xs" : ""}>Symbol</span>
+                    </div>
+                  </div>
                 </Tooltip>
               </TableHead>
-            )}
-            {!isMobile && (
-              <TableHead
-                className={`cursor-pointer hover:bg-muted/50 hidden lg:table-cell ${compact ? "px-2 py-1" : ""}`}
-                onClick={() => handleSort('expiryDate')}
-              >
-                <span className={compact ? "text-xs" : ""}>Expires</span>
-              </TableHead>
-            )}
-            <TableHead className={`${compact ? "px-2 py-1" : ""}`}>
-              <Tooltip content="Days to Expiry for open trades, Close date for finished trades">
-                <span className={compact ? "text-xs" : ""}>DTE</span>
-              </Tooltip>
-            </TableHead>
-            {!isMobile && (
-              <TableHead className={`hidden lg:table-cell ${compact ? "px-2 py-1" : ""}`}>
-                <Tooltip content="Days Held">
-                  <span className={compact ? "text-xs" : ""}>DH</span>
+              {!isMobile && showPortfolioColumn && (
+                <TableHead className={`${compact ? "px-2 py-1 text-xs" : ""} group`}>
+                  <Tooltip content="Portfolio this trade belongs to">
+                    <span className={compact ? "text-xs" : ""}>Portfolio</span>
+                  </Tooltip>
+                </TableHead>
+              )}
+              {!isMobile && (
+                <TableHead
+                  className={`cursor-pointer hover:bg-muted/50 ${compact ? "px-2 py-1" : ""} group`}
+                  onClick={() => handleSort('tradeOpenDate')}
+                >
+                  <Tooltip content="Date when the trade was opened">
+                    <span className={compact ? "text-xs" : ""}>Opened</span>
+                  </Tooltip>
+                </TableHead>
+              )}
+              {!isMobile && (
+                <TableHead
+                  className={`cursor-pointer hover:bg-muted/50 hidden lg:table-cell ${compact ? "px-2 py-1" : ""}`}
+                  onClick={() => handleSort('expiryDate')}
+                >
+                  <span className={compact ? "text-xs" : ""}>Expires</span>
+                </TableHead>
+              )}
+              <TableHead className={`${compact ? "px-2 py-1" : ""}`}>
+                <Tooltip content="Days to Expiry for open trades, Close date for finished trades">
+                  <span className={compact ? "text-xs" : ""}>DTE</span>
                 </Tooltip>
               </TableHead>
-            )}
-            {!isMobile && (
+              {!isMobile && (
+                <TableHead className={`hidden lg:table-cell ${compact ? "px-2 py-1" : ""}`}>
+                  <Tooltip content="Days Held">
+                    <span className={compact ? "text-xs" : ""}>DH</span>
+                  </Tooltip>
+                </TableHead>
+              )}
+              {!isMobile && (
+                <TableHead
+                  className={`cursor-pointer hover:bg-muted/50 ${compact ? "px-2 py-1" : ""}`}
+                  onClick={() => handleSort('strikePrice')}
+                >
+                  <Tooltip content="Strike price of the options contract">
+                    <span className={compact ? "text-xs" : ""}>Strike</span>
+                  </Tooltip>
+                </TableHead>
+              )}
+              {!isMobile && pricesAvailable && (
+                <TableHead className={`hidden xl:table-cell ${compact ? "px-2 py-1" : ""}`}>
+                  <Tooltip content="Current stock price with daily change">
+                    <span className={compact ? "text-xs" : ""}>Current Price</span>
+                  </Tooltip>
+                </TableHead>
+              )}
+              {!isMobile && (
+                <TableHead
+                  className={`cursor-pointer hover:bg-muted/50 ${compact ? "px-2 py-1" : ""}`}
+                  onClick={() => handleSort('premium')}
+                >
+                  <Tooltip content="Collateral required for this trade">
+                    <span className={compact ? "text-xs" : ""}>Collateral</span>
+                  </Tooltip>
+                </TableHead>
+              )}
+              {!isMobile && (
+                <TableHead
+                  className={`cursor-pointer hover:bg-muted/50 hidden lg:table-cell ${compact ? "px-2 py-1" : ""}`}
+                  onClick={() => handleSort('profitLoss')}
+                >
+                  <Tooltip content="Return on Risk percentage">
+                    <span className={compact ? "text-xs" : ""}>RoR%</span>
+                  </Tooltip>
+                </TableHead>
+              )}
+              {!isMobile && (
+                <TableHead
+                  className={`cursor-pointer hover:bg-muted/50 ${compact ? "px-2 py-1" : ""}`}
+                  onClick={() => handleSort('status')}
+                >
+                  <Tooltip content="Current status: Open, Closed, Rolled, Expired, or Assigned">
+                    <span className={compact ? "text-xs" : ""}>Status</span>
+                  </Tooltip>
+                </TableHead>
+              )}
               <TableHead
                 className={`cursor-pointer hover:bg-muted/50 ${compact ? "px-2 py-1" : ""}`}
-                onClick={() => handleSort('strikePrice')}
-              >
-                <Tooltip content="Strike price of the options contract">
-                  <span className={compact ? "text-xs" : ""}>Strike</span>
-                </Tooltip>
-              </TableHead>
-            )}
-            {!isMobile && pricesAvailable && (
-              <TableHead className={`hidden xl:table-cell ${compact ? "px-2 py-1" : ""}`}>
-                <Tooltip content="Current stock price with daily change">
-                  <span className={compact ? "text-xs" : ""}>Current Price</span>
-                </Tooltip>
-              </TableHead>
-            )}
-            {!isMobile && (
-              <TableHead
-                className={`cursor-pointer hover:bg-muted/50 ${compact ? "px-2 py-1" : ""}`}
-                onClick={() => handleSort('premium')}
-              >
-                <Tooltip content="Collateral required for this trade">
-                  <span className={compact ? "text-xs" : ""}>Collateral</span>
-                </Tooltip>
-              </TableHead>
-            )}
-            {!isMobile && (
-              <TableHead
-                className={`cursor-pointer hover:bg-muted/50 hidden lg:table-cell ${compact ? "px-2 py-1" : ""}`}
                 onClick={() => handleSort('profitLoss')}
               >
-                <Tooltip content="Return on Risk percentage">
-                  <span className={compact ? "text-xs" : ""}>RoR%</span>
+                <Tooltip content="Profit or Loss for this trade (realized or unrealized)">
+                  <span className={compact ? "text-xs" : ""}>P&L</span>
                 </Tooltip>
               </TableHead>
-            )}
-            {!isMobile && (
-              <TableHead
-                className={`cursor-pointer hover:bg-muted/50 ${compact ? "px-2 py-1" : ""}`}
-                onClick={() => handleSort('status')}
-              >
-                <Tooltip content="Current status: Open, Closed, Rolled, Expired, or Assigned">
-                  <span className={compact ? "text-xs" : ""}>Status</span>
-                </Tooltip>
+              <TableHead className={compact ? "px-2 py-1" : ""}>
+                <span className={compact ? "text-xs" : ""}>{isMobile ? 'Edit' : 'Actions'}</span>
               </TableHead>
-            )}
-            <TableHead
-              className={`cursor-pointer hover:bg-muted/50 ${compact ? "px-2 py-1" : ""}`}
-              onClick={() => handleSort('profitLoss')}
-            >
-              <Tooltip content="Profit or Loss for this trade (realized or unrealized)">
-                <span className={compact ? "text-xs" : ""}>P&L</span>
-              </Tooltip>
-            </TableHead>
-            <TableHead className={compact ? "px-2 py-1" : ""}>
-              <span className={compact ? "text-xs" : ""}>{isMobile ? 'Edit' : 'Actions'}</span>
-            </TableHead>
-          </TableRow>
+            </TableRow>
           </TableHeader>
         )}
         <TableBody>
@@ -380,7 +385,7 @@ export default function TransactionTable({
                             className={`text-xs ${activeTransaction.buyOrSell === 'Buy'
                               ? 'bg-blue-100 dark:bg-blue-950/30 text-blue-800 dark:text-blue-200 hover:bg-blue-200 dark:hover:bg-blue-950/50'
                               : 'bg-orange-100 dark:bg-orange-950/30 text-orange-800 dark:text-orange-200 hover:bg-orange-200 dark:hover:bg-orange-950/50'
-                            }`}
+                              }`}
                           >
                             {activeTransaction.buyOrSell}
                           </Badge>
@@ -405,9 +410,8 @@ export default function TransactionTable({
                   )}
                   {!isMobile && (
                     <TableCell className="hidden lg:table-cell">
-                      <span className={`font-medium text-sm ${
-                        calculateChainRoR(chainId, transactions) >= 0 ? 'text-green-600' : 'text-red-600'
-                      }`}>
+                      <span className={`font-medium text-sm ${calculateChainRoR(chainId, transactions) >= 0 ? 'text-green-600' : 'text-red-600'
+                        }`}>
                         {Math.round(calculateChainRoR(chainId, transactions))}%
                       </span>
                       <div className="text-xs text-muted-foreground font-normal">Chain RoR</div>
@@ -417,11 +421,10 @@ export default function TransactionTable({
                     <TableCell>
                       <Badge
                         variant={chainInfo?.chainStatus === 'Active' ? 'default' : 'secondary'}
-                        className={`text-xs px-1.5 py-0.5 ${
-                          chainInfo?.chainStatus === 'Active'
+                        className={`text-xs px-1.5 py-0.5 ${chainInfo?.chainStatus === 'Active'
                             ? 'bg-blue-100 dark:bg-blue-950/30 text-blue-800 dark:text-blue-200 hover:bg-blue-200 dark:hover:bg-blue-950/50'
                             : 'bg-muted text-muted-foreground hover:bg-muted/80'
-                        }`}
+                          }`}
                       >
                         {chainInfo?.chainStatus || 'Active'}
                       </Badge>
@@ -504,7 +507,7 @@ export default function TransactionTable({
                                   className={`px-1.5 py-0.5 rounded font-medium ${transaction.callOrPut === 'Call'
                                     ? 'bg-green-100 text-green-800'
                                     : 'bg-orange-100 text-orange-800'
-                                  }`}
+                                    }`}
                                 >
                                   {transaction.callOrPut === 'Call' ? 'C' : 'P'}
                                 </span>
@@ -531,13 +534,12 @@ export default function TransactionTable({
                       <TableCell>
                         <div className="flex flex-col items-start">
                           {transaction.status === 'Open' ? (
-                            <span className={`font-medium ${
-                              calculateDTE(transaction.expiryDate) <= 7
+                            <span className={`font-medium ${calculateDTE(transaction.expiryDate) <= 7
                                 ? 'text-red-600 bg-red-50 px-2 py-1 rounded'
                                 : calculateDTE(transaction.expiryDate) <= 30
-                                ? 'text-orange-600 bg-orange-50 px-2 py-1 rounded'
-                                : 'text-muted-foreground'
-                            }`}>
+                                  ? 'text-orange-600 bg-orange-50 px-2 py-1 rounded'
+                                  : 'text-muted-foreground'
+                              }`}>
                               {calculateDTE(transaction.expiryDate)}
                             </span>
                           ) : (
@@ -568,7 +570,7 @@ export default function TransactionTable({
                               className={`text-xs px-1.5 py-0.5 rounded font-medium ${transaction.callOrPut === 'Call'
                                 ? 'bg-green-100 text-green-800'
                                 : 'bg-orange-100 text-orange-800'
-                              }`}
+                                }`}
                             >
                               {transaction.callOrPut === 'Call' ? 'C' : 'P'}
                             </span>
@@ -607,9 +609,9 @@ export default function TransactionTable({
                           <Badge
                             variant={
                               transaction.status === 'Open' ? 'default' :
-                              transaction.status === 'Closed' ? 'secondary' :
-                              transaction.status === 'Rolled' ? 'outline' :
-                              'destructive'
+                                transaction.status === 'Closed' ? 'secondary' :
+                                  transaction.status === 'Rolled' ? 'outline' :
+                                    'destructive'
                             }
                             className={getStatusColor(transaction.status)}
                           >
@@ -669,221 +671,218 @@ export default function TransactionTable({
                 <TableRow
                   key={transaction.id}
                   className={getTransactionRowClass(transaction.status, false)}
-            >
-              <TableCell className="font-medium">
-                <div className="flex items-start space-x-1">
-                  {/* Spacer to align with chevron button in chain headers */}
-                  {!isMobile && <div className="h-5 w-5 flex-shrink-0"></div>}
-                  <div className="flex-1 min-w-0">
-                    <div>
-                      <div className="flex items-start space-x-2">
-                        {/* Icon for standalone transactions (replaces chain link icon) */}
-                        <Circle className={`h-4 w-4 flex-shrink-0 fill-current mt-0.5 ${
-                          transaction.status === 'Open' ? 'text-blue-500' : 'text-gray-400'
-                        }`} />
-                        <div className="flex flex-col">
-                <div className="flex items-center space-x-2">
-                            <span className="font-semibold text-sm">{transaction.stockSymbol}</span>
-                            <span
-                              className="text-xs bg-gray-200 dark:bg-gray-950/30 text-gray-700 dark:text-gray-200 px-1.5 py-0.5 rounded"
-                              title="Number of Contracts"
-                            >
-                              {transaction.numberOfContracts}
-                            </span>
-                            <div className="w-12 h-5 flex items-center justify-center">
-                              {!isMobile && stockPrices[transaction.stockSymbol] && transaction.status === 'Open' && (
-                                <ITMIndicator
-                                  currentPrice={stockPrices[transaction.stockSymbol]!.price}
-                                  strikePrice={transaction.strikePrice}
-                                  optionType={transaction.callOrPut}
-                                />
-                              )}
+                >
+                  <TableCell className="font-medium">
+                    <div className="flex items-start space-x-1">
+                      {/* Spacer to align with chevron button in chain headers */}
+                      {!isMobile && <div className="h-5 w-5 flex-shrink-0"></div>}
+                      <div className="flex-1 min-w-0">
+                        <div>
+                          <div className="flex items-start space-x-2">
+                            {/* Icon for standalone transactions (replaces chain link icon) */}
+                            <Circle className={`h-4 w-4 flex-shrink-0 fill-current mt-0.5 ${transaction.status === 'Open' ? 'text-blue-500' : 'text-gray-400'
+                              }`} />
+                            <div className="flex flex-col">
+                              <div className="flex items-center space-x-2">
+                                <span className="font-semibold text-sm">{transaction.stockSymbol}</span>
+                                <span
+                                  className="text-xs bg-gray-200 dark:bg-gray-950/30 text-gray-700 dark:text-gray-200 px-1.5 py-0.5 rounded"
+                                  title="Number of Contracts"
+                                >
+                                  {transaction.numberOfContracts}
+                                </span>
+                                <div className="w-12 h-5 flex items-center justify-center">
+                                  {!isMobile && stockPrices[transaction.stockSymbol] && transaction.status === 'Open' && (
+                                    <ITMIndicator
+                                      currentPrice={stockPrices[transaction.stockSymbol]!.price}
+                                      strikePrice={transaction.strikePrice}
+                                      optionType={transaction.callOrPut}
+                                    />
+                                  )}
+                                </div>
+                              </div>
+                              <div className="flex items-center space-x-1 mt-1 ml-0">
+                                {isMobile && (
+                                  <span className="text-xs text-muted-foreground">
+                                    ${formatStrikePrice(transaction.strikePrice)}
+                                  </span>
+                                )}
+                                {isMobile && (
+                                  <span
+                                    className={`text-xs px-1.5 py-0.5 rounded font-medium ${transaction.callOrPut === 'Call'
+                                      ? 'bg-green-100 text-green-800'
+                                      : 'bg-orange-100 text-orange-800'
+                                      }`}
+                                  >
+                                    {transaction.callOrPut === 'Call' ? 'C' : 'P'}
+                                  </span>
+                                )}
+                                <Badge
+                                  variant={transaction.buyOrSell === 'Buy' ? 'outline' : 'default'}
+                                  className={`text-xs ${transaction.buyOrSell === 'Buy'
+                                    ? 'bg-blue-100 dark:bg-blue-950/30 text-blue-800 dark:text-blue-200 hover:bg-blue-200 dark:hover:bg-blue-950/50'
+                                    : 'bg-orange-100 dark:bg-orange-950/30 text-orange-800 dark:text-orange-200 hover:bg-orange-200 dark:hover:bg-orange-950/50'
+                                    }`}
+                                >
+                                  {transaction.buyOrSell}
+                                </Badge>
+                                {!isMobile && transaction.chainId && (
+                                  <Badge variant="outline" className="text-xs px-1.5 py-0.5 bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300">
+                                    🔗
+                                  </Badge>
+                                )}
+                              </div>
                             </div>
-                          </div>
-                          <div className="flex items-center space-x-1 mt-1 ml-0">
-                            {isMobile && (
-                              <span className="text-xs text-muted-foreground">
-                                ${formatStrikePrice(transaction.strikePrice)}
-                              </span>
-                            )}
-                            {isMobile && (
-                              <span
-                                className={`text-xs px-1.5 py-0.5 rounded font-medium ${transaction.callOrPut === 'Call'
-                                  ? 'bg-green-100 text-green-800'
-                                  : 'bg-orange-100 text-orange-800'
-                                }`}
-                              >
-                                {transaction.callOrPut === 'Call' ? 'C' : 'P'}
-                              </span>
-                            )}
-                            <Badge
-                              variant={transaction.buyOrSell === 'Buy' ? 'outline' : 'default'}
-                              className={`text-xs ${transaction.buyOrSell === 'Buy'
-                                ? 'bg-blue-100 dark:bg-blue-950/30 text-blue-800 dark:text-blue-200 hover:bg-blue-200 dark:hover:bg-blue-950/50'
-                                : 'bg-orange-100 dark:bg-orange-950/30 text-orange-800 dark:text-orange-200 hover:bg-orange-200 dark:hover:bg-orange-950/50'
-                              }`}
-                            >
-                              {transaction.buyOrSell}
-                            </Badge>
-                            {!isMobile && transaction.chainId && (
-                              <Badge variant="outline" className="text-xs px-1.5 py-0.5 bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300">
-                                🔗
-                              </Badge>
-                            )}
                           </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                </div>
-              </TableCell>
-              {!isMobile && showPortfolioColumn && (
-                <TableCell>
-                  {getPortfolioName(transaction.portfolioId)}
-                </TableCell>
-              )}
-              {!isMobile && (
-                <TableCell>
-                {formatDate(transaction.tradeOpenDate)}
-                </TableCell>
-              )}
-              {!isMobile && (
-                <TableCell className="hidden lg:table-cell">
-                  {formatDate(transaction.expiryDate)}
-                </TableCell>
-              )}
-              <TableCell>
-                <div className="flex flex-col items-start">
-                  {transaction.status === 'Open' ? (
-                    <span className={`font-medium ${
-                      calculateDTE(transaction.expiryDate) <= 7
-                        ? 'text-red-600 bg-red-50 px-2 py-1 rounded'
-                        : calculateDTE(transaction.expiryDate) <= 30
-                        ? 'text-orange-600 bg-orange-50 px-2 py-1 rounded'
-                        : 'text-muted-foreground'
-                    }`}>
-                      {calculateDTE(transaction.expiryDate)}
-                    </span>
-                  ) : (
-                    <div className="text-muted-foreground text-sm">
-                      {transaction.status === 'Expired'
-                        ? formatDate(transaction.expiryDate)
-                        : transaction.closeDate
-                          ? formatDate(transaction.closeDate)
-                          : <span className="text-muted-foreground">-</span>
-                      }
-                    </div>
-                  )}
-                  {isLEAP(transaction) && (
-                    <Badge variant="secondary" className="text-[10px] bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 mt-1">
-                      LEAP
-                    </Badge>
-                  )}
-                </div>
-              </TableCell>
-              {!isMobile && (
-                <TableCell className="hidden lg:table-cell">
-                  {calculateDH(transaction.tradeOpenDate, transaction.closeDate)}
-                </TableCell>
-              )}
-              {!isMobile && (
-                <TableCell>
-                  <div className="flex items-center space-x-2">
-                    <span>${formatStrikePrice(transaction.strikePrice)}</span>
-                    <span
-                      className={`text-xs px-1.5 py-0.5 rounded font-medium ${transaction.callOrPut === 'Call'
-                        ? 'bg-green-100 text-green-800'
-                        : 'bg-orange-100 text-orange-800'
-                      }`}
-                    >
-                      {transaction.callOrPut === 'Call' ? 'C' : 'P'}
-                    </span>
-                  </div>
-                </TableCell>
-              )}
-              {!isMobile && pricesAvailable && (
-                <TableCell className="hidden xl:table-cell">
-                  {stockPrices[transaction.stockSymbol] ? (
-                    <StockPriceDisplay
-                      symbol={transaction.stockSymbol}
-                      stockPrice={stockPrices[transaction.stockSymbol]!}
-                      strikePrice={transaction.strikePrice}
-                      showComparison={false}
-                    />
-                  ) : isLoading ? (
-                    <span className="text-muted-foreground animate-pulse">Loading...</span>
-                  ) : (
-                    <span className="text-muted-foreground italic text-xs">Unavailable</span>
-                  )}
-                </TableCell>
-              )}
-              {!isMobile && (
-                <TableCell>
-                  <span className="font-medium text-muted-foreground">
-                    ${formatPnLNumber(calculateCollateral(transaction)).slice(1)}
-                </span>
-                </TableCell>
-              )}
-              {!isMobile && (
-                <TableCell className="hidden lg:table-cell">
-                  <span className={`font-medium text-sm ${
-                    calculateRoR(transaction) >= 0 ? 'text-green-600' : 'text-red-600'
-                  }`}>
-                    {Math.round(calculateRoR(transaction))}%
-                  </span>
-                </TableCell>
-              )}
-              {!isMobile && (
-                <TableCell>
-                  <Badge
-                    variant={transaction.status === 'Open' ? 'default' : 'secondary'}
-                    className={getStatusColor(transaction.status)}
-                  >
-                    {transaction.status}
-                  </Badge>
-                </TableCell>
-              )}
-              <TableCell>
-                <PnLDisplay amount={transaction.profitLoss || 0} />
-              </TableCell>
-              <TableCell>
-                <div className="flex space-x-1">
-                  {/* Hide edit button for rolled transactions to prevent data integrity issues */}
-                  {transaction.status !== 'Rolled' ? (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => onEdit(transaction)}
-                      className="h-8 w-8 p-0 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-                      aria-label="Edit transaction"
-                    >
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                  ) : (
-                    <Tooltip content="Cannot edit rolled transactions. Delete entire chain to make changes.">
-                      <div
-                        className="h-8 w-8 flex items-center justify-center text-muted-foreground cursor-not-allowed focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-                        aria-label="Edit disabled for rolled transactions"
-                        role="img"
-                        tabIndex={0}
-                      >
-                        <Edit className="h-4 w-4" />
-                      </div>
-                    </Tooltip>
+                  </TableCell>
+                  {!isMobile && showPortfolioColumn && (
+                    <TableCell>
+                      {getPortfolioName(transaction.portfolioId)}
+                    </TableCell>
                   )}
                   {!isMobile && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => onDelete(transaction.id)}
-                      className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50 focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:outline-none"
-                      aria-label="Delete transaction"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    <TableCell>
+                      {formatDate(transaction.tradeOpenDate)}
+                    </TableCell>
                   )}
-        </div>
-              </TableCell>
+                  {!isMobile && (
+                    <TableCell className="hidden lg:table-cell">
+                      {formatDate(transaction.expiryDate)}
+                    </TableCell>
+                  )}
+                  <TableCell>
+                    <div className="flex flex-col items-start">
+                      {transaction.status === 'Open' ? (
+                        <span className={`font-medium ${calculateDTE(transaction.expiryDate) <= 7
+                            ? 'text-red-600 bg-red-50 px-2 py-1 rounded'
+                            : calculateDTE(transaction.expiryDate) <= 30
+                              ? 'text-orange-600 bg-orange-50 px-2 py-1 rounded'
+                              : 'text-muted-foreground'
+                          }`}>
+                          {calculateDTE(transaction.expiryDate)}
+                        </span>
+                      ) : (
+                        <div className="text-muted-foreground text-sm">
+                          {transaction.status === 'Expired'
+                            ? formatDate(transaction.expiryDate)
+                            : transaction.closeDate
+                              ? formatDate(transaction.closeDate)
+                              : <span className="text-muted-foreground">-</span>
+                          }
+                        </div>
+                      )}
+                      {isLEAP(transaction) && (
+                        <Badge variant="secondary" className="text-[10px] bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 mt-1">
+                          LEAP
+                        </Badge>
+                      )}
+                    </div>
+                  </TableCell>
+                  {!isMobile && (
+                    <TableCell className="hidden lg:table-cell">
+                      {calculateDH(transaction.tradeOpenDate, transaction.closeDate)}
+                    </TableCell>
+                  )}
+                  {!isMobile && (
+                    <TableCell>
+                      <div className="flex items-center space-x-2">
+                        <span>${formatStrikePrice(transaction.strikePrice)}</span>
+                        <span
+                          className={`text-xs px-1.5 py-0.5 rounded font-medium ${transaction.callOrPut === 'Call'
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-orange-100 text-orange-800'
+                            }`}
+                        >
+                          {transaction.callOrPut === 'Call' ? 'C' : 'P'}
+                        </span>
+                      </div>
+                    </TableCell>
+                  )}
+                  {!isMobile && pricesAvailable && (
+                    <TableCell className="hidden xl:table-cell">
+                      {stockPrices[transaction.stockSymbol] ? (
+                        <StockPriceDisplay
+                          symbol={transaction.stockSymbol}
+                          stockPrice={stockPrices[transaction.stockSymbol]!}
+                          strikePrice={transaction.strikePrice}
+                          showComparison={false}
+                        />
+                      ) : isLoading ? (
+                        <span className="text-muted-foreground animate-pulse">Loading...</span>
+                      ) : (
+                        <span className="text-muted-foreground italic text-xs">Unavailable</span>
+                      )}
+                    </TableCell>
+                  )}
+                  {!isMobile && (
+                    <TableCell>
+                      <span className="font-medium text-muted-foreground">
+                        ${formatPnLNumber(calculateCollateral(transaction)).slice(1)}
+                      </span>
+                    </TableCell>
+                  )}
+                  {!isMobile && (
+                    <TableCell className="hidden lg:table-cell">
+                      <span className={`font-medium text-sm ${calculateRoR(transaction) >= 0 ? 'text-green-600' : 'text-red-600'
+                        }`}>
+                        {Math.round(calculateRoR(transaction))}%
+                      </span>
+                    </TableCell>
+                  )}
+                  {!isMobile && (
+                    <TableCell>
+                      <Badge
+                        variant={transaction.status === 'Open' ? 'default' : 'secondary'}
+                        className={getStatusColor(transaction.status)}
+                      >
+                        {transaction.status}
+                      </Badge>
+                    </TableCell>
+                  )}
+                  <TableCell>
+                    <PnLDisplay amount={transaction.profitLoss || 0} />
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex space-x-1">
+                      {/* Hide edit button for rolled transactions to prevent data integrity issues */}
+                      {transaction.status !== 'Rolled' ? (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => onEdit(transaction)}
+                          className="h-8 w-8 p-0 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                          aria-label="Edit transaction"
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                      ) : (
+                        <Tooltip content="Cannot edit rolled transactions. Delete entire chain to make changes.">
+                          <div
+                            className="h-8 w-8 flex items-center justify-center text-muted-foreground cursor-not-allowed focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                            aria-label="Edit disabled for rolled transactions"
+                            role="img"
+                            tabIndex={0}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </div>
+                        </Tooltip>
+                      )}
+                      {!isMobile && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => onDelete(transaction.id)}
+                          className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50 focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:outline-none"
+                          aria-label="Delete transaction"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                  </TableCell>
                 </TableRow>
               );
             });
@@ -918,8 +917,8 @@ export default function TransactionTable({
               <span className="text-right font-medium text-orange-600">
                 {selectedInfoTransaction.closeDate
                   ? new Date(selectedInfoTransaction.closeDate).toLocaleDateString(undefined, {
-                      month: 'short', day: 'numeric', year: 'numeric'
-                    })
+                    month: 'short', day: 'numeric', year: 'numeric'
+                  })
                   : 'N/A'
                 }
               </span>
@@ -963,14 +962,14 @@ export default function TransactionTable({
               const chainTrades = transactions
                 .filter(t => t.chainId === selectedInfoTransaction.chainId)
                 .sort((a, b) => new Date(b.tradeOpenDate).getTime() - new Date(a.tradeOpenDate).getTime());
-              
+
               const currentIndex = chainTrades.findIndex(t => t.id === selectedInfoTransaction.id);
               const nextLeg = currentIndex > 0 ? chainTrades[currentIndex - 1] : null;
 
               if (!nextLeg) return null;
 
               const isLongRoll = selectedInfoTransaction.buyOrSell === 'Buy';
-              const netCredit = isLongRoll 
+              const netCredit = isLongRoll
                 ? (selectedInfoTransaction.exitPrice || 0) - nextLeg.premium
                 : nextLeg.premium - (selectedInfoTransaction.exitPrice || 0);
 
@@ -984,7 +983,7 @@ export default function TransactionTable({
                     <span className={`text-right font-medium ${isLongRoll ? 'text-red-500' : 'text-emerald-600'}`}>
                       ${nextLeg.premium.toFixed(2)}
                     </span>
-                    
+
                     <span className="text-muted-foreground font-semibold pt-1 border-t mt-1">Net Roll Spread:</span>
                     <span className={`text-right font-bold pt-1 border-t mt-1 ${netCredit >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
                       {netCredit >= 0 ? '+' : ''}${netCredit.toFixed(2)}
