@@ -6,6 +6,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { OptionsTransaction, Portfolio, TradeChain } from '@/types/options';
 import TransactionTable from '@/components/TransactionTable';
+import SymbolGroupedView from '@/components/SymbolGroupedView';
 import PortfolioSummary from '@/components/PortfolioSummary';
 import AddTransactionModal from '@/components/AddTransactionModal';
 import EditTransactionModal from '@/components/EditTransactionModal';
@@ -89,6 +90,30 @@ export default function Dashboard() {
     [transactions]
   );
   const { refreshPrices, loading: pricesLoading, stockPrices, isAvailable: pricesAvailable } = useStockPrices(uniqueSymbols, activeSymbols);
+
+  // Extract unique available tickers based on portfolio and status filtering, but before ticker filtering
+  const availableTickers = useMemo(() => {
+    let baseTransactions = transactions;
+    if (selectedPortfolioId) {
+      baseTransactions = baseTransactions.filter(t => t.portfolioId === selectedPortfolioId);
+    }
+
+    // Filter by statuses so ticker list only shows tickers with selected statuses
+    if (selectedStatuses.length > 0) {
+      baseTransactions = baseTransactions.filter(t => {
+        const statusMatches = selectedStatuses.includes(t.status);
+        if (t.chainId && statusMatches) {
+          const chain = chains.find(c => c.id === t.chainId);
+          if (chain && chain.chainStatus === 'Closed' && !selectedStatuses.includes('Closed')) {
+            return false;
+          }
+        }
+        return statusMatches;
+      });
+    }
+
+    return [...new Set(baseTransactions.map(t => t.stockSymbol))];
+  }, [transactions, selectedPortfolioId, selectedStatuses, chains]);
 
   // Filter transactions for Options Trades tab (portfolio + status filters)
   useEffect(() => {
@@ -736,17 +761,35 @@ export default function Dashboard() {
                   </div>
                 </CardHeader>
                 <div className="p-0 sm:p-6 sm:pt-0">
-                  <TransactionTable
-                    transactions={filteredTransactions}
-                    onDelete={handleDeleteTransaction}
-                    onDeleteChain={handleDeleteChain}
-                    onEdit={handleEditTransaction}
-                    portfolios={portfolios}
-                    chains={chains}
-                    stockPrices={stockPrices}
-                    pricesAvailable={pricesAvailable}
-                    loading={pricesLoading}
-                  />
+                  {viewMode === 'grouped' ? (
+                    <SymbolGroupedView
+                      transactions={filteredTransactions}
+                      onDelete={handleDeleteTransaction}
+                      onDeleteChain={handleDeleteChain}
+                      onEdit={handleEditTransaction}
+                      chains={chains}
+                      portfolios={portfolios}
+                      showPortfolioColumn={!selectedPortfolioId}
+                      availableTickers={availableTickers}
+                      selectedTickers={selectedTickers}
+                      onTickerChange={handleTickerChange}
+                      stockPrices={stockPrices}
+                      pricesAvailable={pricesAvailable}
+                      loading={pricesLoading}
+                    />
+                  ) : (
+                    <TransactionTable
+                      transactions={filteredTransactions}
+                      onDelete={handleDeleteTransaction}
+                      onDeleteChain={handleDeleteChain}
+                      onEdit={handleEditTransaction}
+                      portfolios={portfolios}
+                      chains={chains}
+                      stockPrices={stockPrices}
+                      pricesAvailable={pricesAvailable}
+                      loading={pricesLoading}
+                    />
+                  )}
                 </div>
               </Card>
             </div>
