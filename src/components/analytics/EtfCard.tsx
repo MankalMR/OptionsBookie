@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { AlertTriangle, RefreshCw, Star, ChevronDown, ChevronUp, X, Sparkles } from 'lucide-react';
 import EtfHoldingsTable from './EtfHoldingsTable';
 import { formatAum, formatPercent } from '@/lib/etf-utils';
@@ -28,16 +29,19 @@ export default function EtfCard({ data, onToggleSave, onRemove, isSaved: propIsS
   return (
     <Card className="relative flex flex-col border-border/50 bg-card/60 backdrop-blur-sm shadow-xl h-full overflow-hidden transition-all duration-300 group">
       {onRemove && (
-        <button
+        <Button
+          variant="ghost"
+          size="icon"
           onClick={(e) => {
             e.stopPropagation();
             onRemove();
           }}
-          className="absolute top-4 right-4 p-1.5 hover:bg-destructive/10 text-muted-foreground/40 hover:text-destructive rounded-full transition-all duration-200 z-10"
+          className="absolute top-4 right-4 h-8 w-8 hover:bg-destructive/10 text-muted-foreground/40 hover:text-destructive rounded-full transition-all duration-200 z-10"
           title="Remove from Feed"
+          aria-label="Remove from Feed"
         >
           <X className="h-4 w-4" />
-        </button>
+        </Button>
       )}
       <CardHeader className="pb-4">
         <div className="flex items-center justify-between gap-4">
@@ -50,16 +54,20 @@ export default function EtfCard({ data, onToggleSave, onRemove, isSaved: propIsS
                 <CardTitle className="text-xl font-bold tracking-tight">
                   {data.fundName && data.fundName !== data.ticker ? data.fundName : ''}
                 </CardTitle>
-                <button
+                <Button
+                  variant="ghost"
+                  size="icon"
                   onClick={(e) => {
                     e.stopPropagation();
                     onToggleSave();
                   }}
-                  className="p-1 hover:bg-white/5 rounded transition-all duration-200"
+                  className="h-8 w-8 hover:bg-white/5 rounded transition-all duration-200"
                   title={isSaved ? "Unsave ETF" : "Save ETF"}
+                  aria-label={isSaved ? "Unsave ETF" : "Save ETF"}
+                  aria-pressed={isSaved}
                 >
                   <Star
-                    className={`h-6 w-6 transition-all duration-300 ${
+                    className={`h-5 w-5 transition-all duration-300 ${
                       isSaved 
                         ? 'text-yellow-400 drop-shadow-[0_0_8px_rgba(250,204,21,0.4)]' 
                         : 'text-muted-foreground hover:text-foreground'
@@ -67,7 +75,7 @@ export default function EtfCard({ data, onToggleSave, onRemove, isSaved: propIsS
                     fill={isSaved ? '#facc15' : 'none'}
                     strokeWidth={isSaved ? 1 : 2}
                   />
-                </button>
+                </Button>
               </div>
               <div className="flex flex-wrap items-center gap-2 mt-1">
                 {data.topTenConcentration !== null && data.topTenConcentration > 0.60 && (
@@ -158,9 +166,12 @@ export default function EtfCard({ data, onToggleSave, onRemove, isSaved: propIsS
         </div>
 
         {/* Expand / Collapse Toggle */}
-        <button
+        <Button
+          variant="ghost"
+          size="sm"
           onClick={() => setIsExpanded(!isExpanded)}
-          className="flex items-center justify-center gap-2 py-2 mt-2 text-[10px] font-bold uppercase tracking-widest text-primary hover:bg-primary/5 rounded-md transition-colors border border-primary/20"
+          className="flex items-center justify-center gap-2 py-2 mt-2 h-8 text-[10px] font-bold uppercase tracking-widest text-primary hover:bg-primary/5 hover:text-primary rounded-md transition-colors border border-primary/20 w-full"
+          aria-expanded={isExpanded}
         >
           {isExpanded ? (
             <>
@@ -170,10 +181,10 @@ export default function EtfCard({ data, onToggleSave, onRemove, isSaved: propIsS
           ) : (
             <>
               <ChevronDown className="h-3 w-3" />
-              Show More Details
+              Show More
             </>
           )}
-        </button>
+        </Button>
 
         {/* Footer */}
         <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground pt-4 mt-auto">

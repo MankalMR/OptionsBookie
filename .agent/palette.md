@@ -12,3 +12,6 @@
 ## 2024-04-01 - Raw HTML Elements in Components
 **Learning:** Native HTML `<button>` elements with raw Tailwind classes often bypass global design system conventions, leading to a lack of proper focus states and accessibility features like `focus-visible`.
 **Action:** Always prefer design system components (e.g., Shadcn UI `<Button>`) over raw HTML elements to ensure consistent accessibility states and screen reader support out of the box. Ensure semantic class names (`text-muted-foreground`) are used instead of non-existent arbitrary values (`text-muted-foreground600`).
+## 2026-04-22 - Accessible Icon Buttons in EtfCard
+**Learning:** The 'Save ETF' and 'Remove' buttons in EtfCard used native `<button>` tags instead of Shadcn's `<Button variant="ghost" size="icon">`, causing them to lack proper focus states and ARIA semantics (e.g. `aria-pressed` for toggle states).
+**Action:** Replaced them with Shadcn `Button` components and added `aria-label` and `aria-pressed` attributes to ensure keyboard navigability and screen reader support.
