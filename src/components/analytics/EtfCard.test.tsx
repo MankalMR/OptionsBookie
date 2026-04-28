@@ -91,7 +91,7 @@ describe('EtfCard', () => {
     // Total AUM is hidden by default
     expect(screen.queryByText('Total AUM')).not.toBeInTheDocument();
     
-    const expandButton = screen.getByText(/Show More Details/i);
+    const expandButton = screen.getByText(/Show More/i);
     fireEvent.click(expandButton);
     
     expect(screen.getByText('Total AUM')).toBeInTheDocument();
