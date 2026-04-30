@@ -923,6 +923,16 @@ export const calculateChainAwareMonthlyPnL = (
   let fees = 0;
   const processedChains = new Set<string>();
 
+  // ⚡ Fix: Always build a localized chain map from the passed `transactions` array.
+  // Passing a global txnsByChainInput causes subset logic to artificially pull in global chain legs.
+  const localTxnsByChain = new Map<string, OptionsTransaction[]>();
+  transactions.forEach(t => {
+    if (t.chainId) {
+      if (!localTxnsByChain.has(t.chainId)) localTxnsByChain.set(t.chainId, []);
+      localTxnsByChain.get(t.chainId)!.push(t);
+    }
+  });
+
   // ⚡ Bolt: Use provided Maps for O(1) lookups or build them once to avoid O(N*M) bottlenecks
   const chainMap = chainMapInput || new Map<string, TradeChain>();
   if (!chainMapInput) {
@@ -950,10 +960,8 @@ export const calculateChainAwareMonthlyPnL = (
 
       if (chain && chain.chainStatus === 'Closed') {
         // For closed chains, attribute the entire chain P&L to this month
-        const chainPnL = calculateChainPnL(transaction.chainId, transactions, txnsByChainInput);
-        const chainTransactions = txnsByChainInput
-          ? (txnsByChainInput.get(transaction.chainId) || [])
-          : transactions.filter(x => x.chainId === transaction.chainId);
+        const chainPnL = calculateChainPnL(transaction.chainId, transactions, localTxnsByChain);
+        const chainTransactions = localTxnsByChain.get(transaction.chainId) || [];
 
         const chainFees = chainTransactions.reduce((sum, t) => sum + (t.fees || 0), 0);
 
@@ -1137,6 +1145,16 @@ export const calculateSmartCapital = (
   const breakdown: SmartCapitalResult['breakdown'] = [];
   const processedChains = new Set<string>();
 
+  // ⚡ Fix: Always build a localized chain map from the passed `transactions` array.
+  // Passing a global txnsByChainInput causes subset logic to artificially pull in global chain legs.
+  const localTxnsByChain = new Map<string, OptionsTransaction[]>();
+  transactions.forEach(t => {
+    if (t.chainId) {
+      if (!localTxnsByChain.has(t.chainId)) localTxnsByChain.set(t.chainId, []);
+      localTxnsByChain.get(t.chainId)!.push(t);
+    }
+  });
+
   // ⚡ Bolt: Use provided Maps for O(1) lookups or build them once to avoid O(N*M) bottlenecks
   const chainMap = chainMapInput || new Map<string, TradeChain>();
   if (!chainMapInput) {
@@ -1172,9 +1190,9 @@ export const calculateSmartCapital = (
         transactionsForDetection.push(t);
       } else if (!processedChainIdsForDetection.has(t.chainId)) {
         // 2. Synthesize chain
-        // ⚡ Fix: Use a fast filter over stockTransactions (already a small subset) instead of 
-        // passing a global txnsByChain map which corrupts subset detection math.
-        const chainLegs = stockTransactions.filter(l => l.chainId === t.chainId);
+        // ⚡ Fix: Use O(1) lookup from the localized chain map to ensure only provided
+        // transactions are measured and to optimize performance.
+        const chainLegs = localTxnsByChain.get(t.chainId) || [];
 
         if (chainLegs.length > 0) {
           // Find min Open and max Close
@@ -1236,9 +1254,9 @@ export const calculateSmartCapital = (
       if (t.chainId && !processedChains.has(t.chainId) && t.status !== 'Rolled') {
         const chain = chainMap.get(t.chainId);
         if (chain) {
-          // ⚡ Fix: Ensure we only measure collateral against the transactions actually provided
-          // to this subset calculation.
-          const chainTransactions = transactions.filter(x => x.chainId === t.chainId);
+          // ⚡ Fix: Use O(1) lookup from the localized chain map to ensure only provided
+          // transactions are measured and to optimize performance.
+          const chainTransactions = localTxnsByChain.get(t.chainId) || [];
 
           const totalChainCollateral = chainTransactions.reduce((sum, ct) => sum + calculateCollateral(ct), 0);
           const avgChainCollateral = chainTransactions.length > 0 ? totalChainCollateral / chainTransactions.length : 0;
