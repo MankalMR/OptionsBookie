@@ -3519,6 +3519,26 @@ describe('optionsCalculations', () => {
 
       expect(result.totalCapital).toBe(0);
     });
+
+    it('should only measure collateral against transactions provided to the subset (Regression)', () => {
+      // Scenario: A chain has 3 legs, but we are only calculating capital for a subset (e.g. 2 legs)
+      // This happens when filtering by portfolio or date range.
+      const chainId = 'subset-chain';
+      const t1 = createMockTransaction({ id: 't1', chainId, stockSymbol: 'AAPL', collateralAmount: 1000, status: 'Rolled' });
+      const t2 = createMockTransaction({ id: 't2', chainId, stockSymbol: 'AAPL', collateralAmount: 2000, status: 'Closed' });
+      const t3 = createMockTransaction({ id: 't3', chainId, stockSymbol: 'AAPL', collateralAmount: 3000, status: 'Closed' });
+
+      const providedTransactions = [t1, t2];
+      const globalTxnsByChain = new Map([[chainId, [t1, t2, t3]]]);
+      const chains = [createMockChain({ id: chainId, chainStatus: 'Closed', symbol: 'AAPL' })];
+
+      // Call with only t1 and t2 in the primary array, but pass t1,t2,t3 in the "optimized" map
+      const result = calculateSmartCapital(providedTransactions, chains, undefined, globalTxnsByChain);
+
+      // Average should be (1000 + 2000) / 2 = 1500
+      // If it incorrectly used the global map, it would be (1000 + 2000 + 3000) / 3 = 2000
+      expect(result.totalCapital).toBe(1500);
+    });
   });
 
   describe('calculateTickerAllocation', () => {
