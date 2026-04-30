@@ -78,10 +78,11 @@ export const metadata: Metadata = {
       'max-snippet': -1,
     },
   },
-  // Verification handled via DNS TXT records
-  // google: process.env.GOOGLE_SITE_VERIFICATION,
-  // yandex: process.env.YANDEX_VERIFICATION,
-  // yahoo: process.env.YAHOO_VERIFICATION,
+  verification: {
+    google: process.env.GOOGLE_SITE_VERIFICATION,
+    yandex: process.env.YANDEX_VERIFICATION,
+    yahoo: process.env.YAHOO_VERIFICATION,
+  },
   category: 'finance',
   classification: 'Business',
   other: {
