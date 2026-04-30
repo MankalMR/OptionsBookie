@@ -11,14 +11,14 @@ import {
 } from 'recharts';
 import { formatPnLCurrency } from '@/utils/optionsCalculations';
 
-interface TickerAllocation {
+interface ChartData {
   ticker: string;
   totalCollateral: number;
   percentage: number;
 }
 
 interface TickerAllocationChartProps {
-  data: TickerAllocation[];
+  data: ChartData[];
 }
 
 const COLORS = [
@@ -34,7 +34,7 @@ const COLORS = [
   '#84cc16'  // lime-500
 ];
 
-const CustomTooltip = ({ active, payload }: { active?: boolean, payload?: { payload: TickerAllocation }[] }) => {
+const CustomTooltip = ({ active, payload }: { active?: boolean, payload?: { payload: ChartData }[] }) => {
   if (active && payload && payload.length) {
     const data = payload[0].payload;
     return (
@@ -74,7 +74,7 @@ export default function TickerAllocationChart({ data }: TickerAllocationChartPro
   }
 
   // Group top 10 and bundle the rest into "Other"
-  let chartData = [...data];
+  let chartData: ChartData[] = [...data];
   if (chartData.length > 10) {
     const top10 = chartData.slice(0, 10);
     const others = chartData.slice(10);
@@ -96,8 +96,7 @@ export default function TickerAllocationChart({ data }: TickerAllocationChartPro
       <ResponsiveContainer width="100%" height="100%">
         <PieChart>
           <Pie
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            data={chartData as any[]}
+            data={chartData}
             cx="50%"
             cy="50%"
             innerRadius={60}
@@ -105,8 +104,7 @@ export default function TickerAllocationChart({ data }: TickerAllocationChartPro
             paddingAngle={2}
             dataKey="totalCollateral"
             nameKey="ticker"
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            label={({ payload }: any) => `${payload.ticker} (${(payload.percentage as number).toFixed(0)}%)`}
+            label={({ payload }: { payload: ChartData }) => `${payload.ticker} (${payload.percentage.toFixed(0)}%)`}
             labelLine={true}
           >
             {chartData.map((entry, index) => (
