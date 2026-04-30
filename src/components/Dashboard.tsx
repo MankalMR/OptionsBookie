@@ -335,12 +335,15 @@ export default function Dashboard() {
       });
 
       if (expiredTrades.length > 0) {
+        // Optimization: Import calculation utility once
+        const { calculateProfitLoss } = await import('@/utils/optionsCalculations');
+        const chainIdsToClose = new Set<string>();
 
-        for (const trade of expiredTrades) {
+        // ⚡ Bolt: Execute transaction updates concurrently (N+1 query optimization)
+        await Promise.all(expiredTrades.map(async (trade) => {
           try {
             // For expired trades, calculate the final P&L (premium received/paid minus fees)
-            const { calculateProfitLoss } = await import('@/utils/optionsCalculations');
-            const finalProfitLoss = calculateProfitLoss(trade); 
+            const finalProfitLoss = calculateProfitLoss(trade);
 
             await updateTransaction(trade.id, {
               status: 'Expired',
@@ -348,25 +351,32 @@ export default function Dashboard() {
               profitLoss: finalProfitLoss
             });
 
-            // If this trade is part of a chain, update the chain status to 'Closed'
+            // Collect unique chain IDs to update later
             if (trade.chainId) {
-              try {
-                const chainResponse = await fetch(`/api/trade-chains/${trade.chainId}`, {
-                  method: 'PUT',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ chainStatus: 'Closed' })
-                });
-
-                if (!chainResponse.ok) {
-                  logger.error('Failed to update chain status for expired trade');
-                }
-              } catch (error) {
-                logger.error({ error }, 'Error updating chain status for expired trade:');
-              }
+              chainIdsToClose.add(trade.chainId);
             }
           } catch (error) {
             logger.error({ error }, `Error updating expired trade ${trade.id}:`);
           }
+        }));
+
+        // ⚡ Bolt: Execute chain updates concurrently for unique chain IDs
+        if (chainIdsToClose.size > 0) {
+          await Promise.all(Array.from(chainIdsToClose).map(async (chainId) => {
+            try {
+              const chainResponse = await fetch(`/api/trade-chains/${chainId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ chainStatus: 'Closed' })
+              });
+
+              if (!chainResponse.ok) {
+                logger.error({ chainId }, 'Failed to update chain status for expired trade');
+              }
+            } catch (error) {
+              logger.error({ error, chainId }, 'Error updating chain status for expired trade:');
+            }
+          }));
         }
 
         // Refresh transactions and chains to show updated statuses
