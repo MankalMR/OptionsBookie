@@ -41,24 +41,23 @@ describe('url-utils', () => {
     });
 
     it('returns production default when NEXT_PUBLIC_SITE_URL is missing and NODE_ENV is production', () => {
-      process.env.NODE_ENV = 'production';
+      (process.env as any).NODE_ENV = 'production';
       delete process.env.NEXT_PUBLIC_SITE_URL;
       expect(getBaseUrl()).toBe('https://options-bookie.mankala.space');
     });
 
     it('returns development default when NEXT_PUBLIC_SITE_URL is missing and NODE_ENV is not production', () => {
-      process.env.NODE_ENV = 'development';
+      (process.env as any).NODE_ENV = 'development';
       delete process.env.NEXT_PUBLIC_SITE_URL;
       expect(getBaseUrl()).toBe('http://localhost:3007');
     });
 
     it('returns window.location.origin on client-side', () => {
-      // @ts-ignore
       global.window = {
         location: {
           origin: 'https://client-side.com'
         }
-      };
+      } as any;
       expect(getBaseUrl()).toBe('https://client-side.com');
     });
   });
@@ -198,21 +197,21 @@ describe('url-utils', () => {
 
   describe('Environment Helpers', () => {
     it('isProduction works', () => {
-      process.env.NODE_ENV = 'production';
+      (process.env as any).NODE_ENV = 'production';
       expect(isProduction()).toBe(true);
-      process.env.NODE_ENV = 'development';
+      (process.env as any).NODE_ENV = 'development';
       expect(isProduction()).toBe(false);
     });
 
     it('isDevelopment works', () => {
-      process.env.NODE_ENV = 'development';
+      (process.env as any).NODE_ENV = 'development';
       expect(isDevelopment()).toBe(true);
-      process.env.NODE_ENV = 'production';
+      (process.env as any).NODE_ENV = 'production';
       expect(isDevelopment()).toBe(false);
     });
 
     it('getEnvironmentConfig aggregates info', () => {
-      process.env.NODE_ENV = 'production';
+      (process.env as any).NODE_ENV = 'production';
       process.env.NEXT_PUBLIC_SITE_URL = 'https://prod.com';
       const config = getEnvironmentConfig();
       expect(config).toEqual({

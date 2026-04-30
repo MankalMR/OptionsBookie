@@ -15,6 +15,7 @@ interface ChartData {
   ticker: string;
   totalCollateral: number;
   percentage: number;
+  [key: string]: string | number;
 }
 
 interface TickerAllocationChartProps {
@@ -104,7 +105,7 @@ export default function TickerAllocationChart({ data }: TickerAllocationChartPro
             paddingAngle={2}
             dataKey="totalCollateral"
             nameKey="ticker"
-            label={({ payload }: { payload: ChartData }) => `${payload.ticker} (${payload.percentage.toFixed(0)}%)`}
+            label={(props: any) => `${props.payload.ticker} (${props.payload.percentage.toFixed(0)}%)`}
             labelLine={true}
           >
             {chartData.map((entry, index) => (
