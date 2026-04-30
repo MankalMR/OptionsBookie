@@ -99,7 +99,9 @@ export default function StockPriceDisplay({
             variant="ghost"
             size="sm"
             onClick={onRefresh}
-            className="h-6 w-6 p-0"
+            className="h-6 w-6 p-0 hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none transition-colors"
+            aria-label={`Refresh stock price for ${symbol}`}
+            title={`Refresh stock price for ${symbol}`}
           >
             <RefreshCw className="h-3 w-3" />
           </Button>
