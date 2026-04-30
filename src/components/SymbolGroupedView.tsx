@@ -122,7 +122,9 @@ export default function SymbolGroupedView({
                   <Button
                     variant="outline"
                     onClick={toggleAll}
-                    className="text-xs"
+                    className="text-xs hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                    aria-expanded={allExpanded}
+                    aria-label={allExpanded ? "Collapse all symbol groups" : "Expand all symbol groups"}
                   >
                     {allExpanded ? 'Collapse All' : 'Expand All'}
                   </Button>
