@@ -6,7 +6,7 @@ import { logger } from "@/lib/logger";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
 export async function GET(request: NextRequest) {
@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Map database fields to frontend format
-    const mappedData = (data || []).map((chain: any) => ({
+    const mappedData = (data || []).map((chain: Record<string, unknown>) => ({
       id: chain.id,
       userId: chain.user_id,
       portfolioId: chain.portfolio_id,
