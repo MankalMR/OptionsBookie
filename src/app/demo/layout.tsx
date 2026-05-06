@@ -4,6 +4,9 @@ export const metadata: Metadata = {
     title: 'OptionsBookie Demo — Try Options Portfolio Tracking Free',
     description:
         'Explore OptionsBookie with a realistic simulated portfolio. Track options trades, view P&L analytics, and manage trade chains — no sign-up required.',
+    alternates: {
+        canonical: '/demo',
+    },
     openGraph: {
         title: 'OptionsBookie Demo — Try Options Portfolio Tracking Free',
         description:

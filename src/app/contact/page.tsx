@@ -5,6 +5,9 @@ import { Metadata } from 'next';
 export const metadata: Metadata = {
   title: 'Contact Us | Feedback & Support for OptionsBookie',
   description: 'Have questions or suggestions for OptionsBookie? Get in touch with our team for feature requests, bug reports, or general trading feedback.',
+  alternates: {
+    canonical: '/contact',
+  },
 };
 
 export default function ContactPage() {
