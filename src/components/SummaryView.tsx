@@ -21,7 +21,8 @@ import {
 } from '@/utils/optionsCalculations';
 import { parseLocalDate } from '@/utils/dateUtils';
 import { useIsMobile } from '@/hooks/useMediaQuery';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 // Import our new modular components
 import QuickStatsCard from './analytics/QuickStatsCard';
@@ -540,21 +541,29 @@ export default function SummaryView({
             />
           </div>
           <div className="flex gap-2">
-            <button
+            <Button
               type="submit"
               disabled={isAiLoading || !aiQuery.trim()}
-              className="flex-1 sm:flex-none px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium disabled:opacity-50"
+              className="flex-1 sm:flex-none"
             >
-              {isAiLoading ? 'Thinking...' : 'Filter'}
-            </button>
+              {isAiLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Thinking...
+                </>
+              ) : (
+                'Filter'
+              )}
+            </Button>
             {activeAiFilters && (
-              <button
+              <Button
+                variant="outline"
                 type="button"
                 onClick={clearAiFilters}
-                className="flex-1 sm:flex-none px-4 py-2 border bg-background text-foreground rounded-md text-sm font-medium hover:bg-muted"
+                className="flex-1 sm:flex-none"
               >
                 Clear
-              </button>
+              </Button>
             )}
           </div>
         </form>

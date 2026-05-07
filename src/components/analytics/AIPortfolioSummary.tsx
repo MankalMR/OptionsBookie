@@ -3,6 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import { useIsMobile } from '@/hooks/useMediaQuery';
 import AIHint from '@/components/ui/AIHint';
+import { Button } from '@/components/ui/button';
+import { Loader2 } from 'lucide-react';
 
 interface AIPortfolioSummaryProps {
   totalPnL: number;
@@ -73,13 +75,21 @@ export default function AIPortfolioSummary({
     <div className={`bg-card rounded-lg shadow border p-6 ${isMobile ? 'mb-4' : 'mb-8'}`}>
       <div className="flex items-center justify-between mb-4">
         <AIHint>AI Portfolio Summary</AIHint>
-        <button
+        <Button
           onClick={generateSummary}
           disabled={isLoading}
-          className="text-sm px-3 py-1 bg-secondary text-secondary-foreground rounded-md hover:bg-secondary/80 disabled:opacity-50"
+          variant="secondary"
+          size="sm"
         >
-          {isLoading ? 'Generating...' : 'Regenerate'}
-        </button>
+          {isLoading ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Generating...
+            </>
+          ) : (
+            'Regenerate'
+          )}
+        </Button>
       </div>
 
       <div className="min-h-[60px] flex items-center">
