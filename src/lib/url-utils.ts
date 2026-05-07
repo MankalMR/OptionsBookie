@@ -17,14 +17,16 @@ export interface UrlConfig {
 export function getBaseUrl(): string {
   // Server-side rendering
   if (typeof window === 'undefined') {
-    return process.env.NEXT_PUBLIC_SITE_URL ||
+    const url = process.env.NEXT_PUBLIC_SITE_URL ||
            (process.env.NODE_ENV === 'production'
              ? 'https://options-bookie.mankala.space'
              : 'http://localhost:3007');
+    // Ensure no trailing slash for consistent concatenation
+    return url.replace(/\/$/, '');
   }
 
   // Client-side rendering
-  return window.location.origin;
+  return window.location.origin.replace(/\/$/, '');
 }
 
 /**
@@ -51,6 +53,10 @@ export function getUrlConfig(): UrlConfig {
 export function buildUrl(path: string = ''): string {
   const baseUrl = getBaseUrl();
   const cleanPath = path.startsWith('/') ? path : `/${path}`;
+  
+  // If path is just '/', return baseUrl (no trailing slash) or add it back if specifically needed
+  if (cleanPath === '/') return `${baseUrl}/`;
+  
   return `${baseUrl}${cleanPath}`;
 }
 

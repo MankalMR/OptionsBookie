@@ -1,8 +1,17 @@
+import { Metadata } from 'next';
 import { Suspense } from 'react';
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import LandingPage from "@/components/home/LandingPage";
 import Dashboard from "@/components/Dashboard";
+
+export const metadata: Metadata = {
+  title: 'OptionsBookie - Professional Options Profit Tracker & Analytics',
+  description: 'The ultimate options trading journal. Track covered calls, cash-secured puts, and complex strategies with precision P&L, RoR, and risk analytics.',
+  alternates: {
+    canonical: '/',
+  },
+};
 
 export default async function Home() {
   const session = await getServerSession(authOptions);
