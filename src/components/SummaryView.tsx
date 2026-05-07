@@ -21,7 +21,8 @@ import {
 } from '@/utils/optionsCalculations';
 import { parseLocalDate } from '@/utils/dateUtils';
 import { useIsMobile } from '@/hooks/useMediaQuery';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 // Import our new modular components
 import QuickStatsCard from './analytics/QuickStatsCard';

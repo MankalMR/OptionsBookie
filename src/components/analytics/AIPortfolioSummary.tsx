@@ -3,6 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import { useIsMobile } from '@/hooks/useMediaQuery';
 import AIHint from '@/components/ui/AIHint';
+import { Button } from '@/components/ui/button';
+import { Loader2 } from 'lucide-react';
 
 interface AIPortfolioSummaryProps {
   totalPnL: number;
