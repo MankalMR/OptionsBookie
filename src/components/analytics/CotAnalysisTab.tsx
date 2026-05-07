@@ -124,7 +124,7 @@ function TraderBar({ label, long, short, color }: {
 
 // ─── Main component ──────────────────────────────────────────────────────────
 
-export default function CotAnalysisTab() {
+export default function CotAnalysisTab({ initialData }: { initialData?: CotDataPoint[] }) {
   const [selectedCommodity, setSelectedCommodity] = useState('GOLD');
   const [years, setYears] = useState(5);
   const [searchQuery, setSearchQuery] = useState('');
@@ -132,12 +132,14 @@ export default function CotAnalysisTab() {
 
   const [commodities] = useState<CommodityInfo[]>(getCommodities);
   const [searchResults, setSearchResults] = useState<CommodityInfo[]>([]);
-  const [cotData, setCotData] = useState<CotDataPoint[]>([]);
+  const [cotData, setCotData] = useState<CotDataPoint[]>(initialData || []);
   const [cotLoading, setCotLoading] = useState(false);
   const [cotError, setCotError] = useState<string | null>(null);
 
   // Cache to avoid re-fetching the same commodity + years combo
-  const cache = useRef<Map<string, CotDataPoint[]>>(new Map());
+  const cache = useRef<Map<string, CotDataPoint[]>>(new Map(
+    initialData ? [['GOLD__5', initialData]] : []
+  ));
 
   // ── Dark mode detection (matches BenchmarkComparisonChart pattern) ──────────
   useEffect(() => {
@@ -170,8 +172,12 @@ export default function CotAnalysisTab() {
   }, []);
 
   useEffect(() => {
+    // Skip initial fetch if we already have server-side data for the default selection
+    if (initialData && selectedCommodity === 'GOLD' && years === 5 && cotData.length > 0) {
+      return;
+    }
     loadCotData(selectedCommodity, years);
-  }, [selectedCommodity, years, loadCotData]);
+  }, [selectedCommodity, years, loadCotData, initialData]);
 
   // ── Search ──────────────────────────────────────────────────────────────────
   useEffect(() => {

@@ -127,7 +127,7 @@ Security is implemented using a "Defense in Depth" strategy, relying on API-leve
     *   **NextAuth.js**: Handling the OAuth lifecycle and session management.
     *   **Row Level Security (RLS)**: PostgreSQL policies defined in `01-initial-database-setup.sql` that physically prevent cross-tenant data access at the database engine level.
     *   **API Routes**: Each API endpoint manually verifies the session (`getServerSession`) before processing requests.
-    *   **Middleware** (`middleware.ts`): Handles **Security Headers** (HSTS, CSP, XSS) and rate limiting. *Note: It currently does not enforce auth redirects; protection is at the API/Page level.*
+    *   **Middleware & CSP**: Handles Security Headers (HSTS, XSS). *Note: The Content Security Policy (CSP) in `next.config.js` is optimized for compatibility, allowing frame-ancestry from Vercel/Supabase and relaxing strict object-src constraints to support preview environments and privacy-focused browsers like Comet.*
 *   **Patterns**:
     *   **Policy-Based Access Control**: Declarative security rules in the database schema.
 

@@ -6,6 +6,8 @@ import LandingPage from "@/components/home/LandingPage";
 import Dashboard from "@/components/Dashboard";
 
 export const metadata: Metadata = {
+  title: 'OptionsBookie - Professional Options Profit Tracker & Analytics',
+  description: 'The ultimate options trading journal. Track covered calls, cash-secured puts, and complex strategies with precision P&L, RoR, and risk analytics.',
   alternates: {
     canonical: '/',
   },

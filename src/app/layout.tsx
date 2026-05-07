@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import Providers from '@/components/Providers';
+import JsonLd from '@/components/seo/JsonLd';
 import {
   getBaseUrl,
   getSiteName,
@@ -98,10 +99,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body
-        className={`${inter.variable} ${jetbrainsMono.variable} antialiased`}
-      >
+      <body className={`${inter.variable} ${jetbrainsMono.variable} antialiased selection:bg-blue-100 selection:text-blue-900`}>
         <Providers>
+          <JsonLd />
           {children}
         </Providers>
       </body>
