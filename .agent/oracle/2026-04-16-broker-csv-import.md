@@ -1,7 +1,7 @@
 # Feature Ticket: Broker CSV Data Import
 
 ## Status
-pending-implementation
+pending-clarification
 
 ## Context
 Currently, users must manually enter every options transaction into OptionsBookie. This is tedious, error-prone, and a major barrier to adoption for traders who execute many trades. Traders need a way to seamlessly import their transaction history directly from their brokerages (like Schwab, Robinhood, or Moomoo) into the app without having to re-key data.
@@ -48,6 +48,12 @@ Provide a robust "CSV Import" feature that allows users to upload exported trans
   - Duplicate detection must be carefully calibrated to avoid false positives (e.g., two identical trades placed on the same day) or false negatives.
 
 ## Sequence Diagram (High-Level)
+
+## Questions from Atlas
+- Q1: Which broker should we build the first adapter for? We need a concrete CSV file template to write the first parser unit tests correctly.
+- Q2: Partial Fills Policy: If we detect a partial fill mapping (3 broker rows that equal 1 manual entry), should we default the UI to Skip the broker rows and keep the manual row, or Delete the manual row and import the true broker rows?
+- Q3: Since we cannot add new dependencies to `package.json` without explicit instruction from the parsed ticket, are we authorized to add `papaparse` or should we use manual CSV parsing?
+- Q4: Is there a specific UI pattern for the "Reconciliation Table" step, or should we design the Drop zone and Table from scratch?
 
 ```mermaid
 sequenceDiagram
