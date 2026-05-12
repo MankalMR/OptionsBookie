@@ -137,6 +137,7 @@ export const calculateTotalRealizedPnL = (
   transactions: OptionsTransaction[],
   chains: TradeChain[] = [],
   chainMapInput?: Map<string, TradeChain>,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   txnsByChainInput?: Map<string, OptionsTransaction[]>
 ): number => {
   const realizedTransactions = getRealizedTransactions(transactions, chains, chainMapInput);
@@ -523,6 +524,7 @@ export const calculateStrategyPerformance = (
   });
 
   // Calculate metrics for each strategy
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   strategies.forEach((strategy, strategyType) => {
     const { trades } = strategy;
 
@@ -561,6 +563,15 @@ export const calculateStrategyPerformance = (
     let winningTrades = 0;
     const processedChains = new Set<string>();
 
+    // ⚡ Bolt: Build a localized map to avoid O(N*M) lookups inside calculateChainPnL
+    const localTxnsByChain = new Map<string, OptionsTransaction[]>();
+    trades.forEach(t => {
+      if (t.chainId) {
+        if (!localTxnsByChain.has(t.chainId)) localTxnsByChain.set(t.chainId, []);
+        localTxnsByChain.get(t.chainId)!.push(t);
+      }
+    });
+
     realizedTrades.forEach(t => {
       // Chain-aware win counting (simplified, should match SummaryView logic ideally)
       // Actually SummaryView logic is robust. Let's replicate or assume getRealizedTransactions chain handling?
@@ -568,7 +579,8 @@ export const calculateStrategyPerformance = (
       // We need to count CHAINS as single unit.
       if (t.chainId) {
         if (!processedChains.has(t.chainId)) {
-          const chainPnL = calculateChainPnL(t.chainId, trades);
+          // ⚡ Bolt: Use O(1) lookup from localized map instead of array filtering
+          const chainPnL = calculateChainPnL(t.chainId, trades, localTxnsByChain);
           if (chainPnL > 0) winningTrades++;
           processedChains.add(t.chainId);
         }
@@ -1038,6 +1050,7 @@ export const calculateChainAwareStockPerformance = (
   transactions: OptionsTransaction[],
   chains: TradeChain[] = [],
   chainMapInput?: Map<string, TradeChain>,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   txnsByChainInput?: Map<string, OptionsTransaction[]>
 ): Map<string, { pnl: number; trades: number; totalCollateral: number }> => {
   const stockPerformance = new Map<string, { pnl: number; trades: number; totalCollateral: number }>();
@@ -1136,6 +1149,7 @@ export const calculateSmartCapital = (
   transactions: OptionsTransaction[],
   chains: TradeChain[] = [],
   chainMapInput?: Map<string, TradeChain>,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   txnsByChainInput?: Map<string, OptionsTransaction[]>
 ): SmartCapitalResult => {
   let totalCapital = 0;
