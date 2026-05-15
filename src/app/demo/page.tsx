@@ -24,6 +24,7 @@ import DeleteConfirmationModal from '@/components/DeleteConfirmationModal';
 import DeleteChainModal from '@/components/DeleteChainModal';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import SummaryView from '@/components/SummaryView';
+import { CsvImportModal } from '@/components/analytics/CsvImportModal';
 import CurrentRiskTab from '@/components/analytics/CurrentRiskTab';
 import { useIsMobile } from '@/hooks/useMediaQuery';
 import PortfolioSelector from '@/components/PortfolioSelector';
@@ -110,6 +111,7 @@ export default function DemoPage() {
     const [deletingChainId, setDeletingChainId] = useState<string | null>(null);
     const [activeTab, setActiveTab] = useState<'trades' | 'summary' | 'risk'>('trades');
     const [viewMode, setViewMode] = useState<'grouped' | 'flat'>('grouped');
+    const [showImportModal, setShowImportModal] = useState(false);
     const [selectedPortfolioId, setSelectedPortfolioId] = useState<string | null>(null);
     const [selectedStatuses, setSelectedStatuses] = useState<string[]>(['Open', 'Rolled']);
     const [selectedTickers, setSelectedTickers] = useState<string[]>([]);
@@ -708,6 +710,9 @@ export default function DemoPage() {
                                                     💡 Click the ✏️ button to edit or close trades
                                                 </div>
                                             )}
+                                            <Button variant="outline" onClick={() => setShowImportModal(true)}>
+                                                Import CSV
+                                            </Button>
                                             <Button variant="default" onClick={() => setShowAddModal(true)}>
                                                 <Plus className="mr-2 h-4 w-4" />
                                                 {isMobile ? 'Add' : 'Add Trade'}
@@ -803,6 +808,38 @@ export default function DemoPage() {
                 chainId={deletingChainId}
                 chainTransactions={deletingChainId ? transactions.filter(t => t.chainId === deletingChainId) : []}
                 chainInfo={deletingChainId ? chains.find(c => c.id === deletingChainId) : null}
+            />
+
+            <CsvImportModal
+                isOpen={showImportModal}
+                onClose={() => setShowImportModal(false)}
+                existingTransactions={transactions}
+                onImportComplete={async (importedTransactions) => {
+                    const targetPortfolioId = selectedPortfolioId || portfolios.find(p => p.isDefault)?.id;
+                    if (!targetPortfolioId) return;
+
+                    try {
+                        const txsWithPortfolio = importedTransactions.map(tx => ({
+                            ...tx,
+                            portfolioId: targetPortfolioId
+                        }));
+
+                        const response = await fetch('/api/demo/transactions/batch', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(txsWithPortfolio),
+                        });
+                        if (response.ok) {
+                            fetchTransactions(); // Refresh UI
+                            setShowImportModal(false);
+                        } else {
+                            const err = await response.json();
+                            console.error('Failed to batch insert', err);
+                        }
+                    } catch (e) {
+                        console.error(e);
+                    }
+                }}
             />
         </div>
     );
