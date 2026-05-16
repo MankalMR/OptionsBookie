@@ -315,7 +315,14 @@ export default function SummaryView({
     });
 
     return Object.values(yearlyData).sort((a, b) => b.year - a.year);
-  }, [memoizedRealizedTransactions, chains, transactions]);
+  }, [memoizedRealizedTransactions, chains, transactions, globalChainsMap, globalTxnsByChain]);
+
+  // ⚡ Bolt: Index yearly summaries by year for O(1) lookups in charts and child views
+  const yearlySummariesMap = useMemo(() => {
+    const map = new Map<number, YearlySummary>();
+    yearlySummaries.forEach(y => map.set(y.year, y));
+    return map;
+  }, [yearlySummaries]);
 
   // Set the most recent year as expanded by default, but respect user interactions
   const mostRecentYear = useMemo(() => {
@@ -364,10 +371,18 @@ export default function SummaryView({
     return calculateMonthlyTopTickers(transactions, chains, globalChainsMap, globalTxnsByChain);
   }, [transactions, chains, globalChainsMap, globalTxnsByChain]);
 
+  // ⚡ Bolt: Index monthly top tickers by monthKey for O(1) lookups
+  const monthlyTopTickersMap = useMemo(() => {
+    const map = new Map<string, any>();
+    monthlyTopTickers.forEach(data => map.set(data.monthKey, data));
+    return map;
+  }, [monthlyTopTickers]);
+
 
   // Helper functions for child components
   const getChartDataForYear = (year: number) => {
-    const yearSummary = yearlySummaries.find(y => y.year === year);
+    // ⚡ Bolt: Use O(1) Map lookup instead of O(N) find
+    const yearSummary = yearlySummariesMap.get(year);
     if (!yearSummary) return [];
 
     return yearSummary.monthlyBreakdown.map(month => {
@@ -433,7 +448,8 @@ export default function SummaryView({
 
   const getTopTickersForMonth = (year: number, month: number) => {
     const monthKey = `${year}-${String(month + 1).padStart(2, '0')}`;
-    return monthlyTopTickers.find(data => data.monthKey === monthKey);
+    // ⚡ Bolt: Use O(1) Map lookup instead of O(N) find
+    return monthlyTopTickersMap.get(monthKey);
   };
 
   // Calculate best stocks overall
