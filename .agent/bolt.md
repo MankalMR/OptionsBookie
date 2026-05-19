@@ -7,3 +7,7 @@
 
  **Learning:** Nested array operations like `.filter()` or `.find()` inside a loop over another large array create O(N*M) complexity which scales poorly as the portfolio grows. Pre-grouping the inner array into a `Map` (e.g., grouping transactions by `chainId`) reduces this to O(N+M).
  **Action:** Always look for nested array operations in dashboard logic and refactor them using Map-based grouping or lookups.
+
+## 2024-05-19 - useMemo Map lookups to replace O(N) Array.prototype.find
+ **Learning:** Replacing nested O(N) array scans (`.find()` inside a loop over a large map) with O(1) Map lookups via `useMemo` avoids heavy recalculations on every render and directly speeds up core components like `TransactionsTable.tsx`.
+ **Action:** Always look for O(N*M) time complexities within UI components that deal with chains and transactions mapping, and utilize `useMemo` to construct lookup Maps beforehand.
