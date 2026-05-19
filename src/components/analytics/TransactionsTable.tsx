@@ -61,13 +61,36 @@ export default function TransactionsTable({ transactions, chains = [], isDemo = 
 
 
 
+  // ⚡ Bolt Performance Optimization:
+  // Memoize chains and transactions by chain into O(1) Maps to prevent O(N*M) recalculations on every row render.
+  // Expected impact: significantly smoother UI interactions and faster rendering of the Transactions Table,
+  // especially with large portfolios and active trading histories.
+  const chainsMap = useMemo(() => {
+    const map = new Map<string, TradeChain>();
+    chains.forEach(chain => map.set(chain.id, chain));
+    return map;
+  }, [chains]);
+
+  const txnsByChain = useMemo(() => {
+    const map = new Map<string, OptionsTransaction[]>();
+    transactions.forEach(t => {
+      if (t.chainId) {
+        if (!map.has(t.chainId)) {
+          map.set(t.chainId, []);
+        }
+        map.get(t.chainId)!.push(t);
+      }
+    });
+    return map;
+  }, [transactions]);
+
   // Helper function to get chain-aware P&L for display
   const getDisplayPnL = (transaction: OptionsTransaction): number => {
     // For chained transactions, show the full chain P&L on the final transaction
     if (transaction.chainId) {
-      const chain = chains.find((c: TradeChain) => c.id === transaction.chainId);
+      const chain = chainsMap.get(transaction.chainId);
       if (chain && chain.chainStatus === 'Closed') {
-        return calculateChainPnL(transaction.chainId, transactions);
+        return calculateChainPnL(transaction.chainId, transactions, txnsByChain);
       }
     }
 
@@ -75,18 +98,13 @@ export default function TransactionsTable({ transactions, chains = [], isDemo = 
     return transaction.profitLoss || 0;
   };
 
-  // ⚡ Bolt Performance Optimization:
-  // Memoize heavy aggregations and data transformations to prevent O(N) recalculations on every render.
-  // Expected impact: significantly smoother UI interactions and faster rendering of the Transactions Table,
-  // especially with large portfolios and active trading histories.
-
   // Filter out rolled transactions for cleaner display
   const displayTransactions = useMemo(() => transactions.filter(t => t.status !== 'Rolled'), [transactions]);
 
   // Helper function to check if transaction is part of a closed chain
   const isClosedChainTransaction = (transaction: OptionsTransaction): boolean => {
     if (transaction.chainId) {
-      const chain = chains.find((c: TradeChain) => c.id === transaction.chainId);
+      const chain = chainsMap.get(transaction.chainId);
       return Boolean(chain && chain.chainStatus === 'Closed');
     }
     return false;
