@@ -121,14 +121,16 @@ export default function YearlySummaryCard({
           <h3 className="text-xl font-semibold text-card-foreground">{yearData.year}</h3>
           <button
             onClick={() => onToggleYear(yearData.year)}
-            className="text-sky-600 dark:text-sky-400 hover:text-sky-800 dark:hover:text-sky-300 text-sm font-medium"
+            className="text-sky-600 dark:text-sky-400 hover:text-sky-800 dark:hover:text-sky-300 text-sm font-medium focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none rounded px-1"
+            aria-expanded={selectedYear === yearData.year}
+            aria-controls={`yearly-details-mobile-${yearData.year}`}
           >
             {selectedYear === yearData.year ? 'Hide Details' : 'Show Details'}
           </button>
         </div>
 
         {selectedYear === yearData.year && (
-          <div className="mt-6 space-y-6">
+          <div id={`yearly-details-mobile-${yearData.year}`} className="mt-6 space-y-6">
             <Top5TickersSection
               yearTop5Tickers={yearTop5Tickers}
               yearAllTickers={yearAllTickers}
