@@ -30,7 +30,9 @@ export default function YearPortfolioAnalytics({
           {onToggle && (
             <button
               onClick={onToggle}
-              className="text-sky-600 dark:text-sky-400 hover:text-sky-800 dark:hover:text-sky-300 text-sm font-medium"
+              className="text-sky-600 dark:text-sky-400 hover:text-sky-800 dark:hover:text-sky-300 text-sm font-medium focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none rounded px-1"
+              aria-expanded={isExpanded}
+              aria-controls={`yearly-details-${year}`}
             >
               {isExpanded ? 'Hide Details' : 'Show Details'}
             </button>
@@ -39,7 +41,7 @@ export default function YearPortfolioAnalytics({
       </div>
 
       {isExpanded && (
-        <div className="space-y-8">
+        <div id={`yearly-details-${year}`} className="space-y-8">
           {children}
         </div>
       )}
