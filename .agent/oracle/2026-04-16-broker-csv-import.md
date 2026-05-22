@@ -1,7 +1,12 @@
 # Feature Ticket: Broker CSV Data Import
 
 ## Status
-pending-implementation
+pending-clarification
+
+## Questions from Atlas
+- Q1: Which broker should we build the first adapter for? We need a concrete CSV file template to write the first parser unit tests correctly.
+- Q2: For the Partial Fills Policy: If we detect a partial fill mapping (3 broker rows that equal 1 manual entry), should we default the UI to Skip the broker rows and keep the manual row, or Delete the manual row and import the true broker rows?
+- Q3: The tech plan mentions `papaparse` but it's not installed in `package.json`. I am not supposed to add new dependencies without explicit instruction. Should I install it or use manual parsing?
 
 ## Context
 Currently, users must manually enter every options transaction into OptionsBookie. This is tedious, error-prone, and a major barrier to adoption for traders who execute many trades. Traders need a way to seamlessly import their transaction history directly from their brokerages (like Schwab, Robinhood, or Moomoo) into the app without having to re-key data.
