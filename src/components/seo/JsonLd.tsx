@@ -1,4 +1,5 @@
 import { getWebApplicationInfo, getOrganizationInfo } from '@/lib/url-utils';
+import { safeJsonLdStringify } from '@/utils/security';
 
 export default function JsonLd() {
   const webApp = getWebApplicationInfo();
@@ -26,7 +27,7 @@ export default function JsonLd() {
   return (
     <script
       type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(jsonLd) }}
     />
   );
 }

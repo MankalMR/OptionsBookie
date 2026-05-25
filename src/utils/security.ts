@@ -7,6 +7,7 @@
  * @param data The object to stringify
  * @returns A safe JSON string
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function safeJsonLdStringify(data: any): string {
   if (!data || typeof data !== 'object') {
     return '';
