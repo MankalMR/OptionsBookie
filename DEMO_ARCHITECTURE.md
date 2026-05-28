@@ -58,21 +58,21 @@ The `DemoStore` class manages all demo sessions in a `Map<sessionId, DemoState>`
 
 ### 3.2 `src/lib/demo-seed-data.ts` — Seed Portfolio
 
-Provides `buildSeedData()` which returns a realistic starting portfolio of 12 transactions across 5 symbols:
+Provides `buildSeedData()` which returns a realistic starting portfolio of transactions across 5 symbols:
 
 | Symbol | Strategy | Status |
 |--------|----------|--------|
-| TSLA | Covered Call rolling chain | Open (2 rolled + 1 live) |
+| TSLA | Covered Call rolling chain + Open Stock Buy Lots | Open (2 rolled + 1 live option call) + 200 shares owned |
 | AVGO | Cash-Secured Put chain + standalone CSP | Active |
 | AXON | CSP rolling chain | Fully Closed (win) |
-| ASML | LEAP Long Call | Open |
+| ASML | LEAP Long Call + Short Call (PMCC) | Open |
 | ISRG | Closed CSP (win) + open CSP | Mixed |
 
 **To update seed data:** Edit `makeTransactions()` and `makeChains()` in `demo-seed-data.ts`, then **bump the `SEED_VERSION` constant**. All existing sessions will be automatically reseeded on their next request.
 
 ```ts
 // demo-seed-data.ts
-export const SEED_VERSION = '2026-03-05-v2'; // ← bump this when you change seed data
+export const SEED_VERSION = '2026-05-27-stock-tracking-v1'; // ← bump this when you change seed data
 ```
 
 ### 3.3 API Routes — `src/app/api/demo/**`
@@ -110,11 +110,13 @@ A sticky amber banner shown at the top of every `/demo` page. Provides:
 
 ### 3.5 `src/app/demo/page.tsx` — Demo Dashboard
 
-A near-identical copy of the main `page.tsx` with these differences:
+A near-identical copy of the main dashboard with these differences:
 - **No `ProtectedRoute`** wrapper — publicly accessible.
 - Fetches from `/api/demo/*` endpoints via `sessionId` in the `x-demo-session-id` header.
 - Passes a demo-specific `onRollTrade` handler to `EditTransactionModal` to ensure roll operations use demo API endpoints instead of production ones.
 - `sessionId` state is initialized from `localStorage` on mount; clearing it triggers full re-initialization.
+- Implements a run-once auto-expiry check lock (`hasRunExpiryCheckRef`) to prevent redundant status update calls from flooding the demo session API.
+- Propagates `stockPrices`, `pricesAvailable`, and `pricesLoading` down to child components (`TransactionTable` and `SymbolGroupedView`) to eliminate duplicate hook fetches.
 
 ---
 

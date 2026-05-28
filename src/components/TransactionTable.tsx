@@ -29,6 +29,7 @@ interface TransactionTableProps {
   stockPrices?: Record<string, import('@/hooks/useStockPrices').StockPrice | null>;
   pricesAvailable?: boolean;
   loading?: boolean;
+  hideStockRows?: boolean;
 }
 
 export default function TransactionTable({
@@ -44,6 +45,7 @@ export default function TransactionTable({
   stockPrices: externalStockPrices,
   pricesAvailable: externalPricesAvailable,
   loading: externalLoading = false,
+  hideStockRows = false,
 }: TransactionTableProps) {
   const isMobile = useIsMobile();
   const [sortBy, setSortBy] = useState<keyof OptionsTransaction>('tradeOpenDate');
@@ -118,11 +120,12 @@ export default function TransactionTable({
 
   // Organize transactions into chains and standalone transactions
   const organizeTransactions = () => {
+    const list = hideStockRows ? transactions.filter(t => t.transactionType !== 'stock') : transactions;
     const chainMap = new Map<string, OptionsTransaction[]>();
     const standaloneTransactions: OptionsTransaction[] = [];
 
     // Group transactions by chainId
-    transactions.forEach(transaction => {
+    list.forEach(transaction => {
       if (transaction.chainId) {
         if (!chainMap.has(transaction.chainId)) {
           chainMap.set(transaction.chainId, []);
@@ -171,7 +174,10 @@ export default function TransactionTable({
     }
   };
 
-  const formatDate = (date: Date | string) => {
+  const formatDate = (date: Date | string | undefined) => {
+    if (!date) {
+      return <span className="text-muted-foreground">-</span>;
+    }
     const { monthDay, year } = formatDisplayDateShort(date);
 
     if (monthDay === 'Invalid') {
@@ -486,7 +492,7 @@ export default function TransactionTable({
                                 {transaction.numberOfContracts}
                               </span>
                               <div className="w-12 h-5 flex items-center justify-center">
-                                {!isMobile && stockPrices[transaction.stockSymbol] && transaction.status === 'Open' && (
+                                {!isMobile && stockPrices[transaction.stockSymbol] && transaction.status === 'Open' && transaction.strikePrice !== undefined && transaction.callOrPut !== undefined && (
                                   <ITMIndicator
                                     currentPrice={stockPrices[transaction.stockSymbol]!.price}
                                     strikePrice={transaction.strikePrice}
@@ -594,7 +600,7 @@ export default function TransactionTable({
                       {!isMobile && (
                         <TableCell>
                           <span className="text-muted-foreground text-sm">
-                            ${transaction.premium.toFixed(2)}
+                            ${(transaction.premium ?? 0).toFixed(2)}
                           </span>
                           <div className="text-xs text-muted-foreground font-normal">Premium</div>
                         </TableCell>
@@ -692,7 +698,7 @@ export default function TransactionTable({
                                   {transaction.numberOfContracts}
                                 </span>
                                 <div className="w-12 h-5 flex items-center justify-center">
-                                  {!isMobile && stockPrices[transaction.stockSymbol] && transaction.status === 'Open' && (
+                                  {!isMobile && stockPrices[transaction.stockSymbol] && transaction.status === 'Open' && transaction.strikePrice !== undefined && transaction.callOrPut !== undefined && (
                                     <ITMIndicator
                                       currentPrice={stockPrices[transaction.stockSymbol]!.price}
                                       strikePrice={transaction.strikePrice}
@@ -718,13 +724,13 @@ export default function TransactionTable({
                                   </span>
                                 )}
                                 <Badge
-                                  variant={transaction.buyOrSell === 'Buy' ? 'outline' : 'default'}
-                                  className={`text-xs ${transaction.buyOrSell === 'Buy'
+                                  variant={(transaction.buyOrSell === 'Buy' && !(transaction.transactionType === 'stock' && transaction.status === 'Closed')) ? 'outline' : 'default'}
+                                  className={`text-xs ${(transaction.buyOrSell === 'Buy' && !(transaction.transactionType === 'stock' && transaction.status === 'Closed'))
                                     ? 'bg-blue-100 dark:bg-blue-950/30 text-blue-800 dark:text-blue-200 hover:bg-blue-200 dark:hover:bg-blue-950/50'
                                     : 'bg-orange-100 dark:bg-orange-950/30 text-orange-800 dark:text-orange-200 hover:bg-orange-200 dark:hover:bg-orange-950/50'
                                     }`}
                                 >
-                                  {transaction.buyOrSell}
+                                  {transaction.transactionType === 'stock' && transaction.status === 'Closed' ? 'Stock Sell' : transaction.buyOrSell}
                                 </Badge>
                                 {!isMobile && transaction.chainId && (
                                   <Badge variant="outline" className="text-xs px-1.5 py-0.5 bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300">
@@ -923,26 +929,57 @@ export default function TransactionTable({
                 }
               </span>
 
-              <span className="text-muted-foreground">Strike:</span>
-              <span className="text-right font-medium">
-                ${selectedInfoTransaction.strikePrice} {selectedInfoTransaction.callOrPut}
-              </span>
+              {selectedInfoTransaction.transactionType === 'stock' ? (
+                <>
+                  <span className="text-muted-foreground">Shares:</span>
+                  <span className="text-right font-medium">
+                    {selectedInfoTransaction.sharesQuantity}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <span className="text-muted-foreground">Strike:</span>
+                  <span className="text-right font-medium">
+                    ${selectedInfoTransaction.strikePrice} {selectedInfoTransaction.callOrPut}
+                  </span>
+                </>
+              )}
             </div>
 
             <div className="grid grid-cols-2 gap-y-3 text-sm border-b pb-4">
-              <span className="text-muted-foreground font-semibold">
-                {selectedInfoTransaction.buyOrSell === 'Buy' ? 'Opening Premium (Debit):' : 'Initial Opening Credit:'}
-              </span>
-              <span className={`text-right font-bold ${selectedInfoTransaction.buyOrSell === 'Buy' ? 'text-red-500' : 'text-emerald-600'}`}>
-                ${selectedInfoTransaction.premium.toFixed(2)}
-              </span>
+              {selectedInfoTransaction.transactionType === 'stock' ? (
+                <>
+                  <span className="text-muted-foreground font-semibold">
+                    {selectedInfoTransaction.buyOrSell === 'Buy' ? 'Purchase Price:' : 'Sale Price:'}
+                  </span>
+                  <span className={`text-right font-bold ${selectedInfoTransaction.buyOrSell === 'Buy' ? 'text-red-500' : 'text-emerald-600'}`}>
+                    ${(selectedInfoTransaction.sharePrice ?? 0).toFixed(2)}
+                  </span>
 
-              <span className="text-muted-foreground font-semibold">
-                {selectedInfoTransaction.buyOrSell === 'Buy' ? 'Exit Credit (Proceeds):' : 'Exit Cost (To Close):'}
-              </span>
-              <span className={`text-right font-bold ${selectedInfoTransaction.buyOrSell === 'Buy' ? 'text-emerald-600' : 'text-red-600'}`}>
-                {selectedInfoTransaction.exitPrice ? `$${selectedInfoTransaction.exitPrice.toFixed(2)}` : '$0.00'}
-              </span>
+                  <span className="text-muted-foreground font-semibold">
+                    {selectedInfoTransaction.buyOrSell === 'Buy' ? 'Sale Price (Exit):' : 'Cover Price (Exit):'}
+                  </span>
+                  <span className={`text-right font-bold ${selectedInfoTransaction.buyOrSell === 'Buy' ? 'text-emerald-600' : 'text-red-600'}`}>
+                    {selectedInfoTransaction.exitPrice ? `$${selectedInfoTransaction.exitPrice.toFixed(2)}` : '$0.00'}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <span className="text-muted-foreground font-semibold">
+                    {selectedInfoTransaction.buyOrSell === 'Buy' ? 'Opening Premium (Debit):' : 'Initial Opening Credit:'}
+                  </span>
+                  <span className={`text-right font-bold ${selectedInfoTransaction.buyOrSell === 'Buy' ? 'text-red-500' : 'text-emerald-600'}`}>
+                    ${(selectedInfoTransaction.premium ?? 0).toFixed(2)}
+                  </span>
+
+                  <span className="text-muted-foreground font-semibold">
+                    {selectedInfoTransaction.buyOrSell === 'Buy' ? 'Exit Credit (Proceeds):' : 'Exit Cost (To Close):'}
+                  </span>
+                  <span className={`text-right font-bold ${selectedInfoTransaction.buyOrSell === 'Buy' ? 'text-emerald-600' : 'text-red-600'}`}>
+                    {selectedInfoTransaction.exitPrice ? `$${selectedInfoTransaction.exitPrice.toFixed(2)}` : '$0.00'}
+                  </span>
+                </>
+              )}
 
               <div className="col-span-2 border-t my-1 pt-2 flex justify-between items-center">
                 <span className="text-muted-foreground">Realized Leg P&L:</span>
@@ -959,6 +996,8 @@ export default function TransactionTable({
 
             {/* Roll Context Logic */}
             {(() => {
+              if (!selectedInfoTransaction.chainId) return null;
+
               const chainTrades = transactions
                 .filter(t => t.chainId === selectedInfoTransaction.chainId)
                 .sort((a, b) => new Date(b.tradeOpenDate).getTime() - new Date(a.tradeOpenDate).getTime());
@@ -966,7 +1005,7 @@ export default function TransactionTable({
               const currentIndex = chainTrades.findIndex(t => t.id === selectedInfoTransaction.id);
               const nextLeg = currentIndex > 0 ? chainTrades[currentIndex - 1] : null;
 
-              if (!nextLeg) return null;
+              if (!nextLeg || nextLeg.premium === undefined) return null;
 
               const isLongRoll = selectedInfoTransaction.buyOrSell === 'Buy';
               const netCredit = isLongRoll

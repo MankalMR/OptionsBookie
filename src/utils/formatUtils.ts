@@ -34,7 +34,8 @@ export function getTransactionRowClass(status: string, isChain: boolean = false)
 /**
  * Format strike price by removing trailing zeros
  */
-export function formatStrikePrice(strikePrice: number): string {
+export function formatStrikePrice(strikePrice: number | undefined): string {
+  if (strikePrice === undefined) return '0';
   // Convert to fixed 2 decimal places first, then remove trailing zeros
   const formatted = strikePrice.toFixed(2);
   // Remove trailing zeros and decimal point if not needed
@@ -45,6 +46,9 @@ export function formatStrikePrice(strikePrice: number): string {
  * Check if a transaction is a LEAP (expires more than 9 months out)
  */
 export function isLEAP(transaction: OptionsTransaction): boolean {
+  if (transaction.transactionType === 'stock' || !transaction.expiryDate) {
+    return false;
+  }
   const expiryDate = new Date(transaction.expiryDate);
   const openDate = new Date(transaction.tradeOpenDate);
   const monthsDiff = (expiryDate.getFullYear() - openDate.getFullYear()) * 12 +

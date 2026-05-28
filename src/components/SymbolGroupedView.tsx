@@ -23,6 +23,7 @@ interface SymbolGroupedViewProps {
   stockPrices?: Record<string, import('@/hooks/useStockPrices').StockPrice | null>;
   pricesAvailable?: boolean;
   loading?: boolean;
+  hideStockRows?: boolean;
 }
 
 interface SymbolGroup {
@@ -43,7 +44,8 @@ export default function SymbolGroupedView({
   onTickerChange,
   stockPrices,
   pricesAvailable,
-  loading = false
+  loading = false,
+  hideStockRows = false
 }: SymbolGroupedViewProps) {
   const [expandedSymbols, setExpandedSymbols] = useState<Set<string>>(new Set());
   const [allExpanded, setAllExpanded] = useState(true);
@@ -71,15 +73,20 @@ export default function SymbolGroupedView({
       group.sort((a, b) => new Date(a.tradeOpenDate).getTime() - new Date(b.tradeOpenDate).getTime());
     });
 
-    // Convert to array and sort by most recent trade date
-    return Object.entries(groups)
-      .map(([symbol, trades]) => ({ symbol, trades }))
-      .sort((a, b) => {
-        const aLatest = Math.max(...a.trades.map(t => new Date(t.tradeOpenDate).getTime()));
-        const bLatest = Math.max(...b.trades.map(t => new Date(t.tradeOpenDate).getTime()));
-        return bLatest - aLatest;
-      });
-  }, [transactions]);
+    // Convert to array, filter, and sort by most recent trade date
+    const arrayGroups = Object.entries(groups)
+      .map(([symbol, trades]) => ({ symbol, trades }));
+
+    const filteredGroups = hideStockRows
+      ? arrayGroups.filter(g => g.trades.some(t => t.transactionType !== 'stock'))
+      : arrayGroups;
+
+    return filteredGroups.sort((a, b) => {
+      const aLatest = Math.max(...a.trades.map(t => new Date(t.tradeOpenDate).getTime()));
+      const bLatest = Math.max(...b.trades.map(t => new Date(t.tradeOpenDate).getTime()));
+      return bLatest - aLatest;
+    });
+  }, [transactions, hideStockRows]);
 
   const toggleSymbol = (symbol: string) => {
     setExpandedSymbols(prev => {
@@ -136,7 +143,10 @@ export default function SymbolGroupedView({
       <div className="space-y-2">
         {groupedTransactions.map(({ symbol, trades }) => {
           const isExpanded = expandedSymbols.has(symbol);
-          const openTrades = trades.filter(t => t.status === 'Open').length;
+          const openOptions = trades.filter(t => t.status === 'Open' && t.transactionType !== 'stock').length;
+          const openStockShares = trades
+            .filter(t => t.status === 'Open' && t.transactionType === 'stock')
+            .reduce((sum, t) => sum + (t.sharesQuantity || 0), 0);
           const closedTrades = trades.filter(t => t.status !== 'Open').length;
           const lastTradeDate = trades[trades.length - 1]?.tradeOpenDate;
 
@@ -154,7 +164,7 @@ export default function SymbolGroupedView({
                       <h4 className="font-semibold text-lg">{symbol}</h4>
                       <p className="text-sm text-muted-foreground">
                         {trades.length} trade{trades.length !== 1 ? 's' : ''} •
-                        Open: {openTrades} • Closed: {closedTrades}
+                        Open Options: {openOptions} {openStockShares > 0 ? `• Stock: ${openStockShares} shares` : ''} • Closed: {closedTrades}
                         {lastTradeDate && ` • Last: ${new Date(lastTradeDate).toLocaleDateString()}`}
                       </p>
                     </div>
@@ -192,6 +202,7 @@ export default function SymbolGroupedView({
                       stockPrices={stockPrices}
                       pricesAvailable={pricesAvailable}
                       loading={loading}
+                      hideStockRows={hideStockRows}
                     />
                 </div>
               )}

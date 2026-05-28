@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 interface StockPriceDisplayProps {
   symbol: string;
   stockPrice: StockPrice | null;
-  strikePrice: number;
+  strikePrice?: number;
   loading?: boolean;
   onRefresh?: () => void;
   showComparison?: boolean;
@@ -110,7 +110,7 @@ export default function StockPriceDisplay({
     );
   }
 
-  const comparison = showComparison ? getPriceComparison(stockPrice.price, strikePrice) : null;
+  const comparison = (showComparison && strikePrice !== undefined) ? getPriceComparison(stockPrice.price, strikePrice) : null;
 
   return (
     <div className={`flex flex-col ${stockPrice.isStale ? 'opacity-60 italic' : ''}`}>

@@ -119,7 +119,7 @@ export default function SummaryView({
     if (activeAiFilters) {
       filtered = filtered.filter(t => {
         if (activeAiFilters.symbol && t.stockSymbol.toUpperCase() !== activeAiFilters.symbol.toUpperCase()) return false;
-        if (activeAiFilters.type && t.callOrPut.toLowerCase() !== activeAiFilters.type.toLowerCase()) return false;
+        if (activeAiFilters.type && (!t.callOrPut || t.callOrPut.toLowerCase() !== activeAiFilters.type.toLowerCase())) return false;
 
         if (activeAiFilters.outcome) {
           const pnl = t.profitLoss || 0;

@@ -4,10 +4,31 @@ import { detectOverlapsByStock } from './timeOverlapDetection';
 import { logger } from "@/lib/logger";
 
 export const calculateProfitLoss = (transaction: OptionsTransaction, exitPrice?: number): number => {
-  // Universal P&L calculation: always deduct fees for consistency
-  const contracts = transaction.numberOfContracts;
-  const premium = transaction.premium;
-  const fees = transaction.fees;
+  const fees = transaction.fees || 0;
+
+  if (transaction.transactionType === 'stock') {
+    const qty = transaction.sharesQuantity || 0;
+    const price = transaction.sharePrice || 0;
+    let pnl = 0;
+
+    const exitVal = exitPrice !== undefined && exitPrice > 0
+      ? exitPrice
+      : (transaction.exitPrice !== undefined && transaction.exitPrice > 0
+          ? transaction.exitPrice
+          : (transaction.stockPriceCurrent !== undefined ? transaction.stockPriceCurrent : price));
+
+    if (transaction.buyOrSell === 'Buy') {
+      pnl = (exitVal - price) * qty;
+    } else {
+      pnl = (price - exitVal) * qty; // Short stock
+    }
+
+    return pnl - fees;
+  }
+
+  // Universal P&L calculation for options: always deduct fees for consistency
+  const contracts = transaction.numberOfContracts || 0;
+  const premium = transaction.premium || 0;
 
   let profitLoss = 0;
 
@@ -50,7 +71,9 @@ export const calculateNewTradeProfitLoss = (): number => {
 export const calculateAnnualizedROR = (transaction: OptionsTransaction): number | undefined => {
   const profitLoss = transaction.profitLoss || 0;
   const daysHeld = calculateDaysHeld(transaction.tradeOpenDate, transaction.closeDate);
-  const totalCost = transaction.premium * transaction.numberOfContracts * 100;
+  const premium = transaction.premium || 0;
+  const contracts = transaction.numberOfContracts || 0;
+  const totalCost = premium * contracts * 100;
 
   if (daysHeld <= 0 || totalCost <= 0) {
     return undefined;
@@ -73,10 +96,15 @@ export const updateTransactionPandL = (transaction: OptionsTransaction, currentS
 };
 
 export const calculateBreakEven = (transaction: OptionsTransaction): number => {
+  if (transaction.transactionType === 'stock') {
+    return transaction.sharePrice || 0;
+  }
+  const strike = transaction.strikePrice || 0;
+  const premium = transaction.premium || 0;
   if (transaction.callOrPut === 'Call') {
-    return transaction.strikePrice + transaction.premium;
+    return strike + premium;
   } else {
-    return transaction.strikePrice - transaction.premium;
+    return strike - premium;
   }
 };
 
@@ -94,8 +122,11 @@ export const isTradeExpired = (expiryDate: Date | string): boolean => {
 };
 
 export const shouldUpdateTradeStatus = (transaction: OptionsTransaction): boolean => {
-  // Only update if trade is currently open and has expired
-  return transaction.status === 'Open' && isTradeExpired(transaction.expiryDate);
+  // Only update if trade is currently open, is not a stock, and has expired
+  return transaction.status === 'Open' &&
+         transaction.transactionType !== 'stock' &&
+         !!transaction.expiryDate &&
+         isTradeExpired(transaction.expiryDate);
 };
 
 // Centralized utility to get all realized transactions
@@ -227,16 +258,30 @@ export const calculateCollateral = (transaction: OptionsTransaction): number => 
     return transaction.collateralAmount;
   }
 
+  // Stock transactions tie up purchase price * shares
+  if (transaction.transactionType === 'stock') {
+    return (transaction.sharePrice || 0) * (transaction.sharesQuantity || 0);
+  }
+
+  // If this short option has stock or option cover, its collateral is 0
+  if (transaction.coveredByType && transaction.coveredByType !== 'none') {
+    return 0;
+  }
+
+  const strike = transaction.strikePrice || 0;
+  const contracts = transaction.numberOfContracts || 0;
+  const premium = transaction.premium || 0;
+
   // Otherwise, use automatic calculation based on strategy type
   if (transaction.callOrPut === 'Put' && transaction.buyOrSell === 'Sell') {
     // Cash-secured put: strike * 100 * contracts
-    return transaction.strikePrice * 100 * transaction.numberOfContracts;
+    return strike * 100 * contracts;
   } else if (transaction.callOrPut === 'Call' && transaction.buyOrSell === 'Sell') {
-    // Covered call (assuming stock is owned - approximate with strike value)
-    return transaction.strikePrice * 100 * transaction.numberOfContracts;
+    // Covered call (assuming legacy/unlinked - fall back to strike approximation)
+    return strike * 100 * contracts;
   } else {
     // Long options - premium paid is the max risk
-    return transaction.premium * 100 * transaction.numberOfContracts;
+    return premium * 100 * contracts;
   }
 };
 
@@ -995,7 +1040,7 @@ export const getEffectiveCloseDate = (
   if (!transaction.closeDate) {
     // Fallback for Assigned or Expired transactions without close date: use expiry date
     if (transaction.status === 'Assigned' || transaction.status === 'Expired') {
-      return parseLocalDate(transaction.expiryDate);
+      return transaction.expiryDate ? parseLocalDate(transaction.expiryDate) : new Date();
     }
     return new Date(); // Fallback for other transactions without close date
   }
@@ -1392,7 +1437,7 @@ export const calculateDaysHeld = (openDate: string | Date, closeDate?: string | 
  * @param expiryDate - The expiry date of the option
  * @returns Number of days to expiry (0 for today, 1 for tomorrow, etc.)
  */
-export const calculateDaysToExpiry = (expiryDate: string | Date): number => {
+export const calculateDaysToExpiry = (expiryDate: string | Date | undefined): number => {
   try {
     // Handle edge cases that can cause NaN
     if (!expiryDate || expiryDate === '' || expiryDate === null || expiryDate === undefined) {
@@ -1616,14 +1661,119 @@ export const calculateTickerAllocation = (transactions: OptionsTransaction[]) =>
 
 export const calculateCapitalAtRisk = (transactions: OptionsTransaction[], daysThreshold: number = 7): number => {
   return transactions
-    .filter(t => t.status === 'Open' && t.buyOrSell === 'Sell' && calculateDaysToExpiry(t.expiryDate) <= daysThreshold)
+    .filter(t => t.status === 'Open' && t.buyOrSell === 'Sell' && t.expiryDate && calculateDaysToExpiry(t.expiryDate) <= daysThreshold)
     .reduce((total, t) => total + calculateCollateral(t), 0);
 };
 
 export const getAtRiskTickers = (transactions: OptionsTransaction[], daysThreshold: number = 7): string[] => {
   const atRiskTransactions = transactions
-    .filter(t => t.status === 'Open' && t.buyOrSell === 'Sell' && calculateDaysToExpiry(t.expiryDate) <= daysThreshold);
+    .filter(t => t.status === 'Open' && t.buyOrSell === 'Sell' && t.expiryDate && calculateDaysToExpiry(t.expiryDate) <= daysThreshold);
 
   const uniqueTickers = new Set(atRiskTransactions.map(t => t.stockSymbol));
   return Array.from(uniqueTickers).sort();
+};
+
+export const calculateAvailableShares = (
+  transactions: OptionsTransaction[],
+  ticker: string
+): { totalShares: number; committedShares: number; availableShares: number; avgPrice: number } => {
+  const openStockBuys = transactions.filter(t =>
+    t.stockSymbol === ticker &&
+    t.transactionType === 'stock' &&
+    t.buyOrSell === 'Buy' &&
+    t.status === 'Open'
+  );
+
+  const totalShares = openStockBuys.reduce((sum, t) => sum + (t.sharesQuantity || 0), 0);
+  const totalCost = openStockBuys.reduce((sum, t) => sum + ((t.sharesQuantity || 0) * (t.sharePrice || 0)), 0);
+  const avgPrice = totalShares > 0 ? totalCost / totalShares : 0;
+
+  const openShortCalls = transactions.filter(t =>
+    t.stockSymbol === ticker &&
+    t.transactionType === 'option' &&
+    t.buyOrSell === 'Sell' &&
+    t.callOrPut === 'Call' &&
+    t.status === 'Open' &&
+    t.coveredByType === 'stock'
+  );
+
+  const committedShares = openShortCalls.reduce((sum, t) => sum + ((t.numberOfContracts || 0) * 100), 0);
+  const availableShares = Math.max(0, totalShares - committedShares);
+
+  return { totalShares, committedShares, availableShares, avgPrice };
+};
+
+export const fifoConsumeStockLots = (
+  transactions: OptionsTransaction[],
+  ticker: string,
+  contractsToConsume: number,
+  exitPrice: number,
+  closeDate: Date
+): {
+  transactionsToUpdate: Array<{ id: string; updates: Partial<OptionsTransaction> }>;
+  transactionsToCreate: Array<Omit<OptionsTransaction, 'id' | 'createdAt' | 'updatedAt'>>;
+} => {
+  const transactionsToUpdate: Array<{ id: string; updates: Partial<OptionsTransaction> }> = [];
+  const transactionsToCreate: Array<Omit<OptionsTransaction, 'id' | 'createdAt' | 'updatedAt'>> = [];
+
+  let sharesToConsume = contractsToConsume * 100;
+
+  const openStockBuys = transactions
+    .filter(t =>
+      t.stockSymbol === ticker &&
+      t.transactionType === 'stock' &&
+      t.buyOrSell === 'Buy' &&
+      t.status === 'Open'
+    )
+    .sort((a, b) => new Date(a.tradeOpenDate).getTime() - new Date(b.tradeOpenDate).getTime());
+
+  for (const lot of openStockBuys) {
+    if (sharesToConsume <= 0) break;
+
+    const lotQty = lot.sharesQuantity || 0;
+    const lotPrice = lot.sharePrice || 0;
+
+    if (lotQty <= sharesToConsume) {
+      const pnl = (exitPrice - lotPrice) * lotQty - lot.fees;
+      transactionsToUpdate.push({
+        id: lot.id,
+        updates: {
+          status: 'Closed',
+          exitPrice,
+          closeDate,
+          profitLoss: pnl
+        }
+      });
+      sharesToConsume -= lotQty;
+    } else {
+      const consumedPnl = (exitPrice - lotPrice) * sharesToConsume - lot.fees;
+      transactionsToUpdate.push({
+        id: lot.id,
+        updates: {
+          sharesQuantity: sharesToConsume,
+          status: 'Closed',
+          exitPrice,
+          closeDate,
+          profitLoss: consumedPnl
+        }
+      });
+
+      const remainingQty = lotQty - sharesToConsume;
+      transactionsToCreate.push({
+        portfolioId: lot.portfolioId,
+        stockSymbol: lot.stockSymbol,
+        tradeOpenDate: lot.tradeOpenDate,
+        buyOrSell: 'Buy',
+        status: 'Open',
+        fees: 0,
+        transactionType: 'stock',
+        sharesQuantity: remainingQty,
+        sharePrice: lotPrice
+      });
+
+      sharesToConsume = 0;
+    }
+  }
+
+  return { transactionsToUpdate, transactionsToCreate };
 };

@@ -18,14 +18,14 @@ db.exec(`
     portfolio_id TEXT,
     stock_symbol TEXT NOT NULL,
     trade_open_date TEXT NOT NULL,
-    expiry_date TEXT NOT NULL,
-    call_or_put TEXT NOT NULL CHECK (call_or_put IN ('Call', 'Put')),
+    expiry_date TEXT,
+    call_or_put TEXT CHECK (call_or_put IN ('Call', 'Put')),
     buy_or_sell TEXT NOT NULL CHECK (buy_or_sell IN ('Buy', 'Sell')),
-    stock_price_current REAL NOT NULL,
-    break_even_price REAL NOT NULL,
-    strike_price REAL NOT NULL,
-    premium REAL NOT NULL,
-    number_of_contracts INTEGER NOT NULL,
+    stock_price_current REAL,
+    break_even_price REAL,
+    strike_price REAL,
+    premium REAL,
+    number_of_contracts INTEGER,
     fees REAL NOT NULL DEFAULT 0,
     status TEXT NOT NULL CHECK (status IN ('Open', 'Closed', 'Expired', 'Assigned', 'Rolled')),
     exit_price REAL,
@@ -38,9 +38,31 @@ db.exec(`
     collateral_amount REAL,
     chain_id TEXT,
     created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL
+    updated_at TEXT NOT NULL,
+    transaction_type TEXT NOT NULL DEFAULT 'option' CHECK (transaction_type IN ('option', 'stock')),
+    shares_quantity INTEGER,
+    share_price REAL,
+    covered_by_type TEXT NOT NULL DEFAULT 'none' CHECK (covered_by_type IN ('stock', 'option', 'none')),
+    covered_by_id TEXT
   )
 `);
+
+// Migrate existing local database schemas if they exist
+try {
+  db.exec("ALTER TABLE transactions ADD COLUMN transaction_type TEXT NOT NULL DEFAULT 'option'");
+} catch (_) {}
+try {
+  db.exec("ALTER TABLE transactions ADD COLUMN shares_quantity INTEGER");
+} catch (_) {}
+try {
+  db.exec("ALTER TABLE transactions ADD COLUMN share_price REAL");
+} catch (_) {}
+try {
+  db.exec("ALTER TABLE transactions ADD COLUMN covered_by_type TEXT NOT NULL DEFAULT 'none'");
+} catch (_) {}
+try {
+  db.exec("ALTER TABLE transactions ADD COLUMN covered_by_id TEXT");
+} catch (_) {}
 
 // Create indexes for better performance
 db.exec(`
@@ -48,6 +70,7 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_transactions_status ON transactions(status);
   CREATE INDEX IF NOT EXISTS idx_transactions_trade_open_date ON transactions(trade_open_date);
   CREATE INDEX IF NOT EXISTS idx_transactions_expiry_date ON transactions(expiry_date);
+  CREATE INDEX IF NOT EXISTS idx_transactions_transaction_type ON transactions(transaction_type);
 `);
 
 // Prepared statements for better performance
@@ -57,8 +80,9 @@ const insertTransaction = db.prepare(`
     stock_price_current, break_even_price, strike_price, premium,
     number_of_contracts, fees, status, exit_price, close_date, profit_loss,
     annualized_ror, cash_reserve, margin_cash_reserve, cost_basis_per_share,
-    collateral_amount, chain_id, created_at, updated_at
-  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    collateral_amount, chain_id, created_at, updated_at,
+    transaction_type, shares_quantity, share_price, covered_by_type, covered_by_id
+  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `);
 
 const updateTransaction = db.prepare(`
@@ -67,7 +91,8 @@ const updateTransaction = db.prepare(`
     stock_price_current = ?, break_even_price = ?, strike_price = ?, premium = ?,
     number_of_contracts = ?, fees = ?, status = ?, exit_price = ?, close_date = ?, profit_loss = ?,
     annualized_ror = ?, cash_reserve = ?, margin_cash_reserve = ?, cost_basis_per_share = ?,
-    collateral_amount = ?, chain_id = ?, updated_at = ?
+    collateral_amount = ?, chain_id = ?, updated_at = ?,
+    transaction_type = ?, shares_quantity = ?, share_price = ?, covered_by_type = ?, covered_by_id = ?
   WHERE id = ?
 `);
 
@@ -82,14 +107,14 @@ function rowToTransaction(row: OptionsTransactionRow): OptionsTransaction {
     portfolioId: row.portfolio_id || '',
     stockSymbol: row.stock_symbol,
     tradeOpenDate: new Date(row.trade_open_date),
-    expiryDate: new Date(row.expiry_date),
-    callOrPut: row.call_or_put,
+    expiryDate: row.expiry_date ? new Date(row.expiry_date) : undefined,
+    callOrPut: row.call_or_put || undefined,
     buyOrSell: row.buy_or_sell,
-    stockPriceCurrent: typeof row.stock_price_current === 'string' ? parseFloat(row.stock_price_current) : row.stock_price_current,
-    breakEvenPrice: typeof row.break_even_price === 'string' ? parseFloat(row.break_even_price) : row.break_even_price,
-    strikePrice: typeof row.strike_price === 'string' ? parseFloat(row.strike_price) : row.strike_price,
-    premium: typeof row.premium === 'string' ? parseFloat(row.premium) : row.premium,
-    numberOfContracts: row.number_of_contracts,
+    stockPriceCurrent: row.stock_price_current !== null && row.stock_price_current !== undefined ? (typeof row.stock_price_current === 'string' ? parseFloat(row.stock_price_current) : row.stock_price_current) : undefined,
+    breakEvenPrice: row.break_even_price !== null && row.break_even_price !== undefined ? (typeof row.break_even_price === 'string' ? parseFloat(row.break_even_price) : row.break_even_price) : undefined,
+    strikePrice: row.strike_price !== null && row.strike_price !== undefined ? (typeof row.strike_price === 'string' ? parseFloat(row.strike_price) : row.strike_price) : undefined,
+    premium: row.premium !== null && row.premium !== undefined ? (typeof row.premium === 'string' ? parseFloat(row.premium) : row.premium) : undefined,
+    numberOfContracts: row.number_of_contracts !== null && row.number_of_contracts !== undefined ? row.number_of_contracts : undefined,
     fees: typeof row.fees === 'string' ? parseFloat(row.fees) : (row.fees || 0),
     status: row.status as 'Open' | 'Closed' | 'Expired' | 'Assigned' | 'Rolled',
     exitPrice: row.exit_price ? (typeof row.exit_price === 'string' ? parseFloat(row.exit_price) : row.exit_price) : undefined,
@@ -103,6 +128,13 @@ function rowToTransaction(row: OptionsTransactionRow): OptionsTransaction {
     chainId: row.chain_id,
     createdAt: new Date(row.created_at),
     updatedAt: new Date(row.updated_at),
+    
+    // Unified stock & link fields
+    transactionType: (row.transaction_type || 'option') as 'option' | 'stock',
+    sharesQuantity: row.shares_quantity || undefined,
+    sharePrice: row.share_price !== null && row.share_price !== undefined ? (typeof row.share_price === 'string' ? parseFloat(row.share_price) : row.share_price) : undefined,
+    coveredByType: (row.covered_by_type || 'none') as 'stock' | 'option' | 'none',
+    coveredById: row.covered_by_id || undefined,
   };
 }
 
@@ -117,9 +149,9 @@ export const dbOperations = {
     const tradeOpenDate = transaction.tradeOpenDate instanceof Date
       ? transaction.tradeOpenDate
       : new Date(transaction.tradeOpenDate);
-    const expiryDate = transaction.expiryDate instanceof Date
-      ? transaction.expiryDate
-      : new Date(transaction.expiryDate);
+    const expiryDate = transaction.expiryDate
+      ? (transaction.expiryDate instanceof Date ? transaction.expiryDate : new Date(transaction.expiryDate))
+      : undefined;
     const closeDate = transaction.closeDate
       ? (transaction.closeDate instanceof Date ? transaction.closeDate : new Date(transaction.closeDate))
       : undefined;
@@ -139,27 +171,32 @@ export const dbOperations = {
       newTransaction.portfolioId,
       newTransaction.stockSymbol,
       newTransaction.tradeOpenDate.toISOString(),
-      newTransaction.expiryDate.toISOString(),
-      newTransaction.callOrPut,
+      newTransaction.expiryDate?.toISOString() || null,
+      newTransaction.callOrPut || null,
       newTransaction.buyOrSell,
-      newTransaction.stockPriceCurrent,
-      newTransaction.breakEvenPrice,
-      newTransaction.strikePrice,
-      newTransaction.premium,
-      newTransaction.numberOfContracts,
+      newTransaction.stockPriceCurrent !== undefined ? newTransaction.stockPriceCurrent : null,
+      newTransaction.breakEvenPrice !== undefined ? newTransaction.breakEvenPrice : null,
+      newTransaction.strikePrice !== undefined ? newTransaction.strikePrice : null,
+      newTransaction.premium !== undefined ? newTransaction.premium : null,
+      newTransaction.numberOfContracts !== undefined ? newTransaction.numberOfContracts : null,
       newTransaction.fees,
       newTransaction.status,
-      newTransaction.exitPrice,
-      newTransaction.closeDate?.toISOString(),
-      newTransaction.profitLoss,
-      newTransaction.annualizedROR,
-      newTransaction.cashReserve,
-      newTransaction.marginCashReserve,
-      newTransaction.costBasisPerShare,
-      newTransaction.collateralAmount,
-      newTransaction.chainId,
+      newTransaction.exitPrice !== undefined ? newTransaction.exitPrice : null,
+      newTransaction.closeDate?.toISOString() || null,
+      newTransaction.profitLoss || 0,
+      newTransaction.annualizedROR !== undefined ? newTransaction.annualizedROR : null,
+      newTransaction.cashReserve !== undefined ? newTransaction.cashReserve : null,
+      newTransaction.marginCashReserve !== undefined ? newTransaction.marginCashReserve : null,
+      newTransaction.costBasisPerShare !== undefined ? newTransaction.costBasisPerShare : null,
+      newTransaction.collateralAmount !== undefined ? newTransaction.collateralAmount : null,
+      newTransaction.chainId || null,
       newTransaction.createdAt.toISOString(),
-      newTransaction.updatedAt.toISOString()
+      newTransaction.updatedAt.toISOString(),
+      newTransaction.transactionType || 'option',
+      newTransaction.sharesQuantity !== undefined ? newTransaction.sharesQuantity : null,
+      newTransaction.sharePrice !== undefined ? newTransaction.sharePrice : null,
+      newTransaction.coveredByType || 'none',
+      newTransaction.coveredById || null
     );
 
     return newTransaction;
@@ -188,26 +225,31 @@ export const dbOperations = {
       updated.portfolioId,
       updated.stockSymbol,
       updated.tradeOpenDate.toISOString(),
-      updated.expiryDate.toISOString(),
-      updated.callOrPut,
+      updated.expiryDate?.toISOString() || null,
+      updated.callOrPut || null,
       updated.buyOrSell,
-      updated.stockPriceCurrent,
-      updated.breakEvenPrice,
-      updated.strikePrice,
-      updated.premium,
-      updated.numberOfContracts,
+      updated.stockPriceCurrent !== undefined ? updated.stockPriceCurrent : null,
+      updated.breakEvenPrice !== undefined ? updated.breakEvenPrice : null,
+      updated.strikePrice !== undefined ? updated.strikePrice : null,
+      updated.premium !== undefined ? updated.premium : null,
+      updated.numberOfContracts !== undefined ? updated.numberOfContracts : null,
       updated.fees,
       updated.status,
-      updated.exitPrice,
-      updated.closeDate?.toISOString(),
-      updated.profitLoss,
-      updated.annualizedROR,
-      updated.cashReserve,
-      updated.marginCashReserve,
-      updated.costBasisPerShare,
-      updated.collateralAmount,
-      updated.chainId,
+      updated.exitPrice !== undefined ? updated.exitPrice : null,
+      updated.closeDate?.toISOString() || null,
+      updated.profitLoss || 0,
+      updated.annualizedROR !== undefined ? updated.annualizedROR : null,
+      updated.cashReserve !== undefined ? updated.cashReserve : null,
+      updated.marginCashReserve !== undefined ? updated.marginCashReserve : null,
+      updated.costBasisPerShare !== undefined ? updated.costBasisPerShare : null,
+      updated.collateralAmount !== undefined ? updated.collateralAmount : null,
+      updated.chainId || null,
       updated.updatedAt.toISOString(),
+      updated.transactionType || 'option',
+      updated.sharesQuantity !== undefined ? updated.sharesQuantity : null,
+      updated.sharePrice !== undefined ? updated.sharePrice : null,
+      updated.coveredByType || 'none',
+      updated.coveredById || null,
       id
     );
 

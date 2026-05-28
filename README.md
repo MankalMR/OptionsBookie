@@ -17,6 +17,7 @@ Email: manohar.mankala@gmail.com
 - **AI Portfolio Narratives**: Automated performance summaries that provide human-readable insights into trade success and headwinds.
 - **ETF Intelligence Terminal**: Robust ETF search engine featuring zero-downtime AI failover and metadata enrichment.
 - **Secure Authentication**: Google OAuth integration with NextAuth.js.
+- **Dedicated Stock Tracking & Holdings Tab**: Specialized view for equities separate from options trades, tracking average cost, cost basis, market value, and option collateral coverage.
 - **Responsive Design**: Modern UI built with Tailwind CSS.
 - **Data Persistence**: PostgreSQL database with Supabase.
 
@@ -125,6 +126,7 @@ options-bookie/
 - **PortfolioSummary**: Portfolio performance overview
 - **AddTransactionModal**: Add new trades
 - **EditTransactionModal**: Edit existing trades
+- **StockHoldingsTab**: Track open stock lots, average costs, market value, and collateral coverage commitments
 - **SummaryView**: Analytics and performance metrics
 
 ## Features in Detail
@@ -142,6 +144,12 @@ options-bookie/
 - Days held tracking
 - Annualized return calculations
 - Break-even price calculations
+
+### Stock Holdings & Collateral Integration
+- **Separate Views**: Options Trades displays active options and chains, while Stock Holdings displays open equity holdings.
+- **FIFO Stock Consumption**: Moves collateral stock lots to `Closed` (Sold) status automatically when a covered call option expires In-the-Money (`Assigned`), calculating equity profit/loss.
+- **Safety Locks**: Prevents editing or deleting stock lots if doing so violates coverage requirements of open covered calls.
+- **Collateral Deduplication**: Options covered by stocks or options compute `$0` option collateral, preventing capital requirement double-counting.
 
 ### Analytics
 - Portfolio performance metrics

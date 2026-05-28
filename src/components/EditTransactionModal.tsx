@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { OptionsTransaction, Portfolio } from '@/types/options';
-import { calculateProfitLoss, calculateDaysHeld } from '@/utils/optionsCalculations';
+import { calculateProfitLoss, calculateDaysHeld, calculateAvailableShares } from '@/utils/optionsCalculations';
 import { dateToLocalString, dateToInputString, parseLocalDate } from '@/utils/dateUtils';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -17,6 +17,7 @@ interface EditTransactionModalProps {
   onClose: () => void;
   onSave: (id: string, updates: Partial<OptionsTransaction>) => void | Promise<void>;
   portfolios?: Portfolio[];
+  transactions?: OptionsTransaction[];
   /** Optional override for the roll flow. When provided, replaces the internal
    *  hardcoded API calls — used by the demo page to redirect to /api/demo/* */
   onRollTrade?: (rollData: RollTradeData) => Promise<void>;
@@ -42,14 +43,14 @@ export interface RollTradeData {
   };
 }
 
-export default function EditTransactionModal({ transaction, onClose, onSave, portfolios = [], onRollTrade }: EditTransactionModalProps) {
+export default function EditTransactionModal({ transaction, onClose, onSave, portfolios = [], transactions = [], onRollTrade }: EditTransactionModalProps) {
   // Ensure dates are Date objects
   const tradeOpenDate = transaction.tradeOpenDate instanceof Date
     ? transaction.tradeOpenDate
     : parseLocalDate(transaction.tradeOpenDate);
-  const expiryDate = transaction.expiryDate instanceof Date
-    ? transaction.expiryDate
-    : parseLocalDate(transaction.expiryDate);
+  const expiryDate = transaction.expiryDate
+    ? (transaction.expiryDate instanceof Date ? transaction.expiryDate : parseLocalDate(transaction.expiryDate))
+    : undefined;
   const closeDate = transaction.closeDate
     ? (transaction.closeDate instanceof Date ? transaction.closeDate : parseLocalDate(transaction.closeDate))
     : undefined;
@@ -58,23 +59,30 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
     portfolioId: transaction.portfolioId || '',
     stockSymbol: transaction.stockSymbol,
     tradeOpenDate: dateToInputString(tradeOpenDate),
-    expiryDate: dateToInputString(expiryDate),
-    callOrPut: transaction.callOrPut,
+    expiryDate: expiryDate ? dateToInputString(expiryDate) : '',
+    callOrPut: transaction.callOrPut || 'Call',
     buyOrSell: transaction.buyOrSell,
-    strikePrice: transaction.strikePrice,
-    premium: transaction.premium,
-    numberOfContracts: transaction.numberOfContracts,
-    fees: transaction.fees || (transaction.numberOfContracts * 0.66), // Auto-calculate if no fees set
+    strikePrice: transaction.strikePrice || 0,
+    premium: transaction.premium || 0,
+    numberOfContracts: transaction.numberOfContracts || 1,
+    fees: transaction.fees || 0,
     status: transaction.status,
     exitPrice: transaction.exitPrice || 0,
     closeDate: closeDate ? dateToInputString(closeDate) : '',
-    collateralAmount: transaction.collateralAmount || 0, // Manual collateral amount
+    collateralAmount: transaction.collateralAmount || 0,
     // Roll fields
     newExpiryDate: '',
-    newStrikePrice: transaction.strikePrice,
+    newStrikePrice: transaction.strikePrice || 0,
     newPremium: 0,
     exitPremium: 0,
-    rollFees: transaction.numberOfContracts * 0.66, // Roll fee per contract
+    rollFees: (transaction.numberOfContracts || 1) * 0.66, // Roll fee per contract
+
+    // Stock lot & coverage fields
+    transactionType: transaction.transactionType || 'option',
+    sharesQuantity: transaction.sharesQuantity || 100,
+    sharePrice: transaction.sharePrice || 0,
+    coveredByType: transaction.coveredByType || 'none',
+    coveredById: transaction.coveredById || '',
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -85,14 +93,17 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
     return amount < 0 ? `-$${Math.abs(amount).toFixed(2)}` : `$${amount.toFixed(2)}`;
   };
 
-  const calculateDaysToExpiry = (expiryDate: string) => {
+  const calculateDaysToExpiry = (expiryDateStr: string) => {
     const today = new Date();
-    const expiry = new Date(expiryDate);
+    const expiry = new Date(expiryDateStr);
     const diffTime = expiry.getTime() - today.getTime();
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   };
 
   const calculateBreakEvenPrice = () => {
+    if (formData.transactionType === 'stock') {
+      return formData.sharePrice;
+    }
     if (formData.callOrPut === 'Call') {
       return formData.strikePrice + formData.premium;
     } else {
@@ -101,45 +112,34 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
   };
 
   const calculateCurrentProfitLoss = () => {
-    // For rolled trades, calculate P&L for display (without double-deducting fees)
+    // Construct a temporary transaction to pass to pure logic
+    const tempTransaction: OptionsTransaction = {
+      ...transaction,
+      stockSymbol: formData.stockSymbol,
+      portfolioId: formData.portfolioId,
+      buyOrSell: formData.buyOrSell,
+      status: formData.status,
+      fees: formData.fees,
+      transactionType: formData.transactionType,
+      sharesQuantity: formData.sharesQuantity,
+      sharePrice: formData.sharePrice,
+      expiryDate: formData.expiryDate ? new Date(formData.expiryDate) : undefined,
+      callOrPut: formData.callOrPut as 'Call' | 'Put',
+      strikePrice: formData.strikePrice,
+      premium: formData.premium,
+      numberOfContracts: formData.numberOfContracts,
+      exitPrice: undefined,
+      closeDate: undefined,
+    };
+
     if (formData.status === 'Rolled') {
       return calculateRolledDisplayProfitLoss();
     }
 
-    // For closed trades, use the exit price to calculate actual P&L
-    if (formData.status === 'Closed' && formData.exitPrice > 0) {
-      const tempTransaction: OptionsTransaction = {
-        ...transaction,
-        stockSymbol: formData.stockSymbol,
-        callOrPut: formData.callOrPut,
-        buyOrSell: formData.buyOrSell,
-        strikePrice: formData.strikePrice,
-        premium: formData.premium,
-        numberOfContracts: formData.numberOfContracts,
-        tradeOpenDate: tradeOpenDate,
-        expiryDate: expiryDate,
-        closeDate: closeDate,
-      };
-      return calculateProfitLoss(tempTransaction, formData.exitPrice);
-    }
-
-    // For open trades, P&L is based purely on premium (not stock price)
-    // This represents the unrealized P&L from the premium received/paid
-    const contracts = formData.numberOfContracts;
-    const premium = formData.premium;
-
-    if (formData.buyOrSell === 'Buy') {
-      // If you bought the option, you paid the premium (negative P&L until closed)
-      return -premium * contracts * 100;
-    } else {
-      // If you sold the option, you received the premium (positive P&L until closed)
-      return premium * contracts * 100;
-    }
+    return calculateProfitLoss(tempTransaction);
   };
 
-
   const calculateRolledDisplayProfitLoss = () => {
-    // Universal P&L calculation: always deduct fees for consistency
     const exitPremium = parseFloat(String(formData.exitPremium || '0')) || 0;
     if (exitPremium <= 0) {
       return 0;
@@ -147,35 +147,31 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
 
     let profitLoss = 0;
     if (formData.buyOrSell === 'Sell') {
-      // Sold originally (received premium), buying back at exit premium
       profitLoss = (formData.premium - exitPremium) * formData.numberOfContracts * 100;
     } else {
-      // Bought originally (paid premium), selling at exit premium
       profitLoss = (exitPremium - formData.premium) * formData.numberOfContracts * 100;
     }
 
-    // Universal rule: always deduct fees from P&L
     profitLoss -= formData.fees;
-
     return profitLoss;
   };
 
   const calculateFinalProfitLoss = () => {
-    if (!formData.exitPrice || formData.exitPrice <= 0) {
-      return 0;
-    }
-
     const tempTransaction: OptionsTransaction = {
       ...transaction,
       stockSymbol: formData.stockSymbol,
-      callOrPut: formData.callOrPut,
+      portfolioId: formData.portfolioId,
       buyOrSell: formData.buyOrSell,
+      status: formData.status,
+      fees: formData.fees,
+      transactionType: formData.transactionType,
+      sharesQuantity: formData.sharesQuantity,
+      sharePrice: formData.sharePrice,
+      expiryDate: formData.expiryDate ? new Date(formData.expiryDate) : undefined,
+      callOrPut: formData.callOrPut as 'Call' | 'Put',
       strikePrice: formData.strikePrice,
       premium: formData.premium,
       numberOfContracts: formData.numberOfContracts,
-      tradeOpenDate: tradeOpenDate,
-      expiryDate: expiryDate,
-      closeDate: closeDate,
     };
 
     return calculateProfitLoss(tempTransaction, formData.exitPrice);
@@ -183,38 +179,171 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
 
   const calculateDaysHeldValue = () => {
     const openDate = new Date(formData.tradeOpenDate);
-    const closeDate = formData.status === 'Closed' && formData.closeDate
+    const closeDateObj = ['Closed', 'Expired', 'Assigned', 'Rolled'].includes(formData.status) && formData.closeDate
       ? new Date(formData.closeDate)
       : undefined;
 
-    return calculateDaysHeld(openDate, closeDate);
+    return calculateDaysHeld(openDate, closeDateObj);
   };
 
-  const isFormValid = useMemo(() => {
+  // Fetch available shares and open long calls for the current symbol and portfolio
+  const availableSharesInfo = useMemo(() => {
+    if (formData.transactionType !== 'option' || !formData.stockSymbol) {
+      return { totalShares: 0, committedShares: 0, availableShares: 0, avgPrice: 0 };
+    }
+    // Filter out current transaction to avoid self-commitment counting
+    const portfolioTxns = (transactions || []).filter(t => t.portfolioId === formData.portfolioId && t.id !== transaction.id);
+    return calculateAvailableShares(portfolioTxns, formData.stockSymbol);
+  }, [transactions, formData.portfolioId, formData.stockSymbol, formData.transactionType, transaction.id]);
+
+  const openLongCalls = useMemo(() => {
+    if (formData.transactionType !== 'option' || !formData.stockSymbol) return [];
+    return (transactions || []).filter(t =>
+      t.portfolioId === formData.portfolioId &&
+      t.stockSymbol === formData.stockSymbol &&
+      t.transactionType === 'option' &&
+      t.buyOrSell === 'Buy' &&
+      t.callOrPut === 'Call' &&
+      t.status === 'Open' &&
+      t.id !== transaction.id
+    );
+  }, [transactions, formData.portfolioId, formData.stockSymbol, formData.transactionType, transaction.id]);
+
+  const validateAndSetErrors = () => {
     const newErrors: Record<string, string> = {};
 
-    // Basic validation
     if (!formData.stockSymbol) newErrors.stockSymbol = 'Stock symbol is required';
-    if (!formData.expiryDate) newErrors.expiryDate = 'Expiry date is required';
-    if (formData.strikePrice <= 0) newErrors.strikePrice = 'Strike price must be greater than 0';
-    if (formData.premium <= 0) newErrors.premium = 'Premium must be greater than 0';
-    if (formData.numberOfContracts <= 0) newErrors.numberOfContracts = 'Number of contracts must be greater than 0';
 
-    // If closing the trade, require exit price and close date
-    if (formData.status === 'Closed') {
-      if (!formData.exitPrice || formData.exitPrice <= 0) {
-        newErrors.exitPrice = 'Exit price is required when closing trade';
+    if (formData.transactionType === 'stock') {
+      if (formData.sharesQuantity <= 0) newErrors.sharesQuantity = 'Quantity must be greater than 0';
+      if (formData.sharePrice <= 0) newErrors.sharePrice = 'Share price must be greater than 0';
+
+      // Validation for open covered calls: check if reducing/closing/selling this stock lot violates coverage requirement
+      const portfolioTxns = (transactions || []).filter(t => t.portfolioId === formData.portfolioId && t.id !== transaction.id);
+      
+      const otherOpenShares = portfolioTxns
+        .filter(t => t.stockSymbol === formData.stockSymbol && t.transactionType === 'stock' && t.buyOrSell === 'Buy' && t.status === 'Open')
+        .reduce((sum, t) => sum + (t.sharesQuantity || 0), 0);
+
+      const proposedLotShares = (formData.buyOrSell === 'Buy' && formData.status === 'Open') ? formData.sharesQuantity : 0;
+      const proposedTotalShares = otherOpenShares + proposedLotShares;
+
+      const openShortCalls = portfolioTxns.filter(t =>
+        t.stockSymbol === formData.stockSymbol &&
+        t.transactionType === 'option' &&
+        t.buyOrSell === 'Sell' &&
+        t.callOrPut === 'Call' &&
+        t.status === 'Open' &&
+        t.coveredByType === 'stock'
+      );
+      const committedShares = openShortCalls.reduce((sum, t) => sum + ((t.numberOfContracts || 0) * 100), 0);
+
+      if (proposedTotalShares < committedShares) {
+        newErrors.sharesQuantity = `Cannot reduce/close stock. Open covered calls require at least ${committedShares} shares, but this change would leave only ${proposedTotalShares} shares.`;
+        if (formData.buyOrSell === 'Sell') {
+          newErrors.buyOrSell = `Cannot sell stock position. Open covered calls require at least ${committedShares} shares.`;
+        }
+        if (formData.status === 'Closed') {
+          newErrors.status = `Cannot close/sell stock position. Open covered calls require at least ${committedShares} shares.`;
+        }
       }
-      if (!formData.closeDate) {
-        newErrors.closeDate = 'Close date is required when closing trade';
+
+      if (formData.status === 'Closed') {
+        if (!formData.exitPrice || formData.exitPrice <= 0) {
+          newErrors.exitPrice = 'Exit price is required when closing stock';
+        }
+        if (!formData.closeDate) {
+          newErrors.closeDate = 'Close date is required';
+        }
+        if (formData.closeDate && new Date(formData.closeDate) < new Date(formData.tradeOpenDate)) {
+          newErrors.closeDate = 'Close date cannot be before open date';
+        }
       }
-      if (formData.closeDate && new Date(formData.closeDate) < new Date(formData.tradeOpenDate)) {
-        newErrors.closeDate = 'Close date cannot be before open date';
+    } else {
+      // Option validation
+      if (!formData.expiryDate) newErrors.expiryDate = 'Expiry date is required';
+      if (formData.strikePrice <= 0) newErrors.strikePrice = 'Strike price must be greater than 0';
+      if (formData.premium <= 0) newErrors.premium = 'Premium must be greater than 0';
+      if (formData.numberOfContracts <= 0) newErrors.numberOfContracts = 'Number of contracts must be greater than 0';
+
+      if (['Closed', 'Expired', 'Assigned'].includes(formData.status)) {
+        if (formData.status === 'Closed' && (!formData.exitPrice || formData.exitPrice < 0)) {
+          newErrors.exitPrice = 'Exit price is required when closing option';
+        }
+        if (!formData.closeDate) {
+          newErrors.closeDate = 'Close date is required';
+        }
+        if (formData.closeDate && new Date(formData.closeDate) < new Date(formData.tradeOpenDate)) {
+          newErrors.closeDate = 'Close date cannot be before open date';
+        }
+      }
+
+      // Sell Call Coverage linkage checks
+      if (formData.buyOrSell === 'Sell' && formData.callOrPut === 'Call' && formData.status === 'Open') {
+        if (formData.coveredByType === 'none') {
+          newErrors.coveredByType = 'Covered calls must be covered by stock or a long option. Naked selling is disabled.';
+        } else if (formData.coveredByType === 'stock') {
+          const reqShares = formData.numberOfContracts * 100;
+          if (availableSharesInfo.availableShares < reqShares) {
+            newErrors.coveredByType = `Insufficient available stock. You have ${availableSharesInfo.availableShares} shares, but need ${reqShares} shares.`;
+          }
+        } else if (formData.coveredByType === 'option') {
+          if (!formData.coveredById) {
+            newErrors.coveredById = 'You must select a covering long call option.';
+          } else {
+            const coveringLong = openLongCalls.find(t => t.id === formData.coveredById);
+            if (coveringLong) {
+              const coveringContracts = coveringLong.numberOfContracts || 0;
+              if (formData.numberOfContracts > coveringContracts) {
+                newErrors.numberOfContracts = `Short call contracts (${formData.numberOfContracts}) cannot exceed covering long contracts (${coveringContracts}).`;
+              }
+            }
+          }
+        }
+      }
+
+      if (formData.status === 'Rolled') {
+        if (!formData.newExpiryDate) {
+          newErrors.newExpiryDate = 'New expiry date is required when rolling trade';
+        }
+        if (formData.newStrikePrice <= 0) {
+          newErrors.newStrikePrice = 'New strike price must be greater than 0';
+        }
+        if (formData.newPremium <= 0) {
+          newErrors.newPremium = 'New premium must be greater than 0';
+        }
+        if (formData.exitPremium <= 0) {
+          newErrors.exitPremium = 'Exit premium is required when rolling trade';
+        }
+        if (formData.newExpiryDate && new Date(formData.newExpiryDate) < new Date(formData.expiryDate)) {
+          newErrors.newExpiryDate = 'New expiry date cannot be before current expiry date';
+        }
       }
     }
 
+    setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
-  }, [formData]);
+  };
+
+  const isFormValid = useMemo(() => {
+    // Run quick checks for disabled state of submit button
+    if (!formData.stockSymbol) return false;
+    if (formData.transactionType === 'stock') {
+      if (formData.sharesQuantity <= 0 || formData.sharePrice <= 0) return false;
+      if (formData.status === 'Closed' && (!formData.exitPrice || !formData.closeDate)) return false;
+    } else {
+      if (!formData.expiryDate || formData.strikePrice <= 0 || formData.premium <= 0 || formData.numberOfContracts <= 0) return false;
+      if (['Closed', 'Expired', 'Assigned'].includes(formData.status) && !formData.closeDate) return false;
+      if (formData.status === 'Closed' && formData.exitPrice < 0) return false;
+      if (formData.buyOrSell === 'Sell' && formData.callOrPut === 'Call' && formData.status === 'Open') {
+        if (formData.coveredByType === 'none') return false;
+        if (formData.coveredByType === 'stock' && availableSharesInfo.availableShares < formData.numberOfContracts * 100) return false;
+        if (formData.coveredByType === 'option' && !formData.coveredById) return false;
+      }
+      if (formData.status === 'Rolled' && (!formData.newExpiryDate || formData.newStrikePrice <= 0 || formData.newPremium <= 0 || formData.exitPremium <= 0)) return false;
+    }
+    return true;
+  }, [formData, availableSharesInfo.availableShares]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -224,41 +353,65 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
     }
 
     const breakEvenPrice = calculateBreakEvenPrice();
-    const profitLoss = formData.status === 'Closed' ? calculateFinalProfitLoss() : calculateCurrentProfitLoss();
+    const profitLoss = ['Closed', 'Expired', 'Assigned'].includes(formData.status) ? calculateFinalProfitLoss() : calculateCurrentProfitLoss();
 
     const updates: Partial<OptionsTransaction> = {
       portfolioId: formData.portfolioId,
       stockSymbol: formData.stockSymbol,
       tradeOpenDate: parseLocalDate(formData.tradeOpenDate),
-      expiryDate: parseLocalDate(formData.expiryDate),
-      callOrPut: formData.callOrPut,
-      buyOrSell: formData.buyOrSell,
-      strikePrice: formData.strikePrice,
-      premium: formData.premium,
-      numberOfContracts: formData.numberOfContracts,
-      fees: formData.fees,
       status: formData.status,
-      collateralAmount: formData.collateralAmount || undefined,
+      fees: formData.fees,
+      transactionType: formData.transactionType,
+      buyOrSell: formData.buyOrSell,
       breakEvenPrice,
       profitLoss,
       updatedAt: new Date(),
+
+      ...(formData.transactionType === 'stock' ? {
+        sharesQuantity: formData.sharesQuantity,
+        sharePrice: formData.sharePrice,
+        expiryDate: undefined,
+        callOrPut: undefined,
+        strikePrice: undefined,
+        premium: undefined,
+        numberOfContracts: undefined,
+        coveredByType: undefined,
+        coveredById: undefined,
+        exitPrice: formData.status === 'Closed' ? formData.exitPrice : undefined,
+        closeDate: formData.status === 'Closed' ? parseLocalDate(formData.closeDate) : undefined,
+      } : {
+        expiryDate: parseLocalDate(formData.expiryDate),
+        callOrPut: formData.callOrPut as 'Call' | 'Put',
+        strikePrice: formData.strikePrice,
+        premium: formData.premium,
+        numberOfContracts: formData.numberOfContracts,
+        collateralAmount: formData.collateralAmount || undefined,
+        coveredByType: formData.coveredByType as 'stock' | 'option' | 'none',
+        coveredById: formData.coveredByType === 'option' ? formData.coveredById : undefined,
+        exitPrice: ['Closed', 'Expired', 'Assigned'].includes(formData.status) ? formData.exitPrice : undefined,
+        closeDate: ['Closed', 'Expired', 'Assigned'].includes(formData.status) ? parseLocalDate(formData.closeDate) : undefined,
+      })
     };
 
     setSubmitStatus('loading');
     setApiError(null);
     try {
       if (formData.status === 'Closed' || formData.status === 'Assigned' || formData.status === 'Expired') {
-        updates.exitPrice = formData.exitPrice;
-        updates.closeDate = parseLocalDate(formData.closeDate);
-        // Calculate days held dynamically for annualized ROR
-        const daysHeld = Math.max(1, Math.floor((new Date().getTime() - new Date(formData.tradeOpenDate).getTime()) / (1000 * 60 * 60 * 24)));
-        updates.annualizedROR = daysHeld > 0 && profitLoss !== 0 ?
-          ((profitLoss / (formData.premium * formData.numberOfContracts * 100)) * (365 / daysHeld)) * 100 :
-          undefined;
+        const daysHeld = Math.max(1, Math.floor((new Date(formData.closeDate).getTime() - new Date(formData.tradeOpenDate).getTime()) / (1000 * 60 * 60 * 24)));
+        
+        if (formData.transactionType === 'option') {
+          updates.annualizedROR = daysHeld > 0 && profitLoss !== 0 ?
+            ((profitLoss / (formData.premium * formData.numberOfContracts * 100)) * (365 / daysHeld)) * 100 :
+            undefined;
+        } else {
+          updates.annualizedROR = daysHeld > 0 && profitLoss !== 0 ?
+            ((profitLoss / (formData.sharePrice * formData.sharesQuantity)) * (365 / daysHeld)) * 100 :
+            undefined;
+        }
         await onSave(transaction.id, updates);
       } else if (formData.status === 'Rolled') {
         await handleRollTrade();
-        return; // handleRollTrade manages its own status and closing
+        return; 
       } else {
         updates.exitPrice = undefined;
         updates.closeDate = undefined;
@@ -276,62 +429,14 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
     }
   };
 
-  const validateAndSetErrors = () => {
-    const newErrors: Record<string, string> = {};
-
-    // Basic validation
-    if (!formData.stockSymbol) newErrors.stockSymbol = 'Stock symbol is required';
-    if (!formData.expiryDate) newErrors.expiryDate = 'Expiry date is required';
-    if (formData.strikePrice <= 0) newErrors.strikePrice = 'Strike price must be greater than 0';
-    if (formData.premium <= 0) newErrors.premium = 'Premium must be greater than 0';
-    if (formData.numberOfContracts <= 0) newErrors.numberOfContracts = 'Number of contracts must be greater than 0';
-
-    // If closing, assigning, or expiring the trade, require exit price and close date
-    if (formData.status === 'Closed' || formData.status === 'Assigned' || formData.status === 'Expired') {
-      // Exit price is required for Closed, but for Assigned/Expired it typically defaults to 0
-      if (formData.status === 'Closed' && (!formData.exitPrice || formData.exitPrice < 0)) {
-        newErrors.exitPrice = 'Exit price is required when closing trade';
-      }
-      if (!formData.closeDate) {
-        newErrors.closeDate = 'Close date is required';
-      }
-      if (formData.closeDate && new Date(formData.closeDate) < new Date(formData.tradeOpenDate)) {
-        newErrors.closeDate = 'Close date cannot be before open date';
-      }
-    }
-
-    // If rolling the trade, require all roll fields
-    if (formData.status === 'Rolled') {
-      if (!formData.newExpiryDate) {
-        newErrors.newExpiryDate = 'New expiry date is required when rolling trade';
-      }
-      if (formData.newStrikePrice <= 0) {
-        newErrors.newStrikePrice = 'New strike price must be greater than 0';
-      }
-      if (formData.newPremium <= 0) {
-        newErrors.newPremium = 'New premium must be greater than 0';
-      }
-      if (formData.exitPremium <= 0) {
-        newErrors.exitPremium = 'Exit premium is required when rolling trade';
-      }
-      if (formData.newExpiryDate && new Date(formData.newExpiryDate) < new Date(formData.expiryDate)) {
-        newErrors.newExpiryDate = 'New expiry date cannot be before current expiry date';
-      }
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
   const handleChange = (field: string, value: string | number) => {
     setFormData(prev => {
       const newData = { ...prev, [field]: value };
 
-      // Auto-calculate fees based on number of contracts (0.66 per contract)
       if (field === 'numberOfContracts') {
         const contracts = typeof value === 'number' ? value : parseInt(value as string) || 1;
         newData.fees = contracts * 0.66;
-        newData.rollFees = contracts * 0.66; // Also update roll fees
+        newData.rollFees = contracts * 0.66;
       }
 
       return newData;
@@ -350,11 +455,9 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
         updates.exitPrice = 0;
         updates.closeDate = '';
       } else if (newStatus === 'Assigned' || newStatus === 'Expired') {
-        // Set exitPrice to 0 and closeDate to today by default
         updates.exitPrice = 0;
         updates.closeDate = dateToInputString(new Date());
       } else if (newStatus === 'Closed') {
-        // For Closed, keep current values or set today's date if empty
         updates.closeDate = prev.closeDate || dateToInputString(new Date());
       }
 
@@ -367,7 +470,6 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
 
   const handleRollTrade = async () => {
     try {
-      // --- Shared data preparation (used by both production & demo paths) ---
       let rolledProfitLoss = 0;
       if (formData.buyOrSell === 'Sell') {
         rolledProfitLoss = (formData.premium - formData.exitPremium) * formData.numberOfContracts * 100;
@@ -400,7 +502,7 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
         stockSymbol: formData.stockSymbol,
         tradeOpenDate: new Date(),
         expiryDate: new Date(formData.newExpiryDate),
-        callOrPut: formData.callOrPut,
+        callOrPut: formData.callOrPut as 'Call' | 'Put',
         buyOrSell: formData.buyOrSell,
         strikePrice: formData.newStrikePrice,
         premium: formData.newPremium,
@@ -410,7 +512,10 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
         breakEvenPrice,
         profitLoss: newProfitLoss,
         stockPriceCurrent: 0,
-        annualizedROR: undefined as undefined,
+        annualizedROR: undefined,
+        transactionType: 'option' as const,
+        coveredByType: formData.coveredByType as 'stock' | 'option' | 'none',
+        coveredById: formData.coveredByType === 'option' ? formData.coveredById : undefined,
       };
 
       const newChainData = {
@@ -423,7 +528,6 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
         totalChainPnl: 0,
       };
 
-      // --- Delegate to onRollTrade override if provided (e.g. demo mode) ---
       if (onRollTrade) {
         await onRollTrade({
           originalUpdates,
@@ -435,7 +539,6 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
         return;
       }
 
-      // --- Production path: use real /api/* endpoints ---
       let chain;
       if (transaction.chainId) {
         const existingChainResponse = await fetch(`/api/trade-chains/${transaction.chainId}`);
@@ -454,14 +557,11 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
         chain = await chainResponse.json();
       }
 
-      // Apply chain id to both sets of data
       const rolledTradeUpdates = { ...originalUpdates, chainId: chain.id };
       const newTradeData = { ...newTradeBase, chainId: chain.id };
 
-      // 1. Update current trade to "Rolled" status
-      onSave(transaction.id, rolledTradeUpdates);
+      await onSave(transaction.id, rolledTradeUpdates);
 
-      // 2. Create the new open trade via API
       const newTradeResponse = await fetch('/api/transactions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -485,7 +585,7 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
     <Modal
       isOpen={true}
       onClose={onClose}
-      title="Edit Trade"
+      title={`Edit ${formData.transactionType === 'stock' ? 'Stock' : 'Option'} Trade`}
       size="lg"
     >
       <form onSubmit={handleSubmit} className="space-y-4">
@@ -496,7 +596,7 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
           </div>
         )}
 
-        {/* Portfolio - Full Width */}
+        {/* Portfolio */}
         {portfolios.length > 0 && (
           <div className="space-y-2">
             <Label htmlFor="portfolioId">Portfolio</Label>
@@ -512,7 +612,6 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
                 ))}
               </SelectContent>
             </Select>
-            {errors.portfolioId && <p className="text-sm text-destructive">{errors.portfolioId}</p>}
           </div>
         )}
 
@@ -532,186 +631,315 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
           </div>
 
           <div className="space-y-2">
-            <Label>Status</Label>
+            <Label className={errors.status ? 'text-destructive font-medium' : ''}>Status</Label>
             <Select
               value={formData.status}
               onValueChange={(value) => handleStatusChange(value as 'Open' | 'Closed' | 'Expired' | 'Assigned' | 'Rolled')}
             >
-              <SelectTrigger className="w-full">
+              <SelectTrigger className={errors.status ? 'border-destructive w-full' : 'w-full'}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="Open">Open</SelectItem>
                 <SelectItem value="Closed">Closed</SelectItem>
-                <SelectItem value="Expired">Expired</SelectItem>
-                <SelectItem value="Assigned">Assigned</SelectItem>
-                <SelectItem value="Rolled">Rolled</SelectItem>
+                {formData.transactionType === 'option' && <SelectItem value="Expired">Expired</SelectItem>}
+                {formData.transactionType === 'option' && <SelectItem value="Assigned">Assigned</SelectItem>}
+                {formData.transactionType === 'option' && <SelectItem value="Rolled">Rolled</SelectItem>}
               </SelectContent>
             </Select>
+            {errors.status && <p className="text-xs text-destructive mt-1">{errors.status}</p>}
           </div>
         </div>
 
-        {/* Type and Action */}
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label htmlFor="callOrPut">Type</Label>
-            <Select value={formData.callOrPut} onValueChange={(value) => handleChange('callOrPut', value)}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select option type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Call">Call</SelectItem>
-                <SelectItem value="Put">Put</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+        {/* Option specific fields */}
+        {formData.transactionType === 'option' && (
+          <>
+            {/* Action and Type */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="buyOrSell">Action</Label>
+                <Select value={formData.buyOrSell} onValueChange={(value) => handleChange('buyOrSell', value)}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select action" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Buy">Buy</SelectItem>
+                    <SelectItem value="Sell">Sell</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="buyOrSell">Action</Label>
-            <Select value={formData.buyOrSell} onValueChange={(value) => handleChange('buyOrSell', value)}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select action" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Buy">Buy</SelectItem>
-                <SelectItem value="Sell">Sell</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
+              <div className="space-y-2">
+                <Label htmlFor="callOrPut">Type</Label>
+                <Select value={formData.callOrPut} onValueChange={(value) => handleChange('callOrPut', value)}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select option type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Call">Call</SelectItem>
+                    <SelectItem value="Put">Put</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
 
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label htmlFor="tradeOpenDate">Open Date</Label>
-            <Input
-              id="tradeOpenDate"
-              type="date"
-              value={formData.tradeOpenDate}
-              onChange={(e) => handleChange('tradeOpenDate', e.target.value)}
-              className="w-full appearance-none min-h-[2.5rem]"
-            />
-          </div>
+            {/* Open Date and Expiry Date */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="tradeOpenDate">Open Date</Label>
+                <Input
+                  id="tradeOpenDate"
+                  type="date"
+                  value={formData.tradeOpenDate}
+                  onChange={(e) => handleChange('tradeOpenDate', e.target.value)}
+                  className="w-full appearance-none min-h-[2.5rem]"
+                />
+              </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="expiryDate">Expiry Date</Label>
-            <Input
-              id="expiryDate"
-              type="date"
-              value={formData.expiryDate}
-              onChange={(e) => handleChange('expiryDate', e.target.value)}
-              className={errors.expiryDate ? 'border-destructive w-full appearance-none min-h-[2.5rem]' : 'w-full appearance-none min-h-[2.5rem]'}
-            />
-            {errors.expiryDate && <p className="text-sm text-destructive">{errors.expiryDate}</p>}
-          </div>
-        </div>
+              <div className="space-y-2">
+                <Label htmlFor="expiryDate">Expiry Date</Label>
+                <Input
+                  id="expiryDate"
+                  type="date"
+                  value={formData.expiryDate}
+                  onChange={(e) => handleChange('expiryDate', e.target.value)}
+                  className={errors.expiryDate ? 'border-destructive w-full appearance-none min-h-[2.5rem]' : 'w-full appearance-none min-h-[2.5rem]'}
+                />
+                {errors.expiryDate && <p className="text-sm text-destructive">{errors.expiryDate}</p>}
+              </div>
+            </div>
 
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label htmlFor="strikePrice">Strike Price</Label>
-            <Input
-              id="strikePrice"
-              type="number"
-              step="0.01"
-              value={formData.strikePrice}
-              onChange={(e) => handleChange('strikePrice', parseFloat(e.target.value) || 0)}
-              className={errors.strikePrice ? 'border-destructive w-full' : 'w-full'}
-            />
-            {errors.strikePrice && <p className="text-sm text-destructive">{errors.strikePrice}</p>}
-          </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="strikePrice">Strike Price</Label>
+                <Input
+                  id="strikePrice"
+                  type="number"
+                  step="0.01"
+                  value={formData.strikePrice}
+                  onChange={(e) => handleChange('strikePrice', parseFloat(e.target.value) || 0)}
+                  className={errors.strikePrice ? 'border-destructive w-full' : 'w-full'}
+                />
+                {errors.strikePrice && <p className="text-sm text-destructive">{errors.strikePrice}</p>}
+              </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="premium">Premium</Label>
-            <Input
-              id="premium"
-              type="number"
-              step="0.01"
-              value={formData.premium}
-              onChange={(e) => handleChange('premium', parseFloat(e.target.value) || 0)}
-              className={errors.premium ? 'border-destructive w-full' : 'w-full'}
-            />
-            {errors.premium && <p className="text-sm text-destructive">{errors.premium}</p>}
-          </div>
-        </div>
+              <div className="space-y-2">
+                <Label htmlFor="premium">Premium</Label>
+                <Input
+                  id="premium"
+                  type="number"
+                  step="0.01"
+                  value={formData.premium}
+                  onChange={(e) => handleChange('premium', parseFloat(e.target.value) || 0)}
+                  className={errors.premium ? 'border-destructive w-full' : 'w-full'}
+                />
+                {errors.premium && <p className="text-sm text-destructive">{errors.premium}</p>}
+              </div>
+            </div>
 
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label htmlFor="numberOfContracts">Contracts</Label>
-            <Input
-              id="numberOfContracts"
-              type="number"
-              value={formData.numberOfContracts}
-              onChange={(e) => handleChange('numberOfContracts', parseInt(e.target.value) || 1)}
-              className={errors.numberOfContracts ? 'border-destructive w-full' : 'w-full'}
-            />
-            {errors.numberOfContracts && <p className="text-sm text-destructive">{errors.numberOfContracts}</p>}
-          </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="numberOfContracts">Contracts</Label>
+                <Input
+                  id="numberOfContracts"
+                  type="number"
+                  value={formData.numberOfContracts}
+                  onChange={(e) => handleChange('numberOfContracts', parseInt(e.target.value) || 1)}
+                  className={errors.numberOfContracts ? 'border-destructive w-full' : 'w-full'}
+                />
+                {errors.numberOfContracts && <p className="text-sm text-destructive">{errors.numberOfContracts}</p>}
+              </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="fees">Fees</Label>
-            <Input
-              id="fees"
-              type="number"
-              step="0.01"
-              value={formData.fees}
-              onChange={(e) => handleChange('fees', parseFloat(e.target.value) || 0)}
-              className="w-full"
-            />
-          </div>
-        </div>
+              <div className="space-y-2">
+                <Label htmlFor="fees">Fees</Label>
+                <Input
+                  id="fees"
+                  type="number"
+                  step="0.01"
+                  value={formData.fees}
+                  onChange={(e) => handleChange('fees', parseFloat(e.target.value) || 0)}
+                  className="w-full"
+                />
+              </div>
+            </div>
 
-        {/* Collateral Amount - Only show for covered calls */}
-        {formData.buyOrSell === 'Sell' && formData.callOrPut === 'Call' && (
-          <div className="space-y-2">
-            <Label htmlFor="collateralAmount">
-              Collateral Amount ($)
-              <span className="text-sm text-muted-foreground ml-2">
-                (Optional - for accurate RoR calculation)
-              </span>
-            </Label>
-            <Input
-              id="collateralAmount"
-              type="number"
-              step="0.01"
-              value={formData.collateralAmount || ''}
-              onChange={(e) => handleChange('collateralAmount', parseFloat(e.target.value) || 0)}
-              className="w-full"
-              placeholder="Enter actual collateral deployed (e.g., LEAP cost for PMCC)"
-            />
-            <p className="text-xs text-muted-foreground">
-              Leave blank to use automatic calculation. For PMCC strategies, enter the cost of your LEAP option.
-            </p>
-          </div>
+            {/* Coverage Selection - Required for Short Calls */}
+            {formData.buyOrSell === 'Sell' && formData.callOrPut === 'Call' && formData.status === 'Open' && (
+              <div className="bg-blue-50 dark:bg-blue-950/20 p-3 rounded-md space-y-3 border border-blue-200 dark:border-blue-900">
+                <div className="space-y-2">
+                  <Label htmlFor="coveredByType" className={errors.coveredByType ? 'text-destructive font-medium' : ''}>
+                    Coverage Type {transaction.coveredByType === undefined && <span className="text-amber-600 dark:text-amber-400 font-semibold">(Migration Needed)</span>}
+                  </Label>
+                  <Select value={formData.coveredByType} onValueChange={(value) => handleChange('coveredByType', value)}>
+                    <SelectTrigger className="w-full bg-background">
+                      <SelectValue placeholder="Select coverage" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="stock">Covered by Stock Position</SelectItem>
+                      <SelectItem value="option">Covered by Long Call (PMCC)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {errors.coveredByType && <p className="text-xs text-destructive mt-1">{errors.coveredByType}</p>}
+                </div>
+
+                {formData.coveredByType === 'stock' && (
+                  <div className="text-xs text-blue-700 dark:text-blue-300">
+                    <p>Available Shares: <span className="font-semibold">{availableSharesInfo.availableShares}</span></p>
+                    <p>Required Shares: <span className="font-semibold">{formData.numberOfContracts * 100}</span> (100 shares per contract)</p>
+                  </div>
+                )}
+
+                {formData.coveredByType === 'option' && (
+                  <div className="space-y-2">
+                    <Label htmlFor="coveredById" className={errors.coveredById ? 'text-destructive font-medium' : ''}>Select Covering Long Call</Label>
+                    {openLongCalls.length === 0 ? (
+                      <p className="text-xs text-destructive font-medium">No open long call options found for {formData.stockSymbol || 'this symbol'}.</p>
+                    ) : (
+                      <Select value={formData.coveredById} onValueChange={(value) => handleChange('coveredById', value)}>
+                        <SelectTrigger className="w-full bg-background">
+                          <SelectValue placeholder="Select long call..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {openLongCalls.map(t => (
+                            <SelectItem key={t.id} value={t.id}>
+                              Expiry: {t.expiryDate ? new Date(t.expiryDate).toLocaleDateString() : 'N/A'}, Strike: ${t.strikePrice} ({t.numberOfContracts} contract{t.numberOfContracts !== 1 ? 's' : ''})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                    {errors.coveredById && <p className="text-xs text-destructive mt-1">{errors.coveredById}</p>}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Collateral Override Amount */}
+            {formData.buyOrSell === 'Sell' && formData.callOrPut === 'Call' && (
+              <div className="space-y-2">
+                <Label htmlFor="collateralAmount">
+                  Collateral Override ($)
+                  <span className="text-sm text-muted-foreground ml-2">(Optional)</span>
+                </Label>
+                <Input
+                  id="collateralAmount"
+                  type="number"
+                  step="0.01"
+                  value={formData.collateralAmount || ''}
+                  onChange={(e) => handleChange('collateralAmount', parseFloat(e.target.value) || 0)}
+                  className="w-full"
+                  placeholder="Enter actual collateral deployed"
+                />
+              </div>
+            )}
+          </>
         )}
 
-        {/* Exit Information - Only show when closing, assigning, or expiring trade */}
+        {/* Stock specific fields */}
+        {formData.transactionType === 'stock' && (
+          <>
+            {/* Action and Open Date */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="buyOrSell" className={errors.buyOrSell ? 'text-destructive font-medium' : ''}>Action</Label>
+                <Select value={formData.buyOrSell} onValueChange={(value) => handleChange('buyOrSell', value)}>
+                  <SelectTrigger className={errors.buyOrSell ? 'border-destructive w-full' : 'w-full'}>
+                    <SelectValue placeholder="Select action" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Buy">Buy</SelectItem>
+                    <SelectItem value="Sell">Sell</SelectItem>
+                  </SelectContent>
+                </Select>
+                {errors.buyOrSell && <p className="text-xs text-destructive mt-1">{errors.buyOrSell}</p>}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="tradeOpenDate">Open Date</Label>
+                <Input
+                  id="tradeOpenDate"
+                  type="date"
+                  value={formData.tradeOpenDate}
+                  onChange={(e) => handleChange('tradeOpenDate', e.target.value)}
+                  className="w-full appearance-none min-h-[2.5rem]"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="sharesQuantity" className={errors.sharesQuantity ? 'text-destructive' : ''}>
+                  Quantity (Shares)
+                </Label>
+                <Input
+                  id="sharesQuantity"
+                  type="number"
+                  value={formData.sharesQuantity}
+                  onChange={(e) => handleChange('sharesQuantity', parseInt(e.target.value) || 0)}
+                  className={errors.sharesQuantity ? 'border-destructive w-full' : 'w-full'}
+                />
+                {errors.sharesQuantity && <p className="text-sm text-destructive">{errors.sharesQuantity}</p>}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="sharePrice" className={errors.sharePrice ? 'text-destructive' : ''}>
+                  Share Purchase Price
+                </Label>
+                <Input
+                  id="sharePrice"
+                  type="number"
+                  step="0.01"
+                  value={formData.sharePrice}
+                  onChange={(e) => handleChange('sharePrice', parseFloat(e.target.value) || 0)}
+                  className={errors.sharePrice ? 'border-destructive w-full' : 'w-full'}
+                />
+                {errors.sharePrice && <p className="text-sm text-destructive">{errors.sharePrice}</p>}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="fees">Fees</Label>
+              <Input
+                id="fees"
+                type="number"
+                step="0.01"
+                value={formData.fees}
+                onChange={(e) => handleChange('fees', parseFloat(e.target.value) || 0)}
+                className="w-full"
+              />
+            </div>
+          </>
+        )}
+
+        {/* Exit details for closed status */}
         {(formData.status === 'Closed' || formData.status === 'Assigned' || formData.status === 'Expired') && (
-          <div className="bg-orange-50 dark:bg-orange-950/20 p-4 rounded-lg border border-orange-200 dark:border-orange-800">
+          <div className="bg-orange-50 dark:bg-orange-950/20 p-4 rounded-lg border border-orange-200 dark:border-orange-850">
             <h4 className="text-sm font-medium text-orange-800 dark:text-orange-200 mb-3">
-              {formData.status === 'Closed' ? 'Exit Information (Required for Closed Trades)' :
-                formData.status === 'Assigned' ? 'Assignment Details' : 'Expiration Details'}
+              Exit/Close Details
             </h4>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="exitPrice">Exit Price</Label>
+                <Label htmlFor="exitPrice" className={errors.exitPrice ? 'text-destructive' : ''}>Exit Price</Label>
                 <Input
                   id="exitPrice"
                   type="number"
                   step="0.01"
                   value={formData.exitPrice}
                   onChange={(e) => handleChange('exitPrice', parseFloat(e.target.value) || 0)}
-                  className={errors.exitPrice ? 'border-destructive w-full' : 'w-full'}
+                  className={errors.exitPrice ? 'border-destructive w-full bg-background' : 'w-full bg-background'}
+                  disabled={formData.status !== 'Closed'} 
                 />
                 {errors.exitPrice && <p className="text-sm text-destructive">{errors.exitPrice}</p>}
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="closeDate">Close Date</Label>
+                <Label htmlFor="closeDate" className={errors.closeDate ? 'text-destructive' : ''}>Close Date</Label>
                 <Input
                   id="closeDate"
                   type="date"
                   value={formData.closeDate}
                   onChange={(e) => handleChange('closeDate', e.target.value)}
-                  className={errors.closeDate ? 'border-destructive w-full appearance-none min-h-[2.5rem]' : 'w-full appearance-none min-h-[2.5rem]'}
+                  className={errors.closeDate ? 'border-destructive w-full appearance-none min-h-[2.5rem] bg-background' : 'w-full appearance-none min-h-[2.5rem] bg-background'}
                 />
                 {errors.closeDate && <p className="text-sm text-destructive">{errors.closeDate}</p>}
               </div>
@@ -719,10 +947,10 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
           </div>
         )}
 
-        {/* Roll Information - Only show when rolling trade */}
-        {formData.status === 'Rolled' && (
+        {/* Roll details */}
+        {formData.status === 'Rolled' && formData.transactionType === 'option' && (
           <div className="bg-orange-50 dark:bg-orange-950/30 p-4 rounded-lg border border-orange-200 dark:border-orange-800/30">
-            <h4 className="text-sm font-medium text-orange-800 dark:text-orange-200 mb-3">Roll Information (Required for Rolled Trades)</h4>
+            <h4 className="text-sm font-medium text-orange-800 dark:text-orange-200 mb-3">Roll Information</h4>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="exitPremium">Exit Premium (Close Original)</Label>
@@ -732,7 +960,7 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
                   step="0.01"
                   value={formData.exitPremium}
                   onChange={(e) => handleChange('exitPremium', parseFloat(e.target.value) || 0)}
-                  className={errors.exitPremium ? 'border-destructive w-full' : 'w-full'}
+                  className={errors.exitPremium ? 'border-destructive w-full bg-background' : 'w-full bg-background'}
                 />
                 {errors.exitPremium && <p className="text-sm text-destructive">{errors.exitPremium}</p>}
               </div>
@@ -744,7 +972,7 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
                   type="date"
                   value={formData.newExpiryDate}
                   onChange={(e) => handleChange('newExpiryDate', e.target.value)}
-                  className={errors.newExpiryDate ? 'border-destructive w-full appearance-none min-h-[2.5rem]' : 'w-full appearance-none min-h-[2.5rem]'}
+                  className={errors.newExpiryDate ? 'border-destructive w-full appearance-none min-h-[2.5rem] bg-background' : 'w-full appearance-none min-h-[2.5rem] bg-background'}
                 />
                 {errors.newExpiryDate && <p className="text-sm text-destructive">{errors.newExpiryDate}</p>}
               </div>
@@ -757,7 +985,7 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
                   step="0.01"
                   value={formData.newStrikePrice}
                   onChange={(e) => handleChange('newStrikePrice', parseFloat(e.target.value) || 0)}
-                  className={errors.newStrikePrice ? 'border-destructive w-full' : 'w-full'}
+                  className={errors.newStrikePrice ? 'border-destructive w-full bg-background' : 'w-full bg-background'}
                 />
                 {errors.newStrikePrice && <p className="text-sm text-destructive">{errors.newStrikePrice}</p>}
               </div>
@@ -770,7 +998,7 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
                   step="0.01"
                   value={formData.newPremium}
                   onChange={(e) => handleChange('newPremium', parseFloat(e.target.value) || 0)}
-                  className={errors.newPremium ? 'border-destructive w-full' : 'w-full'}
+                  className={errors.newPremium ? 'border-destructive w-full bg-background' : 'w-full bg-background'}
                 />
                 {errors.newPremium && <p className="text-sm text-destructive">{errors.newPremium}</p>}
               </div>
@@ -783,22 +1011,19 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
                   step="0.01"
                   value={formData.rollFees}
                   onChange={(e) => handleChange('rollFees', parseFloat(e.target.value) || 0)}
-                  className="w-full"
+                  className="w-full bg-background"
                 />
               </div>
 
               <div className="flex items-center">
                 <div>
                   <span className="text-sm text-muted-foreground">Net Credit/Debit:</span>
-                  <div className="text-lg font-medium">
+                  <div className="text-lg font-medium text-card-foreground">
                     {parseFloat(String(formData.exitPremium || '0')) > 0 && parseFloat(String(formData.newPremium || '0')) > 0 ? (
                       (() => {
                         const exitP = parseFloat(String(formData.exitPremium || '0'));
                         const newP = parseFloat(String(formData.newPremium || '0'));
                         const fees = parseFloat(String(formData.rollFees || '0'));
-
-                        // For a short roll (originally sold), we Buy to Close (pay exitP) and Sell to Open (receive newP).
-                        // For a long roll (originally bought), we Sell to Close (receive exitP) and Buy to Open (pay newP).
                         let netAmount = 0;
                         if (formData.buyOrSell === 'Sell') {
                           netAmount = (newP - exitP) * formData.numberOfContracts * 100 - fees;
@@ -829,12 +1054,14 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
         <div className="bg-muted p-3 rounded-md">
           <h4 className="text-sm font-medium text-card-foreground mb-2">Calculated Fields</h4>
           <div className="grid grid-cols-2 gap-4 text-sm text-card-foreground">
-            <div>
-              <span className="text-muted-foreground">Days to Expiry:</span>
-              <span className="ml-2 font-medium">
-                {formData.expiryDate ? calculateDaysToExpiry(formData.expiryDate) : '-'}
-              </span>
-            </div>
+            {formData.transactionType === 'option' && (
+              <div>
+                <span className="text-muted-foreground">Days to Expiry:</span>
+                <span className="ml-2 font-medium">
+                  {formData.expiryDate ? calculateDaysToExpiry(formData.expiryDate) : '-'}
+                </span>
+              </div>
+            )}
             <div>
               <span className="text-muted-foreground">Break Even:</span>
               <span className="ml-2 font-medium">
@@ -849,12 +1076,12 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
             </div>
             <div>
               <span className="text-muted-foreground">
-                {formData.status === 'Closed' ? 'Final P&L:' : 'Current P&L:'}
+                {['Closed', 'Expired', 'Assigned', 'Rolled'].includes(formData.status) ? 'Final P&L:' : 'Current P&L:'}
               </span>
               <span className={`ml-2 font-medium ${(formData.status === 'Closed' ? calculateFinalProfitLoss() : calculateCurrentProfitLoss()) >= 0 ? 'text-green-600' : 'text-red-600'
                 }`}>
-                {formData.status === 'Closed'
-                  ? (formData.exitPrice > 0 ? formatCurrency(calculateFinalProfitLoss()) : 'Enter exit price')
+                {['Closed', 'Expired', 'Assigned'].includes(formData.status)
+                  ? (formData.status === 'Closed' && formData.exitPrice <= 0 ? 'Enter exit price' : formatCurrency(calculateFinalProfitLoss()))
                   : formData.status === 'Rolled'
                     ? (parseFloat(String(formData.exitPremium || '0')) > 0 && parseFloat(String(formData.newPremium || '0')) > 0 ? formatCurrency(calculateCurrentProfitLoss()) : 'Enter roll details')
                     : formatCurrency(calculateCurrentProfitLoss())
@@ -864,6 +1091,7 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
           </div>
         </div>
 
+        {/* Footer Actions */}
         <div className="flex justify-end space-x-3 pt-4">
           <Button
             type="button"

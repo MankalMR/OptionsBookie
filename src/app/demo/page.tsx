@@ -14,7 +14,7 @@
  *  - DemoBanner with reset is shown at the top.
  */
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { OptionsTransaction, Portfolio, TradeChain } from '@/types/options';
 import TransactionTable from '@/components/TransactionTable';
 import PortfolioSummary from '@/components/PortfolioSummary';
@@ -22,10 +22,14 @@ import AddTransactionModal from '@/components/AddTransactionModal';
 import EditTransactionModal, { RollTradeData } from '@/components/EditTransactionModal';
 import DeleteConfirmationModal from '@/components/DeleteConfirmationModal';
 import DeleteChainModal from '@/components/DeleteChainModal';
+import StockHoldingsTab from '@/components/StockHoldingsTab';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import SummaryView from '@/components/SummaryView';
 import CurrentRiskTab from '@/components/analytics/CurrentRiskTab';
 import { useIsMobile } from '@/hooks/useMediaQuery';
+import { useStockPrices } from '@/hooks/useStockPrices';
+import { parseLocalDate } from '@/utils/dateUtils';
+import { fifoConsumeStockLots, calculateProfitLoss, calculateAvailableShares } from '@/utils/optionsCalculations';
 import PortfolioSelector from '@/components/PortfolioSelector';
 import DemoBanner from '@/components/DemoBanner';
 import { Button } from '@/components/ui/button';
@@ -108,7 +112,8 @@ export default function DemoPage() {
     const [editingTransaction, setEditingTransaction] = useState<OptionsTransaction | null>(null);
     const [deletingTransaction, setDeletingTransaction] = useState<OptionsTransaction | null>(null);
     const [deletingChainId, setDeletingChainId] = useState<string | null>(null);
-    const [activeTab, setActiveTab] = useState<'trades' | 'summary' | 'risk'>('trades');
+    const [activeTab, setActiveTab] = useState<'trades' | 'holdings' | 'summary' | 'risk'>('trades');
+    const [addModalInitialType, setAddModalInitialType] = useState<'option' | 'stock' | undefined>(undefined);
     const [viewMode, setViewMode] = useState<'grouped' | 'flat'>('grouped');
     const [selectedPortfolioId, setSelectedPortfolioId] = useState<string | null>(null);
     const [selectedStatuses, setSelectedStatuses] = useState<string[]>(['Open', 'Rolled']);
@@ -315,6 +320,7 @@ export default function DemoPage() {
         const result = await res.json();
         if (result.success) {
             setTransactions(prev => [result.data, ...prev]);
+            return result.data as OptionsTransaction;
         } else {
             throw new Error(result.error || 'Failed to add transaction');
         }
@@ -330,6 +336,7 @@ export default function DemoPage() {
         const result = await res.json();
         if (result.success) {
             setTransactions(prev => prev.map(t => t.id === id ? result.data : t));
+            return result.data as OptionsTransaction;
         } else {
             throw new Error(result.error || 'Failed to update transaction');
         }
@@ -352,6 +359,132 @@ export default function DemoPage() {
     const refreshTransactions = useCallback(async () => {
         await fetchTransactions();
     }, [fetchTransactions]);
+
+    // Get unique active symbols for stock prices
+    const activeSymbols = useMemo(() =>
+        [...new Set(transactions.filter(t => t.status === 'Open').map(t => t.stockSymbol))],
+        [transactions]
+    );
+
+    const { stockPrices, isAvailable: pricesAvailable, loading: pricesLoading } = useStockPrices(activeSymbols);
+
+    const isCheckingExpiryRef = useRef(false);
+    const hasRunExpiryCheckRef = useRef(false);
+
+    // Auto-update expired trades in Demo Mode
+    useEffect(() => {
+        const checkAndUpdateExpiredTrades = async () => {
+            if (hasRunExpiryCheckRef.current || isCheckingExpiryRef.current) return;
+            if (!sessionId || transactions.length === 0) return;
+
+            const openTrades = transactions.filter(t => t.status === 'Open' && t.transactionType !== 'stock' && t.expiryDate !== undefined);
+            const expiredTrades = openTrades.filter(t => {
+                const today = new Date();
+                const expiryDate = new Date(t.expiryDate!);
+
+                // Options expire at market close (4:00 PM ET = 8:00 PM UTC)
+                const expiryWithMarketClose = new Date(expiryDate);
+                expiryWithMarketClose.setUTCHours(20, 0, 0, 0); // 8:00 PM UTC = 4:00 PM ET
+
+                return today > expiryWithMarketClose;
+            });
+
+            if (expiredTrades.length > 0) {
+                // Ensure we have stock prices loaded for the expired symbols before running updates
+                const missingPrices = expiredTrades.some(t => stockPrices[t.stockSymbol]?.price === undefined);
+                if (missingPrices) {
+                    return; // Wait for prices to load
+                }
+
+                hasRunExpiryCheckRef.current = true;
+                isCheckingExpiryRef.current = true;
+                let updatedAny = false;
+                let currentTransactions = [...transactions];
+
+                try {
+                    // Process sequentially to prevent session concurrency conflicts
+                    for (const trade of expiredTrades) {
+                        try {
+                            const finalProfitLoss = calculateProfitLoss(trade);
+                            const isShortCall = trade.transactionType === 'option' && trade.buyOrSell === 'Sell' && trade.callOrPut === 'Call';
+                            const currentPrice = stockPrices[trade.stockSymbol]?.price;
+                            
+                            // If it's a short call and current price >= strike price, it is ITM -> Assigned. Otherwise Expired.
+                            const isITM = isShortCall && currentPrice !== undefined && currentPrice >= (trade.strikePrice || 0);
+                            const targetStatus = isITM ? 'Assigned' : 'Expired';
+
+                            // 1. Update the option transaction status
+                            const updatedOption = await updateTransaction(trade.id, {
+                                status: targetStatus,
+                                closeDate: parseLocalDate(trade.expiryDate!),
+                                profitLoss: finalProfitLoss
+                            });
+
+                            if (updatedOption) {
+                                currentTransactions = currentTransactions.map(t =>
+                                    t.id === trade.id ? updatedOption : t
+                                );
+                            }
+
+                            // 2. Trigger FIFO stock consumption if Assigned
+                            if (isITM && trade.coveredByType === 'stock') {
+                                const closeDate = parseLocalDate(trade.expiryDate!);
+                                const strikePrice = trade.strikePrice || 0;
+                                const contracts = trade.numberOfContracts || 1;
+                                const portfolioTxns = currentTransactions.filter(t => t.portfolioId === trade.portfolioId);
+                                const { transactionsToUpdate, transactionsToCreate } = fifoConsumeStockLots(
+                                    portfolioTxns,
+                                    trade.stockSymbol,
+                                    contracts,
+                                    strikePrice,
+                                    closeDate
+                                );
+
+                                for (const lotUpdate of transactionsToUpdate) {
+                                    const updatedLot = await updateTransaction(lotUpdate.id, lotUpdate.updates);
+                                    if (updatedLot) {
+                                        currentTransactions = currentTransactions.map(t =>
+                                            t.id === lotUpdate.id ? updatedLot : t
+                                        );
+                                    }
+                                }
+
+                                for (const lotCreate of transactionsToCreate) {
+                                    const createdLot = await addTransaction(lotCreate);
+                                    if (createdLot) {
+                                        currentTransactions = [createdLot, ...currentTransactions];
+                                    }
+                                }
+                            }
+
+                            // 3. Update the chain status if part of a chain
+                            if (trade.chainId) {
+                                await fetch(`/api/demo/trade-chains/${trade.chainId}`, {
+                                    method: 'PUT',
+                                    headers: demoHeaders(sessionId),
+                                    body: JSON.stringify({ chainStatus: 'Closed' }),
+                                });
+                            }
+
+                            updatedAny = true;
+                        } catch (error) {
+                            logger.error({ error }, `Error auto-updating expired trade ${trade.id}:`);
+                        }
+                    }
+
+                    if (updatedAny) {
+                        await refreshTransactions();
+                        await fetchChains();
+                    }
+                } finally {
+                    isCheckingExpiryRef.current = false;
+                }
+            }
+        };
+
+        // Check for expired trades on load
+        checkAndUpdateExpiredTrades();
+    }, [transactions, sessionId, stockPrices, updateTransaction, addTransaction, refreshTransactions, fetchChains]);
 
     // --- Handlers (mirror main page) -----------------------------------------
     const handlePortfolioChange = (portfolioId: string | null) => {
@@ -397,6 +530,37 @@ export default function DemoPage() {
         try {
             const original = transactions.find(t => t.id === id);
             await updateTransaction(id, updates);
+
+            // Handle Covered Call assignment stock consumption
+            if (
+                original &&
+                original.transactionType === 'option' &&
+                original.buyOrSell === 'Sell' &&
+                original.callOrPut === 'Call' &&
+                original.coveredByType === 'stock' &&
+                updates.status === 'Assigned' &&
+                (original.status === 'Open' || original.status === 'Expired')
+            ) {
+                const closeDate = updates.closeDate ? new Date(updates.closeDate) : new Date();
+                const strikePrice = original.strikePrice || 0;
+                const contracts = original.numberOfContracts || 1;
+                const portfolioTxns = transactions.filter(t => t.portfolioId === original.portfolioId);
+                const { transactionsToUpdate, transactionsToCreate } = fifoConsumeStockLots(
+                    portfolioTxns,
+                    original.stockSymbol,
+                    contracts,
+                    strikePrice,
+                    closeDate
+                );
+
+                for (const lotUpdate of transactionsToUpdate) {
+                    await updateTransaction(lotUpdate.id, lotUpdate.updates);
+                }
+
+                for (const lotCreate of transactionsToCreate) {
+                    await addTransaction(lotCreate);
+                }
+            }
 
             if (original?.chainId && updates.status && ['Closed', 'Expired', 'Assigned'].includes(updates.status)) {
                 const wasOpen = original.status === 'Open';
@@ -474,6 +638,19 @@ export default function DemoPage() {
     const handleDeleteTransaction = async (id: string) => {
         const transaction = transactions.find(t => t.id === id);
         if (!transaction) return;
+
+        if (transaction.transactionType === 'stock') {
+            const portfolioTxns = transactions.filter(t => t.portfolioId === transaction.portfolioId);
+            const { totalShares, committedShares } = calculateAvailableShares(portfolioTxns, transaction.stockSymbol);
+            if (transaction.buyOrSell === 'Buy' && transaction.status === 'Open') {
+                const newTotalShares = totalShares - (transaction.sharesQuantity || 0);
+                if (newTotalShares < committedShares) {
+                    alert(`Cannot delete this stock position. It is currently linked/used as collateral for open covered call options (requires at least ${committedShares} shares, but deleting this would leave only ${newTotalShares} shares).`);
+                    return;
+                }
+            }
+        }
+
         setDeletingTransaction(transaction);
         setShowDeleteModal(true);
     };
@@ -640,10 +817,10 @@ export default function DemoPage() {
                     {/* Tab Navigation */}
                     <div className="mb-8">
                         <div className="border-b border-border">
-                            <nav className={`-mb-px flex ${isMobile ? 'space-x-4' : 'space-x-8'}`}>
+                            <nav className={`-mb-px flex ${isMobile ? 'space-x-4' : 'space-x-8'} overflow-x-auto scrollbar-none`}>
                                 <button
                                     onClick={() => setActiveTab('trades')}
-                                    className={`py-2 px-1 border-b-2 font-medium ${isMobile ? 'text-xs' : 'text-sm'} transition-colors ${activeTab === 'trades'
+                                    className={`py-2 px-1 border-b-2 font-medium ${isMobile ? 'text-xs' : 'text-sm'} transition-colors whitespace-nowrap ${activeTab === 'trades'
                                         ? 'border-blue-500 text-blue-600'
                                         : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground'
                                         }`}
@@ -651,8 +828,17 @@ export default function DemoPage() {
                                     Options Trades
                                 </button>
                                 <button
+                                    onClick={() => setActiveTab('holdings')}
+                                    className={`py-2 px-1 border-b-2 font-medium ${isMobile ? 'text-xs' : 'text-sm'} transition-colors whitespace-nowrap ${activeTab === 'holdings'
+                                        ? 'border-blue-500 text-blue-600'
+                                        : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground'
+                                        }`}
+                                >
+                                    Stock Holdings
+                                </button>
+                                <button
                                     onClick={() => setActiveTab('risk')}
-                                    className={`py-2 px-1 border-b-2 font-medium ${isMobile ? 'text-xs' : 'text-sm'} transition-colors ${activeTab === 'risk'
+                                    className={`py-2 px-1 border-b-2 font-medium ${isMobile ? 'text-xs' : 'text-sm'} transition-colors whitespace-nowrap ${activeTab === 'risk'
                                         ? 'border-blue-500 text-blue-600'
                                         : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground'
                                         }`}
@@ -661,7 +847,7 @@ export default function DemoPage() {
                                 </button>
                                 <button
                                     onClick={() => setActiveTab('summary')}
-                                    className={`py-2 px-1 border-b-2 font-medium ${isMobile ? 'text-xs' : 'text-sm'} transition-colors ${activeTab === 'summary'
+                                    className={`py-2 px-1 border-b-2 font-medium ${isMobile ? 'text-xs' : 'text-sm'} transition-colors whitespace-nowrap ${activeTab === 'summary'
                                         ? 'border-blue-500 text-blue-600'
                                         : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground'
                                         }`}
@@ -678,6 +864,18 @@ export default function DemoPage() {
                             transactions={portfolioOverviewTransactions}
                             selectedPortfolioName={selectedPortfolioId ? portfolios.find(p => p.id === selectedPortfolioId)?.name : null}
                             onTickerClick={handleTickerClickFromRisk}
+                        />
+                    ) : activeTab === 'holdings' ? (
+                        <StockHoldingsTab
+                            transactions={transactions}
+                            portfolios={portfolios}
+                            selectedPortfolioId={selectedPortfolioId}
+                            onEdit={handleEditTransaction}
+                            onDelete={handleDeleteTransaction}
+                            onAddStockClick={() => {
+                                setAddModalInitialType('stock');
+                                setShowAddModal(true);
+                            }}
                         />
                     ) : activeTab === 'trades' ? (
                         <div className="space-y-8">
@@ -741,6 +939,10 @@ export default function DemoPage() {
                                             availableTickers={availableTickers}
                                             selectedTickers={selectedTickers}
                                             onTickerChange={handleTickerChange}
+                                            hideStockRows={true}
+                                            stockPrices={stockPrices}
+                                            pricesAvailable={pricesAvailable}
+                                            loading={pricesLoading}
                                         />
                                     ) : (
                                         <TransactionTable
@@ -751,6 +953,10 @@ export default function DemoPage() {
                                             chains={chains}
                                             portfolios={portfolios}
                                             showPortfolioColumn={!selectedPortfolioId}
+                                            hideStockRows={true}
+                                            stockPrices={stockPrices}
+                                            pricesAvailable={pricesAvailable}
+                                            loading={pricesLoading}
                                         />
                                     )}
                                 </CardContent>
@@ -772,10 +978,15 @@ export default function DemoPage() {
             {/* Modals */}
             {showAddModal && (
                 <AddTransactionModal
-                    onClose={() => setShowAddModal(false)}
+                    onClose={() => {
+                        setShowAddModal(false);
+                        setAddModalInitialType(undefined);
+                    }}
                     onSave={handleAddTransaction}
                     portfolios={portfolios}
                     selectedPortfolioId={selectedPortfolioId}
+                    transactions={transactions}
+                    initialTransactionType={addModalInitialType}
                 />
             )}
 
@@ -785,6 +996,7 @@ export default function DemoPage() {
                     onClose={handleCloseEdit}
                     onSave={handleSaveEdit}
                     portfolios={portfolios}
+                    transactions={transactions}
                     onRollTrade={handleRollTrade}
                 />
             )}

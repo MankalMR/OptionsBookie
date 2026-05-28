@@ -67,13 +67,29 @@ export default function DeleteConfirmationModal({
                 <div>{transaction.stockSymbol}</div>
 
                 <div className="font-medium">Type:</div>
-                <div>{transaction.callOrPut} {transaction.buyOrSell}</div>
+                <div>
+                  {transaction.transactionType === 'stock'
+                    ? `Stock ${transaction.buyOrSell}`
+                    : `${transaction.callOrPut} ${transaction.buyOrSell}`}
+                </div>
 
-                <div className="font-medium">Strike:</div>
-                <div>${transaction.strikePrice.toFixed(2)}</div>
+                {transaction.transactionType === 'stock' ? (
+                  <>
+                    <div className="font-medium">Price:</div>
+                    <div>${transaction.sharePrice?.toFixed(2) ?? '0.00'}</div>
 
-                <div className="font-medium">Contracts:</div>
-                <div>{transaction.numberOfContracts}</div>
+                    <div className="font-medium">Shares:</div>
+                    <div>{transaction.sharesQuantity}</div>
+                  </>
+                ) : (
+                  <>
+                    <div className="font-medium">Strike:</div>
+                    <div>${transaction.strikePrice?.toFixed(2) ?? '0.00'}</div>
+
+                    <div className="font-medium">Contracts:</div>
+                    <div>{transaction.numberOfContracts}</div>
+                  </>
+                )}
 
                 <div className="font-medium">Status:</div>
                 <div>

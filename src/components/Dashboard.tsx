@@ -2,7 +2,7 @@
 
 import AppHeader from '@/components/AppHeader';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { OptionsTransaction, Portfolio, TradeChain } from '@/types/options';
 import TransactionTable from '@/components/TransactionTable';
@@ -14,6 +14,7 @@ import DeleteConfirmationModal from '@/components/DeleteConfirmationModal';
 import DeleteChainModal from '@/components/DeleteChainModal';
 import SummaryView from '@/components/SummaryView';
 import CurrentRiskTab from '@/components/analytics/CurrentRiskTab';
+import StockHoldingsTab from '@/components/StockHoldingsTab';
 import { useIsMobile } from '@/hooks/useMediaQuery';
 import PortfolioSelector from '@/components/PortfolioSelector';
 import PortfolioModal from '@/components/PortfolioModal';
@@ -26,6 +27,7 @@ import { useStockPrices } from '@/hooks/useStockPrices';
 import StatusMultiSelect from '@/components/StatusMultiSelect';
 import ViewToggle from '@/components/ViewToggle';
 import { logger } from "@/lib/logger";
+import { fifoConsumeStockLots, calculateAvailableShares } from '@/utils/optionsCalculations';
 
 export default function Dashboard() {
   const isMobile = useIsMobile();
@@ -65,10 +67,10 @@ export default function Dashboard() {
   }, [searchParams, pathname, router]);
 
   // Derived state from URL
-  const activeTab = (searchParams?.get('tab') as 'trades' | 'summary' | 'risk') || 'trades';
+  const activeTab = (searchParams?.get('tab') as 'trades' | 'holdings' | 'summary' | 'risk') || 'trades';
   const selectedPortfolioId = searchParams?.get('portfolioId') || null;
 
-  const setActiveTab = (tab: 'trades' | 'summary' | 'risk') => {
+  const setActiveTab = (tab: 'trades' | 'holdings' | 'summary' | 'risk') => {
     updateUrl({ tab });
   };
 
@@ -76,6 +78,7 @@ export default function Dashboard() {
     updateUrl({ portfolioId: id });
   };
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>(['Open', 'Rolled']);
+  const [addModalInitialType, setAddModalInitialType] = useState<'option' | 'stock' | undefined>(undefined);
   const [selectedTickers, setSelectedTickers] = useState<string[]>([]);
   const [portfolios, setPortfolios] = useState<Portfolio[]>([]);
   const [portfoliosLoading, setPortfoliosLoading] = useState(true);
@@ -142,6 +145,9 @@ export default function Dashboard() {
         return statusMatches;
       });
     }
+
+    // Exclude stock transactions from options trades view
+    filtered = filtered.filter(t => t.transactionType !== 'stock');
 
     // Filter by tickers
     if (selectedTickers.length > 0) {
@@ -315,79 +321,142 @@ export default function Dashboard() {
         await fetchChains();
       }
     };
-
     updateChainStatuses();
   }, [chains, transactions, fetchChains]);
+
+  const isCheckingExpiryRef = useRef(false);
+  const hasRunExpiryCheckRef = useRef(false);
 
   // Auto-update expired trades
   useEffect(() => {
     const checkAndUpdateExpiredTrades = async () => {
-      const openTrades = transactions.filter(t => t.status === 'Open');
+      if (hasRunExpiryCheckRef.current || isCheckingExpiryRef.current) return;
+      
+      const openTrades = transactions.filter(t => t.status === 'Open' && t.transactionType !== 'stock' && t.expiryDate !== undefined);
       const expiredTrades = openTrades.filter(t => {
         const today = new Date();
-        const expiryDate = new Date(t.expiryDate);
-
+        const expiryDate = new Date(t.expiryDate!);
+ 
         // Options expire at market close (4:00 PM ET = 8:00 PM UTC)
         const expiryWithMarketClose = new Date(expiryDate);
         expiryWithMarketClose.setUTCHours(20, 0, 0, 0); // 8:00 PM UTC = 4:00 PM ET
-
+ 
         return today > expiryWithMarketClose;
       });
-
+ 
       if (expiredTrades.length > 0) {
+        // Ensure we have stock prices loaded for the expired symbols before running updates
+        const missingPrices = expiredTrades.some(t => stockPrices[t.stockSymbol]?.price === undefined);
+        if (missingPrices) {
+          return; // Wait for prices to load
+        }
+
+        hasRunExpiryCheckRef.current = true;
+        isCheckingExpiryRef.current = true;
         // Optimization: Import calculation utility once
         const { calculateProfitLoss } = await import('@/utils/optionsCalculations');
         const chainIdsToClose = new Set<string>();
-
-        // ⚡ Bolt: Execute transaction updates concurrently (N+1 query optimization)
-        await Promise.all(expiredTrades.map(async (trade) => {
-          try {
-            // For expired trades, calculate the final P&L (premium received/paid minus fees)
-            const finalProfitLoss = calculateProfitLoss(trade);
-
-            await updateTransaction(trade.id, {
-              status: 'Expired',
-              closeDate: parseLocalDate(trade.expiryDate),
-              profitLoss: finalProfitLoss
-            });
-
-            // Collect unique chain IDs to update later
-            if (trade.chainId) {
-              chainIdsToClose.add(trade.chainId);
-            }
-          } catch (error) {
-            logger.error({ error }, `Error updating expired trade ${trade.id}:`);
-          }
-        }));
-
-        // ⚡ Bolt: Execute chain updates concurrently for unique chain IDs
-        if (chainIdsToClose.size > 0) {
-          await Promise.all(Array.from(chainIdsToClose).map(async (chainId) => {
+        let currentTransactions = [...transactions];
+        let updatedAny = false;
+ 
+        try {
+          // Process sequentially to prevent session concurrency conflicts and allow FIFO updates to cascade correctly
+          for (const trade of expiredTrades) {
             try {
-              const chainResponse = await fetch(`/api/trade-chains/${chainId}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ chainStatus: 'Closed' })
+              // For expired trades, calculate the final P&L (premium received/paid minus fees)
+              const finalProfitLoss = calculateProfitLoss(trade);
+              const isShortCall = trade.transactionType === 'option' && trade.buyOrSell === 'Sell' && trade.callOrPut === 'Call';
+              const currentPrice = stockPrices[trade.stockSymbol]?.price;
+  
+              // If it's a short call and current price >= strike price, it is ITM -> Assigned. Otherwise Expired.
+              const isITM = isShortCall && currentPrice !== undefined && currentPrice >= (trade.strikePrice || 0);
+              const targetStatus = isITM ? 'Assigned' : 'Expired';
+  
+              const updatedOption = await updateTransaction(trade.id, {
+                status: targetStatus,
+                closeDate: parseLocalDate(trade.expiryDate!),
+                profitLoss: finalProfitLoss
               });
-
-              if (!chainResponse.ok) {
-                logger.error({ chainId }, 'Failed to update chain status for expired trade');
+  
+              if (updatedOption) {
+                currentTransactions = currentTransactions.map(t =>
+                  t.id === trade.id ? updatedOption : t
+                );
               }
+  
+              // Trigger FIFO stock consumption if Assigned
+              if (isITM && trade.coveredByType === 'stock') {
+                const closeDate = parseLocalDate(trade.expiryDate!);
+                const strikePrice = trade.strikePrice || 0;
+                const contracts = trade.numberOfContracts || 1;
+                const portfolioTxns = currentTransactions.filter(t => t.portfolioId === trade.portfolioId);
+                const { transactionsToUpdate, transactionsToCreate } = fifoConsumeStockLots(
+                  portfolioTxns,
+                  trade.stockSymbol,
+                  contracts,
+                  strikePrice,
+                  closeDate
+                );
+  
+                for (const lotUpdate of transactionsToUpdate) {
+                  const updatedLot = await updateTransaction(lotUpdate.id, lotUpdate.updates);
+                  if (updatedLot) {
+                    currentTransactions = currentTransactions.map(t =>
+                      t.id === lotUpdate.id ? updatedLot : t
+                    );
+                  }
+                }
+  
+                for (const lotCreate of transactionsToCreate) {
+                  const createdLot = await addTransaction(lotCreate);
+                  if (createdLot) {
+                    currentTransactions = [createdLot, ...currentTransactions];
+                  }
+                }
+              }
+  
+              // Collect unique chain IDs to update later
+              if (trade.chainId) {
+                chainIdsToClose.add(trade.chainId);
+              }
+  
+              updatedAny = true;
             } catch (error) {
-              logger.error({ error, chainId }, 'Error updating chain status for expired trade:');
+              logger.error({ error }, `Error updating expired trade ${trade.id}:`);
             }
-          }));
+          }
+  
+          // ⚡ Bolt: Execute chain updates concurrently for unique chain IDs
+          if (chainIdsToClose.size > 0) {
+            await Promise.all(Array.from(chainIdsToClose).map(async (chainId) => {
+              try {
+                const chainResponse = await fetch(`/api/trade-chains/${chainId}`, {
+                  method: 'PUT',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ chainStatus: 'Closed' })
+                });
+  
+                if (!chainResponse.ok) {
+                  logger.error({ chainId }, 'Failed to update chain status for expired trade');
+                }
+              } catch (error) {
+                logger.error({ error, chainId }, 'Error updating chain status for expired trade:');
+              }
+            }));
+          }
+  
+          // Refresh transactions and chains to show updated statuses
+          await fetchChains();
+          refreshTransactions();
+        } finally {
+          isCheckingExpiryRef.current = false;
         }
-
-        // Refresh transactions and chains to show updated statuses
-        await fetchChains();
-        refreshTransactions();
       }
     };
-
+ 
     // Check for expired trades only when the app loads
     checkAndUpdateExpiredTrades();
-  }, [transactions, updateTransaction, refreshTransactions]);
+  }, [transactions, updateTransaction, addTransaction, refreshTransactions, fetchChains, stockPrices]);
 
 
   const handlePortfolioChange = (portfolioId: string | null) => {
@@ -494,6 +563,38 @@ export default function Dashboard() {
 
       await updateTransaction(id, updates);
 
+      // Handle Covered Call assignment stock consumption
+      if (
+        originalTransaction &&
+        originalTransaction.transactionType === 'option' &&
+        originalTransaction.buyOrSell === 'Sell' &&
+        originalTransaction.callOrPut === 'Call' &&
+        originalTransaction.coveredByType === 'stock' &&
+        updates.status === 'Assigned' &&
+        (originalTransaction.status === 'Open' || originalTransaction.status === 'Expired')
+      ) {
+        const closeDate = updates.closeDate ? new Date(updates.closeDate) : new Date();
+        const strikePrice = originalTransaction.strikePrice || 0;
+        const contracts = originalTransaction.numberOfContracts || 1;
+
+        const portfolioTxns = transactions.filter(t => t.portfolioId === originalTransaction.portfolioId);
+        const { transactionsToUpdate, transactionsToCreate } = fifoConsumeStockLots(
+          portfolioTxns,
+          originalTransaction.stockSymbol,
+          contracts,
+          strikePrice,
+          closeDate
+        );
+
+        for (const lotUpdate of transactionsToUpdate) {
+          await updateTransaction(lotUpdate.id, lotUpdate.updates);
+        }
+
+        for (const lotCreate of transactionsToCreate) {
+          await addTransaction(lotCreate);
+        }
+      }
+
       if (originalTransaction?.chainId && updates.status && ['Closed', 'Expired', 'Assigned'].includes(updates.status)) {
         const wasOpenTrade = originalTransaction.status === 'Open';
 
@@ -534,6 +635,18 @@ export default function Dashboard() {
   const handleDeleteTransaction = async (id: string) => {
     const transaction = transactions.find(t => t.id === id);
     if (!transaction) return;
+
+    if (transaction.transactionType === 'stock') {
+      const portfolioTxns = transactions.filter(t => t.portfolioId === transaction.portfolioId);
+      const { totalShares, committedShares } = calculateAvailableShares(portfolioTxns, transaction.stockSymbol);
+      if (transaction.buyOrSell === 'Buy' && transaction.status === 'Open') {
+        const newTotalShares = totalShares - (transaction.sharesQuantity || 0);
+        if (newTotalShares < committedShares) {
+          alert(`Cannot delete this stock position. It is currently linked/used as collateral for open covered call options (requires at least ${committedShares} shares, but deleting this would leave only ${newTotalShares} shares).`);
+          return;
+        }
+      }
+    }
 
     setDeletingTransaction(transaction);
     setShowDeleteModal(true);
@@ -637,17 +750,17 @@ export default function Dashboard() {
                   loading={portfoliosLoading}
                 />
                 <nav className="-mb-px flex space-x-4">
-                  {(['trades', 'risk', 'summary'] as const).map(tab => (
+                  {['trades', 'holdings', 'risk', 'summary'].map(tab => (
                     <button
                       key={tab}
-                      onClick={() => setActiveTab(tab)}
+                      onClick={() => setActiveTab(tab as 'trades' | 'holdings' | 'summary' | 'risk')}
                       className={`py-2 px-1 border-b-2 text-xs font-medium transition-colors ${
                         activeTab === tab
                           ? 'border-blue-500 text-blue-600'
                           : 'border-transparent text-muted-foreground hover:text-foreground'
                       }`}
                     >
-                      {tab === 'trades' ? 'Trades' : tab === 'risk' ? 'Risk' : 'History'}
+                      {tab === 'trades' ? 'Trades' : tab === 'holdings' ? 'Holdings' : tab === 'risk' ? 'Risk' : 'History'}
                     </button>
                   ))}
                 </nav>
@@ -693,6 +806,16 @@ export default function Dashboard() {
                     Options Trades
                   </button>
                   <button
+                    onClick={() => setActiveTab('holdings')}
+                    className={`py-3 px-1 border-b-2 text-sm font-medium transition-colors ${
+                      activeTab === 'holdings'
+                        ? 'border-blue-500 text-blue-600'
+                        : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground'
+                    }`}
+                  >
+                    Stock Holdings
+                  </button>
+                  <button
                     onClick={() => setActiveTab('risk')}
                     className={`py-3 px-1 border-b-2 text-sm font-medium transition-colors ${
                       activeTab === 'risk'
@@ -723,6 +846,18 @@ export default function Dashboard() {
               transactions={portfolioOverviewTransactions}
               selectedPortfolioName={selectedPortfolioId ? portfolios.find(p => p.id === selectedPortfolioId)?.name : null}
               onTickerClick={handleTickerClickFromRisk}
+            />
+          ) : activeTab === 'holdings' ? (
+            <StockHoldingsTab
+              transactions={transactions}
+              portfolios={portfolios}
+              selectedPortfolioId={selectedPortfolioId}
+              onEdit={handleEditTransaction}
+              onDelete={handleDeleteTransaction}
+              onAddStockClick={() => {
+                setAddModalInitialType('stock');
+                setShowAddModal(true);
+              }}
             />
           ) : activeTab === 'trades' ? (
             <div className="space-y-8">
@@ -786,6 +921,7 @@ export default function Dashboard() {
                       stockPrices={stockPrices}
                       pricesAvailable={pricesAvailable}
                       loading={pricesLoading}
+                      hideStockRows={true}
                     />
                   ) : (
                     <TransactionTable
@@ -798,6 +934,7 @@ export default function Dashboard() {
                       stockPrices={stockPrices}
                       pricesAvailable={pricesAvailable}
                       loading={pricesLoading}
+                      hideStockRows={true}
                     />
                   )}
                 </div>
@@ -812,10 +949,15 @@ export default function Dashboard() {
       {/* Modals */}
       {showAddModal && (
         <AddTransactionModal
-          onClose={() => setShowAddModal(false)}
+          onClose={() => {
+            setShowAddModal(false);
+            setAddModalInitialType(undefined);
+          }}
           onSave={handleAddTransaction}
           portfolios={portfolios}
           selectedPortfolioId={selectedPortfolioId}
+          transactions={transactions}
+          initialTransactionType={addModalInitialType}
         />
       )}
 
@@ -825,6 +967,7 @@ export default function Dashboard() {
           onSave={handleSaveEdit}
           transaction={editingTransaction}
           portfolios={portfolios}
+          transactions={transactions}
         />
       )}
 

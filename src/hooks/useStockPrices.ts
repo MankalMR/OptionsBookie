@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { logger } from "@/lib/logger";
 
 export interface StockPrice {
@@ -20,72 +20,189 @@ interface UseStockPricesReturn {
   lastUpdated: Date | null;
 }
 
+// Module-level global cache and synchronization system to deduplicate requests across all hook instances
+const globalStockPricesCache: Record<string, StockPrice> = {};
+const globalListeners = new Set<(prices: Record<string, StockPrice>) => void>();
+const inFlightSymbols = new Set<string>();
+
 export function useStockPrices(symbols: string[], activeSymbols: string[] = []): UseStockPricesReturn {
-  const [stockPrices, setStockPrices] = useState<Record<string, StockPrice | null>>({});
+  // Sort symbols and activeSymbols to ensure stable string representation
+  const sortedSymbols = [...symbols].sort();
+  const sortedSymbolsStr = sortedSymbols.join(',');
+  
+  const sortedActiveSymbols = [...activeSymbols].sort();
+  const activeSymbolsStr = sortedActiveSymbols.join(',');
+
+  const [stockPrices, setStockPrices] = useState<Record<string, StockPrice | null>>(() => {
+    const initial: Record<string, StockPrice | null> = {};
+    symbols.forEach(sym => {
+      initial[sym] = globalStockPricesCache[sym] || null;
+    });
+    return initial;
+  });
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isAvailable, setIsAvailable] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-  const isFetchingRef = useRef(false);
-  const activeSymbolsStr = activeSymbols.join(',');
 
-  const fetchPrices = useCallback(async (symbolsToFetch: string[], activeToFetch: string[] = activeSymbols) => {
-    if (symbolsToFetch.length === 0 || isFetchingRef.current) return;
+  // Subscribe to changes in the global stock prices cache
+  useEffect(() => {
+    const symbolsList = sortedSymbolsStr ? sortedSymbolsStr.split(',') : [];
+    const handleUpdate = (updatedCache: Record<string, StockPrice>) => {
+      setStockPrices(prev => {
+        const next = { ...prev };
+        let changed = false;
+        symbolsList.forEach(sym => {
+          if (updatedCache[sym] && updatedCache[sym] !== prev[sym]) {
+            next[sym] = updatedCache[sym];
+            changed = true;
+          }
+        });
+        return changed ? next : prev;
+      });
+    };
 
-    isFetchingRef.current = true;
+    globalListeners.add(handleUpdate);
+    // Initialize/sync immediately with whatever is in the cache now
+    handleUpdate(globalStockPricesCache);
+
+    return () => {
+      globalListeners.delete(handleUpdate);
+    };
+  }, [sortedSymbolsStr]);
+
+  const fetchPrices = useCallback(async (symbolsToFetch: string[], activeToFetch?: string[]) => {
+    if (symbolsToFetch.length === 0) return;
+
+    // Filter out symbols that are already in-flight
+    const symbolsNotFetching = symbolsToFetch.filter(sym => !inFlightSymbols.has(sym));
+    
+    // Check if any of the symbols actually need to be fetched (not in cache, or stale)
+    const needsFetch = symbolsNotFetching.some(sym => {
+      const cached = globalStockPricesCache[sym];
+      if (!cached) return true;
+      if (cached.isStale) return true;
+      
+      // Cache validity duration: 1 minute for client-side deduplication
+      const ageMs = Date.now() - new Date(cached.timestamp).getTime();
+      return ageMs > 60_000;
+    });
+
+    if (!needsFetch) {
+      return;
+    }
+
+    // Mark as in-flight
+    symbolsNotFetching.forEach(sym => inFlightSymbols.add(sym));
     setLoading(true);
     setError(null);
 
     try {
-      const activeParam = activeToFetch.length > 0 ? `&activeSymbols=${activeToFetch.join(',')}` : '';
-      const response = await fetch(`/api/stock-prices?symbols=${symbolsToFetch.join(',')}${activeParam}`);
+      const activeList = activeToFetch || (activeSymbolsStr ? activeSymbolsStr.split(',') : []);
+      const activeParam = activeList.length > 0 ? `&activeSymbols=${activeList.join(',')}` : '';
+      const response = await fetch(`/api/stock-prices?symbols=${symbolsNotFetching.join(',')}${activeParam}`);
 
       if (!response.ok) {
         throw new Error(`Failed to fetch stock prices: ${response.status}`);
       }
 
       const data = await response.json();
-
-      // Check if stock prices are available
       const status = data._status;
+
       if (status === 'unavailable') {
         setIsAvailable(false);
         setError('Stock prices are temporarily unavailable due to technical difficulties');
-        // Don't retry if unavailable - this prevents infinite loops
         return;
       } else {
         setIsAvailable(true);
         setError(null);
-        // Remove the _status property before setting prices
-        const { _status, ...prices } = data;
-        setStockPrices(prev => ({ ...prev, ...prices }));
+        
+        const { _status: _, ...prices } = data;
+        const nowStr = new Date().toISOString();
+
+        // Update global cache
+        Object.entries(prices).forEach(([sym, priceData]) => {
+          if (priceData) {
+            const p = priceData as { symbol: string; price: number; change: number; changePercent: number; isStale?: boolean };
+            globalStockPricesCache[sym] = {
+              symbol: p.symbol,
+              price: p.price,
+              change: p.change,
+              changePercent: p.changePercent,
+              isStale: p.isStale,
+              timestamp: nowStr
+            };
+          }
+        });
+
+        // Notify all subscribers
+        globalListeners.forEach(listener => listener(globalStockPricesCache));
         setLastUpdated(new Date());
       }
     } catch (err) {
       logger.error({ err }, 'Error fetching stock prices:');
       setError(err instanceof Error ? err.message : 'Failed to fetch stock prices');
-      // Don't retry on error - this prevents infinite loops
     } finally {
+      // Remove from in-flight list
+      symbolsNotFetching.forEach(sym => inFlightSymbols.delete(sym));
       setLoading(false);
-      isFetchingRef.current = false;
     }
   }, [activeSymbolsStr]);
 
   const refreshPrices = useCallback(async () => {
-    if (symbols.length > 0) {
-      await fetchPrices(symbols, activeSymbols);
+    const symbolsList = sortedSymbolsStr ? sortedSymbolsStr.split(',') : [];
+    if (symbolsList.length > 0) {
+      // When explicitly refreshing, bypass freshness check and fetch everything
+      // But we still respect inFlight symbols
+      const symbolsToFetch = symbolsList.filter(sym => !inFlightSymbols.has(sym));
+      if (symbolsToFetch.length > 0) {
+        symbolsToFetch.forEach(sym => inFlightSymbols.add(sym));
+        setLoading(true);
+        setError(null);
+        try {
+          const activeParam = activeSymbolsStr ? `&activeSymbols=${activeSymbolsStr}` : '';
+          const response = await fetch(`/api/stock-prices?symbols=${symbolsToFetch.join(',')}${activeParam}`);
+          if (!response.ok) throw new Error(`Failed to fetch stock prices: ${response.status}`);
+          const data = await response.json();
+          if (data._status !== 'unavailable') {
+            const { _status: _, ...prices } = data;
+            const nowStr = new Date().toISOString();
+            Object.entries(prices).forEach(([sym, priceData]) => {
+              if (priceData) {
+                const p = priceData as { symbol: string; price: number; change: number; changePercent: number; isStale?: boolean };
+                globalStockPricesCache[sym] = {
+                  symbol: p.symbol,
+                  price: p.price,
+                  change: p.change,
+                  changePercent: p.changePercent,
+                  isStale: p.isStale,
+                  timestamp: nowStr
+                };
+              }
+            });
+            globalListeners.forEach(listener => listener(globalStockPricesCache));
+            setLastUpdated(new Date());
+          }
+        } catch (err) {
+          logger.error({ err }, 'Error refreshing stock prices:');
+          setError(err instanceof Error ? err.message : 'Failed to fetch stock prices');
+        } finally {
+          symbolsToFetch.forEach(sym => inFlightSymbols.delete(sym));
+          setLoading(false);
+        }
+      }
     }
-  }, [symbols.join(','), activeSymbolsStr, fetchPrices]); // Include fetchPrices and activeSymbolsStr
+  }, [sortedSymbolsStr, activeSymbolsStr]);
 
   // Fetch prices when symbols or activeSymbols change
   useEffect(() => {
-    if (symbols.length > 0) {
-      fetchPrices(symbols, activeSymbols);
+    const symbolsList = sortedSymbolsStr ? sortedSymbolsStr.split(',') : [];
+    if (symbolsList.length > 0) {
+      const activeList = activeSymbolsStr ? activeSymbolsStr.split(',') : [];
+      fetchPrices(symbolsList, activeList);
     }
-  }, [symbols.join(','), activeSymbolsStr, fetchPrices]);
-
-  // Auto-refresh removed - we rely on 1-day cache for data freshness
-  // Manual refresh is still available via refreshPrices() function
+  }, [sortedSymbolsStr, activeSymbolsStr, fetchPrices]);
 
   return {
     stockPrices,
@@ -100,7 +217,7 @@ export function useStockPrices(symbols: string[], activeSymbols: string[] = []):
 
 // Hook for single stock price
 export function useStockPrice(symbol: string) {
-  const { stockPrices, loading, error, isAvailable, fetchPrices, refreshPrices, lastUpdated } = useStockPrices([symbol]);
+  const { stockPrices, loading, error, isAvailable, refreshPrices, lastUpdated } = useStockPrices([symbol]);
 
   return {
     stockPrice: stockPrices[symbol] || null,
@@ -111,3 +228,4 @@ export function useStockPrice(symbol: string) {
     lastUpdated
   };
 }
+
