@@ -15,16 +15,27 @@ export interface OptionsTransactionRow {
   portfolio_id: string;
   stock_symbol: string;
   trade_open_date: string;
-  expiry_date: string;
-  call_or_put: 'Call' | 'Put';
   buy_or_sell: 'Buy' | 'Sell';
-  stock_price_current: number | string;
-  break_even_price: number | string;
-  strike_price: number | string;
-  premium: number | string;
-  number_of_contracts: number;
-  fees?: number | string;
   status: 'Open' | 'Closed' | 'Expired' | 'Assigned' | 'Rolled';
+  created_at: string;
+  updated_at: string;
+  
+  // Stock-specific & linkage columns
+  transaction_type?: 'option' | 'stock';
+  shares_quantity?: number;
+  share_price?: number | string;
+  covered_by_type?: 'stock' | 'option' | 'none';
+  covered_by_id?: string;
+
+  // Option-specific columns (optional)
+  expiry_date?: string;
+  call_or_put?: 'Call' | 'Put';
+  stock_price_current?: number | string;
+  break_even_price?: number | string;
+  strike_price?: number | string;
+  premium?: number | string;
+  number_of_contracts?: number;
+  fees?: number | string;
   exit_price?: number | string;
   close_date?: string;
   profit_loss?: number | string;
@@ -34,8 +45,6 @@ export interface OptionsTransactionRow {
   cost_basis_per_share?: number | string;
   chain_id?: string;
   collateral_amount?: number | string;
-  created_at: string;
-  updated_at: string;
 }
 
 export interface OptionsTransaction {
@@ -43,27 +52,36 @@ export interface OptionsTransaction {
   portfolioId: string;
   stockSymbol: string;
   tradeOpenDate: Date;
-  expiryDate: Date;
-  callOrPut: 'Call' | 'Put';
   buyOrSell: 'Buy' | 'Sell';
+  status: 'Open' | 'Closed' | 'Expired' | 'Assigned' | 'Rolled';
+  fees: number;
+  createdAt: Date;
+  updatedAt: Date;
+
+  // Stock-specific & linkage fields
+  transactionType?: 'option' | 'stock';
+  sharesQuantity?: number;
+  sharePrice?: number;
+  coveredByType?: 'stock' | 'option' | 'none';
+  coveredById?: string;
+
+  // Option-specific fields (optional)
+  expiryDate?: Date;
+  callOrPut?: 'Call' | 'Put';
   stockPriceCurrent?: number;
-  breakEvenPrice: number;
-  strikePrice: number;
-  premium: number;
-  numberOfContracts: number;
+  breakEvenPrice?: number;
+  strikePrice?: number;
+  premium?: number;
+  numberOfContracts?: number;
   cashReserve?: number;
   marginCashReserve?: number;
   costBasisPerShare?: number;
-  fees: number;
   exitPrice?: number;
   closeDate?: Date;
   profitLoss?: number;
   annualizedROR?: number;
-  status: 'Open' | 'Closed' | 'Expired' | 'Assigned' | 'Rolled';
-  chainId?: string; // NEW: Link to trade chain
-  collateralAmount?: number; // Manual override for collateral amount (for accurate RoR in complex strategies)
-  createdAt: Date;
-  updatedAt: Date;
+  chainId?: string;
+  collateralAmount?: number;
 }
 
 export interface TradeChain {

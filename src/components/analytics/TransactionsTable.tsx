@@ -199,30 +199,45 @@ export default function TransactionsTable({ transactions, chains = [], isDemo = 
                         {isClosedChainTransaction(transaction) && (
                           <Link className="h-4 w-4 text-blue-600 flex-shrink-0" />
                         )}
-                        <span className="truncate">{transaction.stockSymbol} ({transaction.numberOfContracts})</span>
+                        <span className="truncate">
+                          {transaction.stockSymbol} {transaction.transactionType === 'stock'
+                            ? `(${transaction.sharesQuantity} shares)`
+                            : `(${transaction.numberOfContracts} contract${transaction.numberOfContracts !== 1 ? 's' : ''})`
+                          }
+                        </span>
                       </div>
                       <Badge
-                        variant={transaction.buyOrSell === 'Buy' ? 'outline' : 'default'}
-                        className={`text-xs px-1 py-0 w-fit text-xs ${transaction.buyOrSell === 'Buy'
+                        variant={(transaction.buyOrSell === 'Buy' && !(transaction.transactionType === 'stock' && transaction.status === 'Closed')) ? 'outline' : 'default'}
+                        className={`text-xs px-1 py-0 w-fit text-xs ${(transaction.buyOrSell === 'Buy' && !(transaction.transactionType === 'stock' && transaction.status === 'Closed'))
                           ? 'bg-blue-100 dark:bg-blue-950/30 text-blue-800 dark:text-blue-200 hover:bg-blue-200 dark:hover:bg-blue-950/50'
                           : 'bg-orange-100 dark:bg-orange-950/30 text-orange-800 dark:text-orange-200 hover:bg-orange-200 dark:hover:bg-orange-950/50'
                         }`}
                       >
-                        {transaction.buyOrSell}
+                        {transaction.transactionType === 'stock'
+                          ? (transaction.status === 'Closed' ? 'Stock Sell' : (transaction.buyOrSell === 'Buy' ? 'Stock Buy' : 'Stock Sell'))
+                          : transaction.buyOrSell
+                        }
                       </Badge>
                     </div>
                   </td>
                   <td className="py-2 px-3">
                     <div className="flex items-center space-x-2">
-                      <span className="text-muted-foreground">${formatStrikePrice(transaction.strikePrice)}</span>
-                      <span
-                        className={`text-xs px-1.5 py-0.5 rounded font-medium ${transaction.callOrPut === 'Call'
-                          ? 'bg-green-100 dark:bg-green-950/30 text-green-800 dark:text-green-200'
-                          : 'bg-orange-100 dark:bg-orange-950/30 text-orange-800 dark:text-orange-200'
-                        }`}
-                      >
-                        {transaction.callOrPut === 'Call' ? 'C' : 'P'}
+                      <span className="text-muted-foreground">
+                        {transaction.transactionType === 'stock'
+                          ? `@ $${transaction.sharePrice?.toFixed(2)}`
+                          : `$${transaction.strikePrice !== undefined ? formatStrikePrice(transaction.strikePrice) : '-'}`
+                        }
                       </span>
+                      {transaction.transactionType !== 'stock' && (
+                        <span
+                          className={`text-xs px-1.5 py-0.5 rounded font-medium ${transaction.callOrPut === 'Call'
+                            ? 'bg-green-100 dark:bg-green-950/30 text-green-800 dark:text-green-200'
+                            : 'bg-orange-100 dark:bg-orange-950/30 text-orange-800 dark:text-orange-200'
+                          }`}
+                        >
+                          {transaction.callOrPut === 'Call' ? 'C' : 'P'}
+                        </span>
+                      )}
                     </div>
                   </td>
                   {!isMobile && (

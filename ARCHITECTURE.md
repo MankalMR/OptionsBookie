@@ -222,6 +222,21 @@ A robust data aggregation pipeline that provides complete ETF profiles (Holdings
     *   **Tiered Retrieval Pipeline**: Cache (Instant) -> Primary verified Provider -> Shadow AI Provider -> 404.
     *   **Opaque Data Provenance**: Badging UI elements with a `Sparkles` "AI Insight" indicator whenever a displayed profile originated natively from the Language Model rather than the structured market API.
 
+### 3.11 Stock Holdings & Collateral Integration Subsystem
+A specialized asset tracking pipeline that segregates equity holdings from derivatives and automates collateral management, FIFO lot consumption, and validation checks.
+
+*   **Responsibilities**:
+    *   **Equities Separation**: Isolating stock buy/sell lots into a dedicated **Stock Holdings** view, while restricting the **Options Trades** view exclusively to options and chains.
+    *   **FIFO Stock Lot Consumption**: Automatically moving collateral stock lots from `Open` to `Closed` (Sold) status when a linked covered call option expires In-the-Money (`Assigned`), dynamically computing realized P&L and creating new remainder lots for residual shares.
+    *   **Safety Validations**: Blocking the deletion, closure, or quantity reduction of stock lots if it would violate the coverage requirements of active covered calls.
+    *   **Collateral Optimization**: Assigning `$0` option collateral to covered calls that are backed by owned stock or other options, preventing double-counting of capital requirements.
+*   **Key Modules**:
+    *   **`StockHoldingsTab.tsx`**: Renders positions, weighted average cost, market value, unrealized P&L, and coverage ratios.
+    *   **`optionsCalculations.ts`**: Contains `fifoConsumeStockLots` (FIFO consumption engine) and `calculateAvailableShares` (shares coverage checking).
+*   **Patterns**:
+    *   **FIFO (First-In, First-Out)**: Consuming the oldest open stock buy lots first during option assignments.
+    *   **Preventative Validation**: Front-end validation rules blocking modifications that would invalidate required collateral coverage.
+
 ---
 
 

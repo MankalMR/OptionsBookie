@@ -54,7 +54,9 @@ import {
   calculateChainAwareStockPerformance,
   calculateChainAwareMonthlyPnL,
   calculateCapitalAtRisk,
-  getAtRiskTickers
+  getAtRiskTickers,
+  calculateAvailableShares,
+  fifoConsumeStockLots
 } from './optionsCalculations';
 import { OptionsTransaction, TradeChain } from '@/types/options';
 
@@ -3929,6 +3931,191 @@ describe('optionsCalculations', () => {
       const resultWithMap = getRealizedTransactions(transactions, chains, chainMap);
 
       expect(resultWithMap).toEqual(resultNoMap);
+    });
+  });
+
+  describe('Stock Lot Tracking & Covered Linkages', () => {
+    it('should calculate profit loss for stock buys correctly', () => {
+      const openStock = createMockTransaction({
+        transactionType: 'stock',
+        buyOrSell: 'Buy',
+        sharesQuantity: 100,
+        sharePrice: 150.00,
+        stockPriceCurrent: 160.00,
+        fees: 5.00,
+        status: 'Open'
+      });
+
+      const closedStock = createMockTransaction({
+        transactionType: 'stock',
+        buyOrSell: 'Buy',
+        sharesQuantity: 50,
+        sharePrice: 150.00,
+        exitPrice: 165.00,
+        fees: 2.50,
+        status: 'Closed'
+      });
+
+      // Open P&L: (160 - 150) * 100 - 5 = 995
+      expect(calculateProfitLoss(openStock)).toBe(995);
+
+      // Closed P&L: (165 - 150) * 50 - 2.5 = 747.5
+      expect(calculateProfitLoss(closedStock)).toBe(747.5);
+    });
+
+    it('should calculate collateral for stock trades and covered positions', () => {
+      const stockTxn = createMockTransaction({
+        transactionType: 'stock',
+        sharesQuantity: 50,
+        sharePrice: 150.00
+      });
+
+      const coveredCall = createMockTransaction({
+        transactionType: 'option',
+        callOrPut: 'Call',
+        buyOrSell: 'Sell',
+        strikePrice: 160.00,
+        numberOfContracts: 1,
+        coveredByType: 'stock'
+      });
+
+      const unlinkedCall = createMockTransaction({
+        transactionType: 'option',
+        callOrPut: 'Call',
+        buyOrSell: 'Sell',
+        strikePrice: 160.00,
+        numberOfContracts: 1,
+        coveredByType: 'none'
+      });
+
+      // Stock collateral = 150 * 50 = 7,500
+      expect(calculateCollateral(stockTxn)).toBe(7500);
+
+      // Covered call collateral = 0
+      expect(calculateCollateral(coveredCall)).toBe(0);
+
+      // Legacy/Unlinked call collateral = 160 * 1 * 100 = 16,000
+      expect(calculateCollateral(unlinkedCall)).toBe(16000);
+    });
+
+    it('should calculate available and committed shares dynamically', () => {
+      const txns = [
+        createMockTransaction({
+          id: 'stock-buy-1',
+          transactionType: 'stock',
+          buyOrSell: 'Buy',
+          sharesQuantity: 25,
+          sharePrice: 140.00,
+          status: 'Open',
+          stockSymbol: 'TSLA'
+        }),
+        createMockTransaction({
+          id: 'stock-buy-2',
+          transactionType: 'stock',
+          buyOrSell: 'Buy',
+          sharesQuantity: 75,
+          sharePrice: 160.00,
+          status: 'Open',
+          stockSymbol: 'TSLA'
+        }),
+        createMockTransaction({
+          id: 'call-sell-1',
+          transactionType: 'option',
+          callOrPut: 'Call',
+          buyOrSell: 'Sell',
+          numberOfContracts: 1,
+          coveredByType: 'stock',
+          status: 'Open',
+          stockSymbol: 'TSLA'
+        })
+      ];
+
+      // Total Shares: 25 + 75 = 100
+      // Avg Price: ((25 * 140) + (75 * 160)) / 100 = 155.00
+      // Committed: 1 * 100 = 100
+      // Available: 100 - 100 = 0
+      const result = calculateAvailableShares(txns, 'TSLA');
+      expect(result.totalShares).toBe(100);
+      expect(result.avgPrice).toBe(155.00);
+      expect(result.committedShares).toBe(100);
+      expect(result.availableShares).toBe(0);
+    });
+
+    it('should match and consume stock lots using FIFO method', () => {
+      const txns = [
+        createMockTransaction({
+          id: 'lot-1',
+          transactionType: 'stock',
+          buyOrSell: 'Buy',
+          sharesQuantity: 30,
+          sharePrice: 100.00,
+          tradeOpenDate: new Date('2026-01-01'),
+          status: 'Open',
+          stockSymbol: 'AAPL',
+          fees: 1
+        }),
+        createMockTransaction({
+          id: 'lot-2',
+          transactionType: 'stock',
+          buyOrSell: 'Buy',
+          sharesQuantity: 100,
+          sharePrice: 110.00,
+          tradeOpenDate: new Date('2026-01-05'),
+          status: 'Open',
+          stockSymbol: 'AAPL',
+          fees: 2
+        })
+      ];
+
+      // We consume 1 contract = 100 shares at exit price $120.00
+      const closeDate = new Date('2026-02-01');
+      const { transactionsToUpdate, transactionsToCreate } = fifoConsumeStockLots(
+        txns,
+        'AAPL',
+        1,
+        120.00,
+        closeDate
+      );
+
+      // We expect:
+      // - Lot 1 fully consumed (30 shares) -> Closed, exitPrice 120.00, P&L = (120 - 100) * 30 - 1 = 599.00
+      // - Lot 2 partially consumed (70 shares) -> Closed, exitPrice 120.00, P&L = (120 - 110) * 70 - 2 = 698.00, shares quantity updated to 70
+      // - New open lot created for the remainder of Lot 2 (30 shares @ 110.00)
+      expect(transactionsToUpdate).toHaveLength(2);
+      expect(transactionsToCreate).toHaveLength(1);
+
+      expect(transactionsToUpdate[0]).toEqual({
+        id: 'lot-1',
+        updates: {
+          status: 'Closed',
+          exitPrice: 120.00,
+          closeDate,
+          profitLoss: 599.00
+        }
+      });
+
+      expect(transactionsToUpdate[1]).toEqual({
+        id: 'lot-2',
+        updates: {
+          sharesQuantity: 70,
+          status: 'Closed',
+          exitPrice: 120.00,
+          closeDate,
+          profitLoss: 698.00
+        }
+      });
+
+      expect(transactionsToCreate[0]).toEqual({
+        portfolioId: 'portfolio-1',
+        stockSymbol: 'AAPL',
+        tradeOpenDate: txns[1].tradeOpenDate,
+        buyOrSell: 'Buy',
+        status: 'Open',
+        fees: 0,
+        transactionType: 'stock',
+        sharesQuantity: 30,
+        sharePrice: 110.00
+      });
     });
   });
 });

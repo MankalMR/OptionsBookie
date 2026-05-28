@@ -10,20 +10,31 @@ export interface ValidationResult {
 
 export function validateTransactionData(data: any, isUpdate = false): ValidationResult {
   const errors: string[] = [];
+  const isStock = data.transactionType === 'stock';
 
-  const requiredFields = [
-    'portfolioId',
-    'stockSymbol',
-    'tradeOpenDate',
-    'expiryDate',
-    'callOrPut',
-    'buyOrSell',
-    'strikePrice',
-    'premium',
-    'numberOfContracts',
-    'breakEvenPrice',
-    'status'
-  ];
+  const requiredFields = isStock
+    ? [
+        'portfolioId',
+        'stockSymbol',
+        'tradeOpenDate',
+        'buyOrSell',
+        'sharesQuantity',
+        'sharePrice',
+        'status'
+      ]
+    : [
+        'portfolioId',
+        'stockSymbol',
+        'tradeOpenDate',
+        'expiryDate',
+        'callOrPut',
+        'buyOrSell',
+        'strikePrice',
+        'premium',
+        'numberOfContracts',
+        'breakEvenPrice',
+        'status'
+      ];
 
   // For updates, fields are optional but must be valid if provided
   if (!isUpdate) {
@@ -44,7 +55,7 @@ export function validateTransactionData(data: any, isUpdate = false): Validation
   }
 
   const validateDate = (date: any, fieldName: string) => {
-    if (date !== undefined && date !== null) {
+    if (date !== undefined && date !== null && date !== '') {
       const d = new Date(date);
       if (isNaN(d.getTime())) {
         errors.push(`${fieldName} must be a valid date`);
@@ -57,7 +68,7 @@ export function validateTransactionData(data: any, isUpdate = false): Validation
   validateDate(data.closeDate, 'closeDate');
 
   const validCallPut = ['Call', 'Put'];
-  if (data.callOrPut !== undefined && !validCallPut.includes(data.callOrPut)) {
+  if (!isStock && data.callOrPut !== undefined && !validCallPut.includes(data.callOrPut)) {
     errors.push(`callOrPut must be one of: ${validCallPut.join(', ')}`);
   }
 
@@ -84,7 +95,9 @@ export function validateTransactionData(data: any, isUpdate = false): Validation
     'exitPrice',
     'profitLoss',
     'annualizedROR',
-    'collateralAmount'
+    'collateralAmount',
+    'sharesQuantity',
+    'sharePrice'
   ];
 
   for (const field of numericFields) {

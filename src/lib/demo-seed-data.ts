@@ -21,7 +21,7 @@ import { OptionsTransaction, Portfolio, TradeChain } from '@/types/options';
 // DemoStore.getOrCreate() compares this against the stored value and
 // automatically reseeds any session that is running an older version.
 // ---------------------------------------------------------------------------
-export const SEED_VERSION = '2026-03-05-v2'; // TSLA/AVGO/AXON/ASML/ISRG dataset
+export const SEED_VERSION = '2026-05-27-stock-tracking-v1'; // Stock tracking dataset
 
 // ---------------------------------------------------------------------------
 // Fixed demo IDs (deterministic, so reset is stable)
@@ -65,6 +65,51 @@ function makeTransactions(): OptionsTransaction[] {
     };
 
     return [
+        // Stock Buy Lot 1 for TSLA (120 shares at $240)
+        {
+            ...base,
+            id: 'demo-tx-tsla-stock-001',
+            stockSymbol: 'TSLA',
+            tradeOpenDate: d('2025-06-01'),
+            transactionType: 'stock',
+            buyOrSell: 'Buy',
+            sharesQuantity: 120,
+            sharePrice: 240.00,
+            fees: 0.00,
+            status: 'Open',
+            stockPriceCurrent: 265.40,
+        },
+        // Stock Buy Lot 2 for TSLA (80 shares at $250)
+        {
+            ...base,
+            id: 'demo-tx-tsla-stock-002',
+            stockSymbol: 'TSLA',
+            tradeOpenDate: d('2025-06-15'),
+            transactionType: 'stock',
+            buyOrSell: 'Buy',
+            sharesQuantity: 80,
+            sharePrice: 250.00,
+            fees: 0.00,
+            status: 'Open',
+            stockPriceCurrent: 265.40,
+        },
+        // Closed Stock Lot: TSLA (50 shares @ $200 bought, sold @ $230)
+        {
+            ...base,
+            id: 'demo-tx-tsla-stock-closed-001',
+            stockSymbol: 'TSLA',
+            tradeOpenDate: d('2025-05-01'),
+            closeDate: d('2025-05-20'),
+            transactionType: 'stock',
+            buyOrSell: 'Buy',
+            sharesQuantity: 50,
+            sharePrice: 200.00,
+            exitPrice: 230.00,
+            fees: 1.00,
+            status: 'Closed',
+            profitLoss: 1499.00,
+        },
+
         // -----------------------------------------------------------------------
         // 1 & 2 & 3. TSLA — Covered Call chain (2 Rolled + 1 Open)
         //   Strategy: Sell OTM calls against a long TSLA position
@@ -80,7 +125,7 @@ function makeTransactions(): OptionsTransaction[] {
             strikePrice: 280,
             premium: 8.50,
             numberOfContracts: 2,
-            collateralAmount: 56000,
+            collateralAmount: 0,
             breakEvenPrice: 288.50,
             fees: 1.32,
             status: 'Rolled',
@@ -90,6 +135,8 @@ function makeTransactions(): OptionsTransaction[] {
             profitLoss: 1095.36,
             annualizedROR: 52.30,
             stockPriceCurrent: 265.40,
+            transactionType: 'option',
+            coveredByType: 'stock',
         },
         {
             ...base,
@@ -102,7 +149,7 @@ function makeTransactions(): OptionsTransaction[] {
             strikePrice: 275,
             premium: 9.80,
             numberOfContracts: 2,
-            collateralAmount: 55000,
+            collateralAmount: 0,
             breakEvenPrice: 284.80,
             fees: 1.32,
             status: 'Rolled',
@@ -112,6 +159,8 @@ function makeTransactions(): OptionsTransaction[] {
             profitLoss: 1057.36,
             annualizedROR: 42.80,
             stockPriceCurrent: 265.40,
+            transactionType: 'option',
+            coveredByType: 'stock',
         },
         {
             ...base,
@@ -124,12 +173,14 @@ function makeTransactions(): OptionsTransaction[] {
             strikePrice: 300,
             premium: 14.20,
             numberOfContracts: 2,
-            collateralAmount: 60000,
+            collateralAmount: 0,
             breakEvenPrice: 314.20,
             fees: 1.32,
             status: 'Open',
             chainId: CHAIN_TSLA,
             stockPriceCurrent: 265.40,
+            transactionType: 'option',
+            coveredByType: 'stock',
         },
 
         // -----------------------------------------------------------------------
@@ -158,6 +209,7 @@ function makeTransactions(): OptionsTransaction[] {
             profitLoss: 389.34,
             annualizedROR: 44.20,
             stockPriceCurrent: 178.55,
+            transactionType: 'option',
         },
         {
             ...base,
@@ -177,6 +229,7 @@ function makeTransactions(): OptionsTransaction[] {
             status: 'Open',
             chainId: CHAIN_AVGO,
             stockPriceCurrent: 178.55,
+            transactionType: 'option',
         },
 
         // -----------------------------------------------------------------------
@@ -205,6 +258,7 @@ function makeTransactions(): OptionsTransaction[] {
             profitLoss: 769.34,
             annualizedROR: 58.70,
             stockPriceCurrent: 398.25,
+            transactionType: 'option',
         },
         {
             ...base,
@@ -228,6 +282,7 @@ function makeTransactions(): OptionsTransaction[] {
             profitLoss: 869.34,
             annualizedROR: 71.50,
             stockPriceCurrent: 398.25,
+            transactionType: 'option',
         },
 
         // -----------------------------------------------------------------------
@@ -250,6 +305,29 @@ function makeTransactions(): OptionsTransaction[] {
             fees: 0.66,
             status: 'Open',
             stockPriceCurrent: 752.40,
+            transactionType: 'option',
+        },
+        
+        // Short Call covered by ASML LEAP (PMCC Strategy)
+        {
+            ...base,
+            id: 'demo-tx-asml-short-001',
+            stockSymbol: 'ASML',
+            tradeOpenDate: d('2025-11-01'),
+            expiryDate: d('2026-02-20'),
+            callOrPut: 'Call',
+            buyOrSell: 'Sell',
+            strikePrice: 780,
+            premium: 18.50,
+            numberOfContracts: 1,
+            collateralAmount: 0,
+            breakEvenPrice: 798.50,
+            fees: 0.66,
+            status: 'Open',
+            stockPriceCurrent: 752.40,
+            transactionType: 'option',
+            coveredByType: 'option',
+            coveredById: 'demo-tx-asml-001',
         },
 
         // -----------------------------------------------------------------------
@@ -277,6 +355,7 @@ function makeTransactions(): OptionsTransaction[] {
             profitLoss: 769.34,
             annualizedROR: 62.30,
             stockPriceCurrent: 535.80,
+            transactionType: 'option',
         },
 
         // -----------------------------------------------------------------------
@@ -304,6 +383,7 @@ function makeTransactions(): OptionsTransaction[] {
             profitLoss: -1121.32,
             annualizedROR: -98.40,
             stockPriceCurrent: 265.40,
+            transactionType: 'option',
         },
 
         // -----------------------------------------------------------------------
@@ -327,6 +407,7 @@ function makeTransactions(): OptionsTransaction[] {
             fees: 0.66,
             status: 'Open',
             stockPriceCurrent: 178.55,
+            transactionType: 'option',
         },
 
         // -----------------------------------------------------------------------
@@ -350,6 +431,7 @@ function makeTransactions(): OptionsTransaction[] {
             fees: 0.66,
             status: 'Open',
             stockPriceCurrent: 535.80,
+            transactionType: 'option',
         },
     ] as OptionsTransaction[];
 }

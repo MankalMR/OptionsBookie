@@ -6,8 +6,8 @@ interface UseTransactionsReturn {
   transactions: OptionsTransaction[];
   loading: boolean;
   error: string | null;
-  addTransaction: (transaction: Omit<OptionsTransaction, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
-  updateTransaction: (id: string, updates: Partial<OptionsTransaction>) => Promise<void>;
+  addTransaction: (transaction: Omit<OptionsTransaction, 'id' | 'createdAt' | 'updatedAt'>) => Promise<OptionsTransaction | undefined>;
+  updateTransaction: (id: string, updates: Partial<OptionsTransaction>) => Promise<OptionsTransaction | undefined>;
   deleteTransaction: (id: string) => Promise<void>;
   refreshTransactions: () => Promise<void>;
 }
@@ -22,7 +22,6 @@ export function useTransactions(): UseTransactionsReturn {
     try {
       setLoading(true);
       setError(null);
-
       const response = await fetch('/api/transactions');
       const result = await response.json();
 
@@ -56,6 +55,7 @@ export function useTransactions(): UseTransactionsReturn {
 
       if (result.success) {
         setTransactions(prev => [result.data, ...prev]);
+        return result.data as OptionsTransaction;
       } else {
         setError(result.error || 'Failed to add transaction');
         throw new Error(result.error || 'Failed to add transaction');
@@ -86,6 +86,7 @@ export function useTransactions(): UseTransactionsReturn {
         setTransactions(prev =>
           prev.map(t => t.id === id ? result.data : t)
         );
+        return result.data as OptionsTransaction;
       } else {
         setError(result.error || 'Failed to update transaction');
         throw new Error(result.error || 'Failed to update transaction');
