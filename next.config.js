@@ -8,15 +8,13 @@ const nextConfig = {
   devIndicators: {
     buildActivity: true,
   },
-  // Enable experimental features for better development experience
-  experimental: {
-    // Enable faster builds
-    turbo: {
-      rules: {
-        '*.svg': {
-          loaders: ['@svgr/webpack'],
-          as: '*.js',
-        },
+  // Enable Turbopack rules (since Next.js 15/16)
+  turbopack: {
+    root: __dirname,
+    rules: {
+      '*.svg': {
+        loaders: ['@svgr/webpack'],
+        as: '*.js',
       },
     },
   },
