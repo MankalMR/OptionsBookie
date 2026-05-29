@@ -18,6 +18,7 @@ import Modal from '@/components/ui/Modal';
 
 interface TransactionTableProps {
   transactions: OptionsTransaction[];
+  allTransactions?: OptionsTransaction[];
   onDelete: (id: string) => void;
   onDeleteChain?: (chainId: string) => void;
   onEdit: (transaction: OptionsTransaction) => void;
@@ -34,6 +35,7 @@ interface TransactionTableProps {
 
 export default function TransactionTable({
   transactions,
+  allTransactions,
   onDelete,
   onDeleteChain,
   onEdit,
@@ -409,16 +411,16 @@ export default function TransactionTable({
                   {!isMobile && (
                     <TableCell>
                       <span className="font-medium text-muted-foreground">
-                        ${formatPnLNumber(calculateChainCollateral(chainId, transactions)).slice(1)}
+                        ${formatPnLNumber(calculateChainCollateral(chainId, allTransactions || transactions)).slice(1)}
                       </span>
                       <div className="text-xs text-muted-foreground font-normal">Total Collateral</div>
                     </TableCell>
                   )}
                   {!isMobile && (
                     <TableCell className="hidden lg:table-cell">
-                      <span className={`font-medium text-sm ${calculateChainRoR(chainId, transactions) >= 0 ? 'text-green-600' : 'text-red-600'
+                      <span className={`font-medium text-sm ${calculateChainRoR(chainId, allTransactions || transactions) >= 0 ? 'text-green-600' : 'text-red-600'
                         }`}>
-                        {Math.round(calculateChainRoR(chainId, transactions))}%
+                        {Math.round(calculateChainRoR(chainId, allTransactions || transactions))}%
                       </span>
                       <div className="text-xs text-muted-foreground font-normal">Chain RoR</div>
                     </TableCell>
@@ -826,15 +828,15 @@ export default function TransactionTable({
                   {!isMobile && (
                     <TableCell>
                       <span className="font-medium text-muted-foreground">
-                        ${formatPnLNumber(calculateCollateral(transaction)).slice(1)}
+                        ${formatPnLNumber(calculateCollateral(transaction, allTransactions || transactions)).slice(1)}
                       </span>
                     </TableCell>
                   )}
                   {!isMobile && (
                     <TableCell className="hidden lg:table-cell">
-                      <span className={`font-medium text-sm ${calculateRoR(transaction) >= 0 ? 'text-green-600' : 'text-red-600'
+                      <span className={`font-medium text-sm ${calculateRoR(transaction, allTransactions || transactions) >= 0 ? 'text-green-600' : 'text-red-600'
                         }`}>
-                        {Math.round(calculateRoR(transaction))}%
+                        {Math.round(calculateRoR(transaction, allTransactions || transactions))}%
                       </span>
                     </TableCell>
                   )}

@@ -257,6 +257,23 @@ describe('optionsCalculations', () => {
       expect(result).toBe(5000);
     });
 
+    it('should ignore manual collateral override for covered options to prevent double-counting', () => {
+      const transaction = createMockTransaction({
+        callOrPut: 'Call',
+        buyOrSell: 'Sell',
+        strikePrice: 150.00,
+        numberOfContracts: 2,
+        coveredByType: 'stock',
+        coveredById: 'stock-1',
+        collateralAmount: 5000,
+      });
+
+      const result = calculateCollateral(transaction);
+
+      // Should return 0 (no double-counting) because it has cover, ignoring manual override
+      expect(result).toBe(0);
+    });
+
     it('should fall back to calculated collateral when manual amount is zero', () => {
       const transaction = createMockTransaction({
         callOrPut: 'Call',
@@ -284,6 +301,93 @@ describe('optionsCalculations', () => {
 
       // Implementation uses strike price: 150 * 2 * 100 = 30,000
       expect(result).toBe(30000);
+    });
+
+    it('should return 0 for covered call when allTransactions is omitted', () => {
+      const transaction = createMockTransaction({
+        callOrPut: 'Call',
+        buyOrSell: 'Sell',
+        coveredByType: 'stock',
+        coveredById: 'stock-1'
+      });
+      const result = calculateCollateral(transaction);
+      expect(result).toBe(0);
+    });
+
+    it('should dynamically inherit pro-rata stock collateral when allTransactions is supplied', () => {
+      const shortCall = createMockTransaction({
+        id: 'call-1',
+        callOrPut: 'Call',
+        buyOrSell: 'Sell',
+        numberOfContracts: 2,
+        coveredByType: 'stock',
+        coveredById: 'stock-1'
+      });
+      const stockCollateral = createMockTransaction({
+        id: 'stock-1',
+        transactionType: 'stock',
+        sharePrice: 45.00,
+        sharesQuantity: 500,
+        status: 'Open'
+      });
+      const allTransactions = [shortCall, stockCollateral];
+      const result = calculateCollateral(shortCall, allTransactions);
+      
+      // Cost basis = sharePrice * 100 * contracts = 45 * 100 * 2 = 9,000
+      expect(result).toBe(9000);
+    });
+
+    it('should fall back to finding open stock transaction when coveredById is omitted', () => {
+      const shortCall = createMockTransaction({
+        id: 'call-1',
+        portfolioId: 'port-1',
+        stockSymbol: 'PATH',
+        callOrPut: 'Call',
+        buyOrSell: 'Sell',
+        numberOfContracts: 1,
+        coveredByType: 'stock',
+        coveredById: undefined
+      });
+      const stockCollateral = createMockTransaction({
+        id: 'stock-1',
+        portfolioId: 'port-1',
+        stockSymbol: 'PATH',
+        transactionType: 'stock',
+        buyOrSell: 'Buy',
+        sharePrice: 10.48,
+        sharesQuantity: 100,
+        status: 'Open'
+      });
+      const allTransactions = [shortCall, stockCollateral];
+      const result = calculateCollateral(shortCall, allTransactions);
+
+      // Cost basis = 10.48 * 100 * 1 = 1,048
+      expect(result).toBe(1048);
+    });
+
+    it('should dynamically inherit pro-rata option collateral when allTransactions is supplied', () => {
+      const shortCall = createMockTransaction({
+        id: 'call-1',
+        callOrPut: 'Call',
+        buyOrSell: 'Sell',
+        numberOfContracts: 1,
+        coveredByType: 'option',
+        coveredById: 'long-call-1'
+      });
+      const longCall = createMockTransaction({
+        id: 'long-call-1',
+        transactionType: 'option',
+        callOrPut: 'Call',
+        buyOrSell: 'Buy',
+        premium: 8.50,
+        numberOfContracts: 2,
+        status: 'Open'
+      });
+      const allTransactions = [shortCall, longCall];
+      const result = calculateCollateral(shortCall, allTransactions);
+
+      // Cost basis = premium * 100 * contracts = 8.50 * 100 * 1 = 850
+      expect(result).toBe(850);
     });
   });
 

@@ -606,18 +606,18 @@ export default function DemoPage() {
             const rolledTradeUpdates = { ...rollData.originalUpdates, chainId: chainId as string };
             const newTradeData = { ...rollData.newTrade, chainId: chainId as string };
 
-            // 1. Update current trade to "Rolled" status
-            if (editingTransaction) {
-                await updateTransaction(editingTransaction.id, rolledTradeUpdates);
-            }
-
-            // 2. Create the new open trade via demo API
+            // 1. Create the new open trade via demo API first
             const newTradeResponse = await fetch('/api/demo/transactions', {
                 method: 'POST',
                 headers: demoHeaders(sessionId),
                 body: JSON.stringify(newTradeData)
             });
             if (!newTradeResponse.ok) throw new Error('Failed to create new open trade in demo');
+
+            // 2. Update current trade to "Rolled" status
+            if (editingTransaction) {
+                await updateTransaction(editingTransaction.id, rolledTradeUpdates);
+            }
 
             setShowEditModal(false);
             setEditingTransaction(null);
@@ -930,6 +930,7 @@ export default function DemoPage() {
                                     {viewMode === 'grouped' ? (
                                         <SymbolGroupedView
                                             transactions={filteredTransactions}
+                                            allTransactions={transactions}
                                             onDelete={handleDeleteTransaction}
                                             onDeleteChain={handleDeleteChain}
                                             onEdit={handleEditTransaction}
@@ -947,6 +948,7 @@ export default function DemoPage() {
                                     ) : (
                                         <TransactionTable
                                             transactions={filteredTransactions}
+                                            allTransactions={transactions}
                                             onDelete={handleDeleteTransaction}
                                             onDeleteChain={handleDeleteChain}
                                             onEdit={handleEditTransaction}

@@ -134,7 +134,7 @@ export default function TransactionsTable({ transactions, chains = [], isDemo = 
   }), [displayTransactions]);
 
   // Mobile view metrics
-  const totalCollateral = useMemo(() => transactions.reduce((sum, t) => sum + calculateCollateral(t), 0), [transactions]);
+  const totalCollateral = useMemo(() => transactions.reduce((sum, t) => sum + calculateCollateral(t, transactions), 0), [transactions]);
   const averageDays = useMemo(() => transactions.length > 0 ? transactions.reduce((sum, t) =>
     sum + calculateDaysHeld(t.tradeOpenDate, t.closeDate!), 0
   ) / transactions.length : 0, [transactions]);
@@ -186,8 +186,8 @@ export default function TransactionsTable({ transactions, chains = [], isDemo = 
           </thead>
           <tbody>
             {sortedTransactions.map((transaction) => {
-              const ror = calculateRoR(transaction);
-              const annualizedRoR = calculateAnnualizedRoR(transaction);
+              const ror = calculateRoR(transaction, transactions);
+              const annualizedRoR = calculateAnnualizedRoR(transaction, transactions);
               const daysHeld = calculateDaysHeld(transaction.tradeOpenDate, transaction.closeDate!);
               const pnl = getDisplayPnL(transaction);
 
@@ -282,7 +282,7 @@ export default function TransactionsTable({ transactions, chains = [], isDemo = 
                         </span>
                         <span className="text-muted-foreground"> / </span>
                         <span className="text-red-600 dark:text-red-400">
-                          {formatPnLCurrency(calculateCollateral(transaction))}
+                          {formatPnLCurrency(calculateCollateral(transaction, transactions))}
                         </span>
                       </span>
                       <span className="text-xs">

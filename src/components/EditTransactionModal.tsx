@@ -279,7 +279,7 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
       }
 
       // Sell Call Coverage linkage checks
-      if (formData.buyOrSell === 'Sell' && formData.callOrPut === 'Call' && formData.status === 'Open') {
+      if (formData.buyOrSell === 'Sell' && formData.callOrPut === 'Call' && (formData.status === 'Open' || formData.status === 'Rolled')) {
         if (formData.coveredByType === 'none') {
           newErrors.coveredByType = 'Covered calls must be covered by stock or a long option. Naked selling is disabled.';
         } else if (formData.coveredByType === 'stock') {
@@ -335,7 +335,7 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
       if (!formData.expiryDate || formData.strikePrice <= 0 || formData.premium <= 0 || formData.numberOfContracts <= 0) return false;
       if (['Closed', 'Expired', 'Assigned'].includes(formData.status) && !formData.closeDate) return false;
       if (formData.status === 'Closed' && formData.exitPrice < 0) return false;
-      if (formData.buyOrSell === 'Sell' && formData.callOrPut === 'Call' && formData.status === 'Open') {
+      if (formData.buyOrSell === 'Sell' && formData.callOrPut === 'Call' && (formData.status === 'Open' || formData.status === 'Rolled')) {
         if (formData.coveredByType === 'none') return false;
         if (formData.coveredByType === 'stock' && availableSharesInfo.availableShares < formData.numberOfContracts * 100) return false;
         if (formData.coveredByType === 'option' && !formData.coveredById) return false;
@@ -560,14 +560,16 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
       const rolledTradeUpdates = { ...originalUpdates, chainId: chain.id };
       const newTradeData = { ...newTradeBase, chainId: chain.id };
 
-      await onSave(transaction.id, rolledTradeUpdates);
-
+      // 1. Create the new open trade first to avoid race condition where chain is closed
       const newTradeResponse = await fetch('/api/transactions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newTradeData)
       });
       if (!newTradeResponse.ok) throw new Error('Failed to create new open trade');
+
+      // 2. Update the original trade to 'Rolled' status (triggers refresh)
+      await onSave(transaction.id, rolledTradeUpdates);
 
       setSubmitStatus('success');
       setTimeout(() => {
@@ -764,7 +766,7 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
             </div>
 
             {/* Coverage Selection - Required for Short Calls */}
-            {formData.buyOrSell === 'Sell' && formData.callOrPut === 'Call' && formData.status === 'Open' && (
+            {formData.buyOrSell === 'Sell' && formData.callOrPut === 'Call' && (formData.status === 'Open' || formData.status === 'Rolled') && (
               <div className="bg-blue-50 dark:bg-blue-950/20 p-3 rounded-md space-y-3 border border-blue-200 dark:border-blue-900">
                 <div className="space-y-2">
                   <Label htmlFor="coveredByType" className={errors.coveredByType ? 'text-destructive font-medium' : ''}>

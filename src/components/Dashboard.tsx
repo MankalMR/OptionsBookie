@@ -909,6 +909,7 @@ export default function Dashboard() {
                   {viewMode === 'grouped' ? (
                     <SymbolGroupedView
                       transactions={filteredTransactions}
+                      allTransactions={transactions}
                       onDelete={handleDeleteTransaction}
                       onDeleteChain={handleDeleteChain}
                       onEdit={handleEditTransaction}
@@ -926,6 +927,7 @@ export default function Dashboard() {
                   ) : (
                     <TransactionTable
                       transactions={filteredTransactions}
+                      allTransactions={transactions}
                       onDelete={handleDeleteTransaction}
                       onDeleteChain={handleDeleteChain}
                       onEdit={handleEditTransaction}
