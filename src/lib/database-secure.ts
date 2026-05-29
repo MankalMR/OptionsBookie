@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { OptionsTransaction, OptionsTransactionRow } from '@/types/options';
-import { parseLocalDate } from '@/utils/dateUtils';
+import { rowToTransaction, transactionToRow } from './database-mappers';
 
 // Environment variables validation
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -17,86 +17,7 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey);
 // Service role client for admin operations only
 const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
-// Helper function to convert Supabase row to OptionsTransaction
 
-function rowToTransaction(row: OptionsTransactionRow): OptionsTransaction {
-  return {
-    id: row.id,
-    stockSymbol: row.stock_symbol,
-    tradeOpenDate: parseLocalDate(row.trade_open_date),
-    expiryDate: row.expiry_date ? parseLocalDate(row.expiry_date) : undefined,
-    callOrPut: row.call_or_put || undefined,
-    buyOrSell: row.buy_or_sell,
-    stockPriceCurrent: row.stock_price_current !== null && row.stock_price_current !== undefined ? parseFloat(row.stock_price_current as string) : undefined,
-    breakEvenPrice: row.break_even_price !== null && row.break_even_price !== undefined ? parseFloat(row.break_even_price as string) : undefined,
-    strikePrice: row.strike_price !== null && row.strike_price !== undefined ? parseFloat(row.strike_price as string) : undefined,
-    premium: row.premium !== null && row.premium !== undefined ? parseFloat(row.premium as string) : undefined,
-    numberOfContracts: row.number_of_contracts !== null && row.number_of_contracts !== undefined ? row.number_of_contracts : undefined,
-    fees: parseFloat((row.fees || 0) as string),
-    status: row.status,
-    exitPrice: row.exit_price ? parseFloat(row.exit_price as string) : undefined,
-    closeDate: row.close_date ? parseLocalDate(row.close_date) : undefined,
-    profitLoss: parseFloat((row.profit_loss || 0) as string),
-    annualizedROR: row.annualized_ror ? parseFloat(row.annualized_ror as string) : undefined,
-    cashReserve: row.cash_reserve ? parseFloat(row.cash_reserve as string) : undefined,
-    marginCashReserve: row.margin_cash_reserve ? parseFloat(row.margin_cash_reserve as string) : undefined,
-    costBasisPerShare: row.cost_basis_per_share ? parseFloat(row.cost_basis_per_share as string) : undefined,
-    collateralAmount: row.collateral_amount ? parseFloat(row.collateral_amount as string) : undefined,
-    portfolioId: row.portfolio_id || '',
-    chainId: row.chain_id || undefined,
-    createdAt: parseLocalDate(row.created_at),
-    updatedAt: parseLocalDate(row.updated_at),
-
-    // Unified stock & link fields
-    transactionType: (row.transaction_type || 'option') as 'option' | 'stock',
-    sharesQuantity: row.shares_quantity || undefined,
-    sharePrice: row.share_price !== null && row.share_price !== undefined ? parseFloat(row.share_price as string) : undefined,
-    coveredByType: (row.covered_by_type || 'none') as 'stock' | 'option' | 'none',
-    coveredById: row.covered_by_id || undefined,
-  };
-}
-
-// Helper function to convert OptionsTransaction to Supabase row
-function transactionToRow(transaction: Partial<OptionsTransaction>, userId: string) {
-  return {
-    user_id: userId,
-    portfolio_id: transaction.portfolioId,
-    stock_symbol: transaction.stockSymbol,
-    trade_open_date: transaction.tradeOpenDate ?
-      (transaction.tradeOpenDate instanceof Date ? transaction.tradeOpenDate.toISOString() : new Date(transaction.tradeOpenDate).toISOString()) :
-      undefined,
-    expiry_date: transaction.expiryDate ?
-      (transaction.expiryDate instanceof Date ? transaction.expiryDate.toISOString() : new Date(transaction.expiryDate).toISOString()) :
-      null, // Use null to clear constraints on options
-    call_or_put: transaction.callOrPut || null,
-    buy_or_sell: transaction.buyOrSell,
-    stock_price_current: transaction.stockPriceCurrent !== undefined ? transaction.stockPriceCurrent : null,
-    break_even_price: transaction.breakEvenPrice !== undefined ? transaction.breakEvenPrice : null,
-    strike_price: transaction.strikePrice !== undefined ? transaction.strikePrice : null,
-    premium: transaction.premium !== undefined ? transaction.premium : null,
-    number_of_contracts: transaction.numberOfContracts !== undefined ? transaction.numberOfContracts : null,
-    fees: transaction.fees || 0,
-    status: transaction.status,
-    exit_price: transaction.exitPrice !== undefined ? transaction.exitPrice : null,
-    close_date: transaction.closeDate ?
-      (transaction.closeDate instanceof Date ? transaction.closeDate.toISOString() : new Date(transaction.closeDate).toISOString()) :
-      null,
-    profit_loss: transaction.profitLoss || 0,
-    annualized_ror: transaction.annualizedROR,
-    cash_reserve: transaction.cashReserve,
-    margin_cash_reserve: transaction.marginCashReserve,
-    cost_basis_per_share: transaction.costBasisPerShare,
-    collateral_amount: transaction.collateralAmount,
-    chain_id: transaction.chainId || null,
-    
-    // Unified stock & link fields
-    transaction_type: transaction.transactionType || 'option',
-    shares_quantity: transaction.sharesQuantity !== undefined ? transaction.sharesQuantity : null,
-    share_price: transaction.sharePrice !== undefined ? transaction.sharePrice : null,
-    covered_by_type: transaction.coveredByType || 'none',
-    covered_by_id: transaction.coveredById || null,
-  };
-}
 
 // Secure database operations using regular Supabase client (respects RLS)
 export const secureDb = {
@@ -141,7 +62,7 @@ export const secureDb = {
   },
 
   async updateTransaction(id: string, transaction: Partial<OptionsTransaction>, userEmail: string): Promise<OptionsTransaction> {
-    const rowData = transactionToRow(transaction, userEmail);
+    const rowData = transactionToRow(transaction, userEmail, true);
     delete (rowData as Partial<OptionsTransactionRow>).user_id; // Don't update user_id
 
     const { data, error } = await supabase
