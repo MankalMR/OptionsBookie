@@ -283,6 +283,11 @@ export const calculateCollateral = (transaction: OptionsTransaction, allTransact
           return (coveringTx.premium || 0) * 100 * (transaction.numberOfContracts || 1);
         }
       }
+
+      // Fallback: If unlinked but a manual collateral override is specified, use it for local trade RoR
+      if (transaction.collateralAmount && transaction.collateralAmount > 0) {
+        return transaction.collateralAmount;
+      }
     }
     return 0;
   }

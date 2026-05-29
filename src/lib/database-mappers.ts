@@ -96,7 +96,7 @@ export function transactionToRow(transaction: Partial<OptionsTransaction>, userI
     if (transaction.sharesQuantity !== undefined) row.shares_quantity = transaction.sharesQuantity;
     if (transaction.sharePrice !== undefined) row.share_price = transaction.sharePrice;
     if (transaction.coveredByType !== undefined) row.covered_by_type = transaction.coveredByType;
-    if (transaction.coveredById !== undefined) row.covered_by_id = transaction.coveredById;
+    if (transaction.coveredById !== undefined) row.covered_by_id = transaction.coveredById || null;
   } else {
     row.portfolio_id = transaction.portfolioId;
     row.stock_symbol = transaction.stockSymbol;

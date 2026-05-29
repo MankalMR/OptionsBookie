@@ -274,6 +274,25 @@ describe('optionsCalculations', () => {
       expect(result).toBe(0);
     });
 
+    it('should return manual collateral override for covered options when allTransactions is supplied but unlinked', () => {
+      const transaction = createMockTransaction({
+        id: 'call-1',
+        callOrPut: 'Call',
+        buyOrSell: 'Sell',
+        strikePrice: 150.00,
+        numberOfContracts: 2,
+        coveredByType: 'option',
+        coveredById: undefined, // Unlinked PMCC
+        collateralAmount: 5000,
+      });
+
+      const allTransactions = [transaction];
+      const result = calculateCollateral(transaction, allTransactions);
+
+      // Should return manual override collateralAmount (5000) for local RoR calculation
+      expect(result).toBe(5000);
+    });
+
     it('should fall back to calculated collateral when manual amount is zero', () => {
       const transaction = createMockTransaction({
         callOrPut: 'Call',

@@ -288,9 +288,9 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
             newErrors.coveredByType = `Insufficient available stock. You have ${availableSharesInfo.availableShares} shares, but need ${reqShares} shares.`;
           }
         } else if (formData.coveredByType === 'option') {
-          if (!formData.coveredById) {
-            newErrors.coveredById = 'You must select a covering long call option.';
-          } else {
+          if (!formData.coveredById && (!formData.collateralAmount || formData.collateralAmount <= 0)) {
+            newErrors.coveredById = 'You must select a covering long call option or specify a collateral override.';
+          } else if (formData.coveredById) {
             const coveringLong = openLongCalls.find(t => t.id === formData.coveredById);
             if (coveringLong) {
               const coveringContracts = coveringLong.numberOfContracts || 0;
@@ -338,7 +338,7 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
       if (formData.buyOrSell === 'Sell' && formData.callOrPut === 'Call' && (formData.status === 'Open' || formData.status === 'Rolled')) {
         if (formData.coveredByType === 'none') return false;
         if (formData.coveredByType === 'stock' && availableSharesInfo.availableShares < formData.numberOfContracts * 100) return false;
-        if (formData.coveredByType === 'option' && !formData.coveredById) return false;
+        if (formData.coveredByType === 'option' && !formData.coveredById && (!formData.collateralAmount || formData.collateralAmount <= 0)) return false;
       }
       if (formData.status === 'Rolled' && (!formData.newExpiryDate || formData.newStrikePrice <= 0 || formData.newPremium <= 0 || formData.exitPremium <= 0)) return false;
     }
@@ -375,8 +375,8 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
         strikePrice: undefined,
         premium: undefined,
         numberOfContracts: undefined,
-        coveredByType: undefined,
-        coveredById: undefined,
+        coveredByType: 'none',
+        coveredById: null,
         exitPrice: formData.status === 'Closed' ? formData.exitPrice : undefined,
         closeDate: formData.status === 'Closed' ? parseLocalDate(formData.closeDate) : undefined,
       } : {
@@ -387,7 +387,7 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
         numberOfContracts: formData.numberOfContracts,
         collateralAmount: formData.collateralAmount || undefined,
         coveredByType: formData.coveredByType as 'stock' | 'option' | 'none',
-        coveredById: formData.coveredByType === 'option' ? formData.coveredById : undefined,
+        coveredById: formData.coveredByType === 'option' ? (formData.coveredById || null) : null,
         exitPrice: ['Closed', 'Expired', 'Assigned'].includes(formData.status) ? formData.exitPrice : undefined,
         closeDate: ['Closed', 'Expired', 'Assigned'].includes(formData.status) ? parseLocalDate(formData.closeDate) : undefined,
       })
@@ -515,7 +515,7 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
         annualizedROR: undefined,
         transactionType: 'option' as const,
         coveredByType: formData.coveredByType as 'stock' | 'option' | 'none',
-        coveredById: formData.coveredByType === 'option' ? formData.coveredById : undefined,
+        coveredById: formData.coveredByType === 'option' ? (formData.coveredById || null) : null,
       };
 
       const newChainData = {
@@ -777,61 +777,104 @@ export default function EditTransactionModal({ transaction, onClose, onSave, por
                       <SelectValue placeholder="Select coverage" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="stock">Covered by Stock Position</SelectItem>
-                      <SelectItem value="option">Covered by Long Call (PMCC)</SelectItem>
+                      <SelectItem value="stock">Stock Position</SelectItem>
+                      <SelectItem value="option">Long Call (PMCC)</SelectItem>
                     </SelectContent>
                   </Select>
                   {errors.coveredByType && <p className="text-xs text-destructive mt-1">{errors.coveredByType}</p>}
                 </div>
 
                 {formData.coveredByType === 'stock' && (
-                  <div className="text-xs text-blue-700 dark:text-blue-300">
-                    <p>Available Shares: <span className="font-semibold">{availableSharesInfo.availableShares}</span></p>
-                    <p>Required Shares: <span className="font-semibold">{formData.numberOfContracts * 100}</span> (100 shares per contract)</p>
+                  <div className="space-y-3">
+                    <div className="text-xs text-blue-700 dark:text-blue-300">
+                      <p>Available Shares: <span className="font-semibold">{availableSharesInfo.availableShares}</span></p>
+                      <p>Required Shares: <span className="font-semibold">{formData.numberOfContracts * 100}</span> (100 shares per contract)</p>
+                    </div>
+
+                    <div className="space-y-2 pt-1 border-t border-blue-200/50 dark:border-blue-900/50">
+                      <Label htmlFor="collateralAmount" className="text-xs">
+                        Collateral Override ($) <span className="text-muted-foreground text-[10px] ml-1">(Optional)</span>
+                      </Label>
+                      <Input
+                        id="collateralAmount"
+                        type="number"
+                        step="0.01"
+                        value={formData.collateralAmount || ''}
+                        onChange={(e) => handleChange('collateralAmount', parseFloat(e.target.value) || 0)}
+                        className="bg-background h-8 text-xs"
+                        placeholder="Override custom collateral"
+                      />
+                    </div>
                   </div>
                 )}
 
                 {formData.coveredByType === 'option' && (
-                  <div className="space-y-2">
-                    <Label htmlFor="coveredById" className={errors.coveredById ? 'text-destructive font-medium' : ''}>Select Covering Long Call</Label>
-                    {openLongCalls.length === 0 ? (
-                      <p className="text-xs text-destructive font-medium">No open long call options found for {formData.stockSymbol || 'this symbol'}.</p>
-                    ) : (
-                      <Select value={formData.coveredById} onValueChange={(value) => handleChange('coveredById', value)}>
-                        <SelectTrigger className="w-full bg-background">
-                          <SelectValue placeholder="Select long call..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {openLongCalls.map(t => (
-                            <SelectItem key={t.id} value={t.id}>
-                              Expiry: {t.expiryDate ? new Date(t.expiryDate).toLocaleDateString() : 'N/A'}, Strike: ${t.strikePrice} ({t.numberOfContracts} contract{t.numberOfContracts !== 1 ? 's' : ''})
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    )}
-                    {errors.coveredById && <p className="text-xs text-destructive mt-1">{errors.coveredById}</p>}
+                  <div className="space-y-3 pt-1 border-t border-blue-200/50 dark:border-blue-900/50">
+                    <div className="space-y-2">
+                      <Label htmlFor="coveredById" className={errors.coveredById ? 'text-destructive font-medium' : ''}>
+                        Link a Covering Long Call
+                      </Label>
+                      {openLongCalls.length === 0 ? (
+                        <p className="text-xs text-destructive font-medium">No open long call options found for {formData.stockSymbol || 'this symbol'}.</p>
+                      ) : (
+                        <Select value={formData.coveredById} onValueChange={(value) => handleChange('coveredById', value)}>
+                          <SelectTrigger className="w-full bg-background">
+                            <SelectValue placeholder="Select long call..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {openLongCalls.map(t => (
+                              <SelectItem key={t.id} value={t.id}>
+                                Expiry: {t.expiryDate ? new Date(t.expiryDate).toLocaleDateString() : 'N/A'}, Strike: ${t.strikePrice} ({t.numberOfContracts} contract{t.numberOfContracts !== 1 ? 's' : ''})
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+                      {errors.coveredById && <p className="text-xs text-destructive mt-1">{errors.coveredById}</p>}
+                    </div>
+
+                    <div className="flex items-center justify-center gap-2 py-1">
+                      <div className="h-px bg-blue-200 dark:bg-blue-900/50 flex-1"></div>
+                      <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider bg-transparent px-1 select-none">OR</span>
+                      <div className="h-px bg-blue-200 dark:bg-blue-900/50 flex-1"></div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="collateralAmount" className={errors.coveredById ? 'text-destructive font-medium' : ''}>
+                        Manual Collateral Override ($)
+                      </Label>
+                      <Input
+                        id="collateralAmount"
+                        type="number"
+                        step="0.01"
+                        value={formData.collateralAmount || ''}
+                        onChange={(e) => handleChange('collateralAmount', parseFloat(e.target.value) || 0)}
+                        className="bg-background"
+                        placeholder="Required if not linking (e.g. $5,000)"
+                      />
+                      <p className="text-[11px] text-muted-foreground leading-normal">
+                        If you do not link a covering call above, you must specify your manual collateral override here.
+                      </p>
+                    </div>
                   </div>
                 )}
-              </div>
-            )}
 
-            {/* Collateral Override Amount */}
-            {formData.buyOrSell === 'Sell' && formData.callOrPut === 'Call' && (
-              <div className="space-y-2">
-                <Label htmlFor="collateralAmount">
-                  Collateral Override ($)
-                  <span className="text-sm text-muted-foreground ml-2">(Optional)</span>
-                </Label>
-                <Input
-                  id="collateralAmount"
-                  type="number"
-                  step="0.01"
-                  value={formData.collateralAmount || ''}
-                  onChange={(e) => handleChange('collateralAmount', parseFloat(e.target.value) || 0)}
-                  className="w-full"
-                  placeholder="Enter actual collateral deployed"
-                />
+                {formData.coveredByType === 'none' && (
+                  <div className="space-y-2 pt-1 border-t border-blue-200/50 dark:border-blue-900/50">
+                    <Label htmlFor="collateralAmount">
+                      Collateral Override ($) <span className="text-xs text-muted-foreground ml-1">(Optional)</span>
+                    </Label>
+                    <Input
+                      id="collateralAmount"
+                      type="number"
+                      step="0.01"
+                      value={formData.collateralAmount || ''}
+                      onChange={(e) => handleChange('collateralAmount', parseFloat(e.target.value) || 0)}
+                      className="bg-background"
+                      placeholder="Override naked strike collateral"
+                    />
+                  </div>
+                )}
               </div>
             )}
           </>
