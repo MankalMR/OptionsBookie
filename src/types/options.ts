@@ -1,0 +1,178 @@
+// Options Trading Data Types
+export interface Portfolio {
+  id: string;
+  userId: string;
+  name: string;
+  description?: string;
+  isDefault: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface OptionsTransactionRow {
+  id: string;
+  user_id: string;
+  portfolio_id: string;
+  stock_symbol: string;
+  trade_open_date: string;
+  buy_or_sell: 'Buy' | 'Sell';
+  status: 'Open' | 'Closed' | 'Expired' | 'Assigned' | 'Rolled';
+  created_at: string;
+  updated_at: string;
+  
+  // Stock-specific & linkage columns
+  transaction_type?: 'option' | 'stock';
+  shares_quantity?: number;
+  share_price?: number | string;
+  covered_by_type?: 'stock' | 'option' | 'none';
+  covered_by_id?: string;
+
+  // Option-specific columns (optional)
+  expiry_date?: string;
+  call_or_put?: 'Call' | 'Put';
+  stock_price_current?: number | string;
+  break_even_price?: number | string;
+  strike_price?: number | string;
+  premium?: number | string;
+  number_of_contracts?: number;
+  fees?: number | string;
+  exit_price?: number | string;
+  close_date?: string;
+  profit_loss?: number | string;
+  annualized_ror?: number | string;
+  cash_reserve?: number | string;
+  margin_cash_reserve?: number | string;
+  cost_basis_per_share?: number | string;
+  chain_id?: string;
+  collateral_amount?: number | string;
+}
+
+export interface OptionsTransaction {
+  id: string;
+  portfolioId: string;
+  stockSymbol: string;
+  tradeOpenDate: Date;
+  buyOrSell: 'Buy' | 'Sell';
+  status: 'Open' | 'Closed' | 'Expired' | 'Assigned' | 'Rolled';
+  fees: number;
+  createdAt: Date;
+  updatedAt: Date;
+
+  // Stock-specific & linkage fields
+  transactionType?: 'option' | 'stock';
+  sharesQuantity?: number;
+  sharePrice?: number;
+  coveredByType?: 'stock' | 'option' | 'none';
+  coveredById?: string | null;
+
+  // Option-specific fields (optional)
+  expiryDate?: Date;
+  callOrPut?: 'Call' | 'Put';
+  stockPriceCurrent?: number;
+  breakEvenPrice?: number;
+  strikePrice?: number;
+  premium?: number;
+  numberOfContracts?: number;
+  cashReserve?: number;
+  marginCashReserve?: number;
+  costBasisPerShare?: number;
+  exitPrice?: number;
+  closeDate?: Date;
+  profitLoss?: number;
+  annualizedROR?: number;
+  chainId?: string;
+  collateralAmount?: number;
+}
+
+export interface TradeChain {
+  id: string;
+  userId: string;
+  portfolioId: string;
+  symbol: string;
+  optionType: 'Call' | 'Put';
+  originalStrikePrice: number;
+  originalOpenDate: Date;
+  chainStatus: 'Active' | 'Closed';
+  totalChainPnl: number;
+  createdAt: Date;
+  updatedAt: Date;
+  transactions?: OptionsTransaction[]; // Related transactions
+}
+
+export interface PortfolioSummary {
+  totalOpenPositions: number;
+  totalClosedPositions: number;
+  totalProfitLoss: number;
+  unrealizedPnL: number;
+  totalFees: number;
+  winRate: number;
+  averageDaysHeld: number;
+  monthlyPnL: MonthlyPnL[];
+}
+
+export interface MonthlyPnL {
+  year: number;
+  month: number;
+  monthName: string;
+  profitLoss: number;
+  numberOfTrades: number;
+  winRate: number;
+}
+
+export interface OptionsGreeks {
+  delta: number;
+  gamma: number;
+  theta: number;
+  vega: number;
+  rho: number;
+}
+
+export interface MarketData {
+  symbol: string;
+  currentPrice: number;
+  bid: number;
+  ask: number;
+  volume: number;
+  openInterest: number;
+  impliedVolatility: number;
+  lastUpdated: Date;
+}
+
+export interface OptionsChain {
+  symbol: string;
+  expirationDate: Date;
+  calls: OptionsContract[];
+  puts: OptionsContract[];
+  lastUpdated: Date;
+}
+
+export interface OptionsContract {
+  symbol: string;
+  strike: number;
+  bid: number;
+  ask: number;
+  last: number;
+  volume: number;
+  openInterest: number;
+  impliedVolatility: number;
+  delta: number;
+  gamma: number;
+  theta: number;
+  vega: number;
+  rho: number;
+}
+
+export interface SchwabAPIConfig {
+  clientId: string;
+  clientSecret: string;
+  redirectUri: string;
+  baseUrl: string;
+}
+
+export interface AuthState {
+  isAuthenticated: boolean;
+  accessToken?: string;
+  refreshToken?: string;
+  expiresAt?: Date;
+  accountId?: string;
+}
