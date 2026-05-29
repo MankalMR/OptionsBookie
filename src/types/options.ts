@@ -63,7 +63,7 @@ export interface OptionsTransaction {
   sharesQuantity?: number;
   sharePrice?: number;
   coveredByType?: 'stock' | 'option' | 'none';
-  coveredById?: string;
+  coveredById?: string | null;
 
   // Option-specific fields (optional)
   expiryDate?: Date;

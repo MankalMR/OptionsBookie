@@ -1,3 +1,5 @@
+const path = require('path');
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   /* config options here */
@@ -89,7 +91,13 @@ const nextConfig = {
   },
   // Compression
   compress: true,
-  // PoweredByHeader: false is handled by headers above
+  // Add Webpack config for resolving packages from local node_modules
+  webpack: (config) => {
+    if (config.resolve && config.resolve.modules) {
+      config.resolve.modules.push(path.resolve(__dirname, 'node_modules'));
+    }
+    return config;
+  },
 };
 
 module.exports = nextConfig;

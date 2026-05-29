@@ -11,6 +11,7 @@ import TickerMultiSelect from './TickerMultiSelect';
 
 interface SymbolGroupedViewProps {
   transactions: OptionsTransaction[];
+  allTransactions?: OptionsTransaction[];
   onDelete: (id: string) => void;
   onDeleteChain: (chainId: string) => void;
   onEdit: (transaction: OptionsTransaction) => void;
@@ -33,6 +34,7 @@ interface SymbolGroup {
 
 export default function SymbolGroupedView({
   transactions,
+  allTransactions,
   onDelete,
   onDeleteChain,
   onEdit,
@@ -191,6 +193,7 @@ export default function SymbolGroupedView({
                 <div className="bg-white dark:bg-gray-900">
                     <TransactionTable
                       transactions={trades}
+                      allTransactions={allTransactions}
                       onDelete={onDelete}
                       onDeleteChain={onDeleteChain}
                       onEdit={onEdit}

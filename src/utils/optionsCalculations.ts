@@ -252,20 +252,49 @@ export const calculateChainPnL = (
 };
 
 // Calculate collateral requirement for an options trade
-export const calculateCollateral = (transaction: OptionsTransaction): number => {
-  // If manual collateral amount is specified, use it (for accurate RoR in complex strategies)
-  if (transaction.collateralAmount && transaction.collateralAmount > 0) {
-    return transaction.collateralAmount;
-  }
-
+export const calculateCollateral = (transaction: OptionsTransaction, allTransactions?: OptionsTransaction[]): number => {
   // Stock transactions tie up purchase price * shares
   if (transaction.transactionType === 'stock') {
     return (transaction.sharePrice || 0) * (transaction.sharesQuantity || 0);
   }
 
-  // If this short option has stock or option cover, its collateral is 0
+  // If this short option has stock or option cover, its collateral is 0 (for portfolio total capital calculation)
+  // BUT if allTransactions is supplied (e.g. for RoR/Chain level calculations), we want to trace and inherit the covering asset's collateral pro-rata
   if (transaction.coveredByType && transaction.coveredByType !== 'none') {
+    if (allTransactions) {
+      let coveringTx;
+      if (transaction.coveredById) {
+        coveringTx = allTransactions.find(t => t.id === transaction.coveredById);
+      } else if (transaction.coveredByType === 'stock') {
+        // Fall back to finding an open stock transaction for the same symbol and portfolio
+        coveringTx = allTransactions.find(t =>
+          t.portfolioId === transaction.portfolioId &&
+          t.stockSymbol === transaction.stockSymbol &&
+          t.transactionType === 'stock' &&
+          t.buyOrSell === 'Buy' &&
+          t.status === 'Open'
+        );
+      }
+
+      if (coveringTx) {
+        if (coveringTx.transactionType === 'stock') {
+          return (coveringTx.sharePrice || 0) * 100 * (transaction.numberOfContracts || 1);
+        } else if (coveringTx.transactionType === 'option') {
+          return (coveringTx.premium || 0) * 100 * (transaction.numberOfContracts || 1);
+        }
+      }
+
+      // Fallback: If unlinked but a manual collateral override is specified, use it for local trade RoR
+      if (transaction.collateralAmount && transaction.collateralAmount > 0) {
+        return transaction.collateralAmount;
+      }
+    }
     return 0;
+  }
+
+  // If manual collateral amount is specified (and the trade is naked/unlinked), use it
+  if (transaction.collateralAmount && transaction.collateralAmount > 0) {
+    return transaction.collateralAmount;
   }
 
   const strike = transaction.strikePrice || 0;
@@ -286,8 +315,8 @@ export const calculateCollateral = (transaction: OptionsTransaction): number => 
 };
 
 // Calculate Return on Risk percentage
-export const calculateRoR = (transaction: OptionsTransaction): number => {
-  const collateral = calculateCollateral(transaction);
+export const calculateRoR = (transaction: OptionsTransaction, allTransactions?: OptionsTransaction[]): number => {
+  const collateral = calculateCollateral(transaction, allTransactions);
   const profitLoss = transaction.profitLoss || 0;
 
   if (collateral === 0) return 0;
@@ -296,8 +325,8 @@ export const calculateRoR = (transaction: OptionsTransaction): number => {
 };
 
 // Calculate Annualized Return on Risk percentage
-export const calculateAnnualizedRoR = (transaction: OptionsTransaction): number => {
-  const ror = calculateRoR(transaction);
+export const calculateAnnualizedRoR = (transaction: OptionsTransaction, allTransactions?: OptionsTransaction[]): number => {
+  const ror = calculateRoR(transaction, allTransactions);
 
   if (!transaction.closeDate || ror === 0) return 0;
 
@@ -322,7 +351,7 @@ export const calculateAnnualizedRoR = (transaction: OptionsTransaction): number 
 export const calculateChainCollateral = (chainId: string, transactions: OptionsTransaction[]): number => {
   return transactions
     .filter(t => t.chainId === chainId && t.status === 'Open')
-    .reduce((total, t) => total + calculateCollateral(t), 0);
+    .reduce((total, t) => total + calculateCollateral(t, transactions), 0);
 };
 
 // Calculate chain-level Return on Risk percentage
@@ -341,7 +370,7 @@ export const calculateChainRoR = (chainId: string, transactions: OptionsTransact
   } else {
     // Closed chain: use the maximum collateral that was ever deployed
     // This gives a meaningful RoR for completed strategies
-    collateralForRoR = Math.max(...chainTransactions.map(t => calculateCollateral(t)));
+    collateralForRoR = Math.max(...chainTransactions.map(t => calculateCollateral(t, transactions)));
   }
 
   if (collateralForRoR === 0) return 0;
