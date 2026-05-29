@@ -305,6 +305,36 @@ describe('database-secure', () => {
       expect(result.status).toBe('Closed');
     });
 
+    it('should perform a partial update and not include undefined properties as null (TDD case)', async () => {
+      const updates = { status: 'Closed' as const };
+      const mockQuery = {
+        update: jest.fn().mockReturnValue({
+          eq: jest.fn().mockReturnValue({
+            eq: jest.fn().mockReturnValue({
+              select: jest.fn().mockReturnValue({
+                single: jest.fn().mockReturnValue({
+                  data: { ...mockDbRow, status: 'Closed' },
+                  error: null
+                })
+              })
+            })
+          })
+        })
+      };
+
+      mockSupabaseClient.from.mockReturnValue(mockQuery);
+
+      await secureDb.updateTransaction('test-id', updates, mockUserEmail);
+
+      // Verify that update was called without mapping undefined chainId to null
+      expect(mockQuery.update).toHaveBeenCalledWith(expect.not.objectContaining({
+        chain_id: null
+      }));
+      expect(mockQuery.update).toHaveBeenCalledWith(expect.objectContaining({
+        status: 'Closed'
+      }));
+    });
+
     it('should handle update errors', async () => {
       const updates = { premium: 5.25 };
       const mockQuery = {

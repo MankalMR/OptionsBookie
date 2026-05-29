@@ -77,6 +77,15 @@ describe('dateUtils', () => {
       const result = dateToInputString(now);
       expect(result).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     });
+
+    it('should return local date format even if UTC timezone is different (positive timezone simulation)', () => {
+      const date = new Date(2025, 8, 18); // Sep 18, 2025
+      // Mock toISOString to simulate a positive timezone (where UTC time is on the previous day)
+      jest.spyOn(date, 'toISOString').mockReturnValue('2025-09-17T14:00:00.000Z');
+      
+      const result = dateToInputString(date);
+      expect(result).toBe('2025-09-18');
+    });
   });
 
   describe('formatDisplayDate', () => {

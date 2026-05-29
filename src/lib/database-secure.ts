@@ -57,45 +57,96 @@ function rowToTransaction(row: OptionsTransactionRow): OptionsTransaction {
 }
 
 // Helper function to convert OptionsTransaction to Supabase row
-function transactionToRow(transaction: Partial<OptionsTransaction>, userId: string) {
-  return {
+type DbRowUpdate = {
+  [K in keyof OptionsTransactionRow]?: OptionsTransactionRow[K] | null;
+};
+
+function transactionToRow(transaction: Partial<OptionsTransaction>, userId: string, isUpdate: boolean = false) {
+  const row: DbRowUpdate = {
     user_id: userId,
-    portfolio_id: transaction.portfolioId,
-    stock_symbol: transaction.stockSymbol,
-    trade_open_date: transaction.tradeOpenDate ?
-      (transaction.tradeOpenDate instanceof Date ? transaction.tradeOpenDate.toISOString() : new Date(transaction.tradeOpenDate).toISOString()) :
-      undefined,
-    expiry_date: transaction.expiryDate ?
-      (transaction.expiryDate instanceof Date ? transaction.expiryDate.toISOString() : new Date(transaction.expiryDate).toISOString()) :
-      null, // Use null to clear constraints on options
-    call_or_put: transaction.callOrPut || null,
-    buy_or_sell: transaction.buyOrSell,
-    stock_price_current: transaction.stockPriceCurrent !== undefined ? transaction.stockPriceCurrent : null,
-    break_even_price: transaction.breakEvenPrice !== undefined ? transaction.breakEvenPrice : null,
-    strike_price: transaction.strikePrice !== undefined ? transaction.strikePrice : null,
-    premium: transaction.premium !== undefined ? transaction.premium : null,
-    number_of_contracts: transaction.numberOfContracts !== undefined ? transaction.numberOfContracts : null,
-    fees: transaction.fees || 0,
-    status: transaction.status,
-    exit_price: transaction.exitPrice !== undefined ? transaction.exitPrice : null,
-    close_date: transaction.closeDate ?
-      (transaction.closeDate instanceof Date ? transaction.closeDate.toISOString() : new Date(transaction.closeDate).toISOString()) :
-      null,
-    profit_loss: transaction.profitLoss || 0,
-    annualized_ror: transaction.annualizedROR,
-    cash_reserve: transaction.cashReserve,
-    margin_cash_reserve: transaction.marginCashReserve,
-    cost_basis_per_share: transaction.costBasisPerShare,
-    collateral_amount: transaction.collateralAmount,
-    chain_id: transaction.chainId || null,
+  };
+
+  if (isUpdate) {
+    if (transaction.portfolioId !== undefined) row.portfolio_id = transaction.portfolioId;
+    if (transaction.stockSymbol !== undefined) row.stock_symbol = transaction.stockSymbol;
+    if (transaction.tradeOpenDate !== undefined) {
+      row.trade_open_date = transaction.tradeOpenDate ?
+        (transaction.tradeOpenDate instanceof Date ? transaction.tradeOpenDate.toISOString() : new Date(transaction.tradeOpenDate).toISOString()) :
+        null;
+    }
+    if (transaction.expiryDate !== undefined) {
+      row.expiry_date = transaction.expiryDate ?
+        (transaction.expiryDate instanceof Date ? transaction.expiryDate.toISOString() : new Date(transaction.expiryDate).toISOString()) :
+        null;
+    }
+    if (transaction.callOrPut !== undefined) row.call_or_put = transaction.callOrPut || null;
+    if (transaction.buyOrSell !== undefined) row.buy_or_sell = transaction.buyOrSell;
+    if (transaction.stockPriceCurrent !== undefined) row.stock_price_current = transaction.stockPriceCurrent;
+    if (transaction.breakEvenPrice !== undefined) row.break_even_price = transaction.breakEvenPrice;
+    if (transaction.strikePrice !== undefined) row.strike_price = transaction.strikePrice;
+    if (transaction.premium !== undefined) row.premium = transaction.premium;
+    if (transaction.numberOfContracts !== undefined) row.number_of_contracts = transaction.numberOfContracts;
+    if (transaction.fees !== undefined) row.fees = transaction.fees;
+    if (transaction.status !== undefined) row.status = transaction.status;
+    if (transaction.exitPrice !== undefined) row.exit_price = transaction.exitPrice;
+    if (transaction.closeDate !== undefined) {
+      row.close_date = transaction.closeDate ?
+        (transaction.closeDate instanceof Date ? transaction.closeDate.toISOString() : new Date(transaction.closeDate).toISOString()) :
+        null;
+    }
+    if (transaction.profitLoss !== undefined) row.profit_loss = transaction.profitLoss;
+    if (transaction.annualizedROR !== undefined) row.annualized_ror = transaction.annualizedROR;
+    if (transaction.cashReserve !== undefined) row.cash_reserve = transaction.cashReserve;
+    if (transaction.marginCashReserve !== undefined) row.margin_cash_reserve = transaction.marginCashReserve;
+    if (transaction.costBasisPerShare !== undefined) row.cost_basis_per_share = transaction.costBasisPerShare;
+    if (transaction.collateralAmount !== undefined) row.collateral_amount = transaction.collateralAmount;
+    if (transaction.chainId !== undefined) row.chain_id = transaction.chainId || null;
     
     // Unified stock & link fields
-    transaction_type: transaction.transactionType || 'option',
-    shares_quantity: transaction.sharesQuantity !== undefined ? transaction.sharesQuantity : null,
-    share_price: transaction.sharePrice !== undefined ? transaction.sharePrice : null,
-    covered_by_type: transaction.coveredByType || 'none',
-    covered_by_id: transaction.coveredById || null,
-  };
+    if (transaction.transactionType !== undefined) row.transaction_type = transaction.transactionType;
+    if (transaction.sharesQuantity !== undefined) row.shares_quantity = transaction.sharesQuantity;
+    if (transaction.sharePrice !== undefined) row.share_price = transaction.sharePrice;
+    if (transaction.coveredByType !== undefined) row.covered_by_type = transaction.coveredByType;
+    if (transaction.coveredById !== undefined) row.covered_by_id = transaction.coveredById;
+  } else {
+    row.portfolio_id = transaction.portfolioId;
+    row.stock_symbol = transaction.stockSymbol;
+    row.trade_open_date = transaction.tradeOpenDate ?
+      (transaction.tradeOpenDate instanceof Date ? transaction.tradeOpenDate.toISOString() : new Date(transaction.tradeOpenDate).toISOString()) :
+      undefined;
+    row.expiry_date = transaction.expiryDate ?
+      (transaction.expiryDate instanceof Date ? transaction.expiryDate.toISOString() : new Date(transaction.expiryDate).toISOString()) :
+      null;
+    row.call_or_put = transaction.callOrPut || null;
+    row.buy_or_sell = transaction.buyOrSell;
+    row.stock_price_current = transaction.stockPriceCurrent !== undefined ? transaction.stockPriceCurrent : null;
+    row.break_even_price = transaction.breakEvenPrice !== undefined ? transaction.breakEvenPrice : null;
+    row.strike_price = transaction.strikePrice !== undefined ? transaction.strikePrice : null;
+    row.premium = transaction.premium !== undefined ? transaction.premium : null;
+    row.number_of_contracts = transaction.numberOfContracts !== undefined ? transaction.numberOfContracts : null;
+    row.fees = transaction.fees || 0;
+    row.status = transaction.status;
+    row.exit_price = transaction.exitPrice !== undefined ? transaction.exitPrice : null;
+    row.close_date = transaction.closeDate ?
+      (transaction.closeDate instanceof Date ? transaction.closeDate.toISOString() : new Date(transaction.closeDate).toISOString()) :
+      null;
+    row.profit_loss = transaction.profitLoss || 0;
+    row.annualized_ror = transaction.annualizedROR;
+    row.cash_reserve = transaction.cashReserve;
+    row.margin_cash_reserve = transaction.marginCashReserve;
+    row.cost_basis_per_share = transaction.costBasisPerShare;
+    row.collateral_amount = transaction.collateralAmount;
+    row.chain_id = transaction.chainId || null;
+    
+    // Unified stock & link fields
+    row.transaction_type = transaction.transactionType || 'option';
+    row.shares_quantity = transaction.sharesQuantity !== undefined ? transaction.sharesQuantity : null;
+    row.share_price = transaction.sharePrice !== undefined ? transaction.sharePrice : null;
+    row.covered_by_type = transaction.coveredByType || 'none';
+    row.covered_by_id = transaction.coveredById || null;
+  }
+
+  return row;
 }
 
 // Secure database operations using regular Supabase client (respects RLS)
@@ -141,7 +192,7 @@ export const secureDb = {
   },
 
   async updateTransaction(id: string, transaction: Partial<OptionsTransaction>, userEmail: string): Promise<OptionsTransaction> {
-    const rowData = transactionToRow(transaction, userEmail);
+    const rowData = transactionToRow(transaction, userEmail, true);
     delete (rowData as Partial<OptionsTransactionRow>).user_id; // Don't update user_id
 
     const { data, error } = await supabase
